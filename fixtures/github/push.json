@@ -1,0 +1,24 @@
+{
+  "ref": "refs/heads/feature/PM-142-add-login",
+  "before": "0000000000000000000000000000000000000000",
+  "after": "abc123def456abc123def456abc123def456abcd",
+  "repository": {
+    "id": 555000001,
+    "name": "api",
+    "full_name": "acme-org/api",
+    "private": true
+  },
+  "pusher": { "name": "octocat", "email": "octocat@github.com" },
+  "sender": { "login": "octocat" },
+  "created": true,
+  "deleted": false,
+  "commits": [
+    {
+      "id": "abc123def456abc123def456abc123def456abcd",
+      "message": "PM-142: implement login form",
+      "timestamp": "2026-09-10T10:30:00Z",
+      "author": { "name": "The Octocat", "username": "octocat", "email": "octocat@github.com" }
+    }
+  ],
+  "installation": { "id": 10000001 }
+}

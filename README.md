@@ -1,36 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# سامانه مدیریت پروژه‌های مهندسی (Engineering PM)
 
-## Getting Started
+پلتفرم مدیریت پروژه‌های مهندسی: **مدیریت پروژه + مدیریت مهندسی + هوش گیت‌هاب**.
+مبتنی بر سند `PROJECT-MASTER-PLAN-FA.md` — دامنه روی Vercel، دیتابیس Supabase Postgres، فرانت Next.js، UI فارسی (RTL) با فونت Peyda.
 
-First, run the development server:
+## استک
+
+| لایه | انتخاب |
+|---|---|
+| فریمورک | Next.js 15 (App Router) + TypeScript |
+| استایل | Tailwind CSS v4 + shadcn/ui (Radix) |
+| ORM | Drizzle + postgres.js (Supabase Postgres) |
+| احراز هویت | Supabase Auth (ایمیل + OAuth گیت‌هاب) |
+| تم | next-themes (Dark/Light) |
+| تست | Vitest (unit) + Playwright (E2E) |
+
+## شروع سریع
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env      # مقادیر را پر کنید
+npm run dev               # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## متغیرهای محیطی
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+`.env.example` را ببینید. کلیدها:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` — کلید عمومی (فقط سمت کلاینت)
+- `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL` — **فقط سمت سرور، هرگز به فرانت نرود**
+- `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, `GITHUB_APP_PRIVATE_KEY` — نصب GitHub App
+- `GITHUB_WEBHOOK_SECRET` — اعتبارسنجی HMAC وب‌هوک
+- `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` — OAuth لاگین
+- `CRON_SECRET` — محافظت از `/api/cron/*`
 
-## Learn More
+## دیتابیس
 
-To learn more about Next.js, take a look at the following resources:
+اسکیما در `lib/db/schema.ts` (۲۸ جدول — بخش ۵ سند). مایگریشن در `drizzle/`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run db:generate       # تولید SQL از اسکیما
+npm run db:migrate        # اعمال روی Supabase (نیازمند SUPABASE_DB_URL)
+npm run db:studio         # مرورگر بصری دیتابیس
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**RLS:** بعد از مایگریشن، کل `supabase/rls.sql` را در SQL Editor سوپابیس اجرا کنید (۴۶ پالیسی + هلپرهای عضویت).
 
-## Deploy on Vercel
+## تست
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run test              # Vitest — ۶۰ تست (پیشرفت وزنی + آنالیتیکس)
+npm run test:e2e          # Playwright — نیازمند env زنده
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## دیپلوی
+
+1. **Supabase:** ساخت project → اجرای مایگریشن + `rls.sql` → فعال‌سازی Auth providers
+2. **Vercel:** Import این ریپو → ست کردن ۱۱ متغیر محیطی → `vercel.json` کرون هر ۱۵ دقیقه را فعال می‌کند
+3. **GitHub App:** طبق `docs/GITHUB-SETUP.md` — وب‌هوک را به `https://دامنه/api/webhooks/github` وصل کنید
+4. **دامنه:** Vercel → Settings → Domains
+
+## ساختار
+
+```
+app/
+  (auth)/     login, register, callback
+  (app)/      شل اصلی RTL + سایدبار + projects/[key]/{issues,cycles,roadmap,...}
+  api/        webhooks/github, cron/sync, v1/*, github/*
+lib/
+  db/         schema.ts + queries/
+  github/     GitHub App + Octokit + webhook + idempotency
+  auth/       session + RBAC
+  progress/   موتور پیشرفت وزنی (pure)
+  analytics/  متریک‌ها
+  supabase/   client / server / admin
+components/   ui (shadcn) + features (domain)
+supabase/     rls.sql
+```
+
+## فونت Peyda
+
+`app/fonts/` — فایل‌های واقعی woff2 (وزن‌های 400/500/600/700) را از منبع رسمی دانلود و آنجا بگذارید (راهنما: `app/fonts/README.md`). وایرینگ با `next/font/local` کامل است.

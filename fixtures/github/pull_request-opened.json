@@ -1,0 +1,23 @@
+{
+  "action": "opened",
+  "number": 7,
+  "pull_request": {
+    "id": 900000001,
+    "number": 7,
+    "state": "open",
+    "draft": false,
+    "title": "PM-142: Add user login",
+    "body": "Closes PM-142",
+    "user": { "login": "octocat" },
+    "head": { "ref": "feature/PM-142-add-login", "sha": "abc123def456" },
+    "base": { "ref": "main" },
+    "html_url": "https://github.com/acme-org/api/pull/7",
+    "created_at": "2026-09-10T10:35:00Z",
+    "merged_at": null,
+    "closed_at": null,
+    "merged": false
+  },
+  "repository": { "id": 555000001, "full_name": "acme-org/api" },
+  "installation": { "id": 10000001 },
+  "sender": { "login": "octocat" }
+}

@@ -1,0 +1,129 @@
+@import "tailwindcss";
+
+/* ======================================================
+   Engineering PM — Design Tokens (Dark/Light)
+   مطابق دقیق بخش ۳ سند PROJECT-MASTER-PLAN-FA.md
+   پالت پایه: Zinc + accent آبی
+   ====================================================== */
+
+:root {
+  --background: #ffffff;
+  --surface: #f4f4f5;
+  --surface-raised: #e4e4e7;
+  --text-primary: #000000;
+  --text-secondary: #0e0e10;
+  --text-emphasis: #333333;
+  --text-muted: #71717a;
+  --border: #e4e4e7;
+  --primary: #155dfc;
+  --primary-hover: #0389ff;
+  --focus-ring: #155dfc;
+
+  --radius: 10px;
+  --shadow-md: rgba(0, 0, 0, 0.15) 0 1px 5px 0,
+    rgba(0, 0, 0, 0.1) 0 0 1px 1px;
+
+  /* Spacing scale (فقط مقادیر مجاز سند: 4,5,8,9,10,12,14,15,16,18,20,30,40,50) */
+  --space-1: 4px;
+  --space-2: 5px;
+  --space-3: 8px;
+  --space-4: 9px;
+  --space-5: 10px;
+  --space-6: 12px;
+  --space-7: 14px;
+  --space-8: 15px;
+  --space-9: 16px;
+  --space-10: 18px;
+  --space-11: 20px;
+  --space-12: 30px;
+  --space-13: 40px;
+  --space-14: 50px;
+}
+
+.dark {
+  --background: #000000;
+  --surface: #18181b;
+  --surface-raised: #27272a;
+  --text-primary: #ffffff;
+  --text-secondary: #e4e4e7;
+  --text-emphasis: #eeeeee;
+  --text-muted: #71717a;
+  --border: #333333;
+  --primary: #155dfc;
+  --primary-hover: #0389ff;
+  --focus-ring: #0389ff;
+}
+
+/* ======================================================
+   Base styles
+   ====================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: var(--font-peyda), system-ui, sans-serif;
+  letter-spacing: 0; /* فارسی: صفر (منفی بودن مال Inter/لاتین است) */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  background-color: var(--background);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.8;
+  transition: background-color 0.4s cubic-bezier(0.165, 0.84, 0.44, 1),
+    color 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+/* Focus ring — پررنگ و همیشه قابل مشاهده */
+*:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ======================================================
+   Tailwind v4 theme extension
+   ====================================================== */
+
+@theme {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-emphasis: var(--text-emphasis);
+  --color-text-muted: var(--text-muted);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-ring: var(--focus-ring);
+
+  --radius-sm: 10px;
+  --radius-md: 10px;
+  --radius-lg: 10px;
+
+  --shadow-md: var(--shadow-md);
+
+  /* Spacing scale (فقط مقادیر مجاز سند) */
+  --spacing-1: 4px;
+  --spacing-2: 5px;
+  --spacing-3: 8px;
+  --spacing-4: 9px;
+  --spacing-5: 10px;
+  --spacing-6: 12px;
+  --spacing-7: 14px;
+  --spacing-8: 15px;
+  --spacing-9: 16px;
+  --spacing-10: 18px;
+  --spacing-11: 20px;
+  --spacing-12: 30px;
+  --spacing-13: 40px;
+  --spacing-14: 50px;
+}

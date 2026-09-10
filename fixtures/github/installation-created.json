@@ -1,0 +1,13 @@
+{
+  "action": "created",
+  "installation": {
+    "id": 10000001,
+    "account": { "login": "acme-org", "type": "Organization" },
+    "repository_selection": "selected"
+  },
+  "repositories": [
+    { "id": 555000001, "name": "api", "full_name": "acme-org/api", "private": true },
+    { "id": 555000002, "name": "web", "full_name": "acme-org/web", "private": false }
+  ],
+  "sender": { "login": "octocat" }
+}
