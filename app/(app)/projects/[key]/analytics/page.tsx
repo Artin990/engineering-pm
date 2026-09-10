@@ -7,7 +7,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  ISSUE_PRIORITY_LABEL,
   ISSUE_TYPE_LABEL,
 } from "@/components/features/types";
 import { faNumber, faPercent } from "@/lib/format";

@@ -65,7 +65,7 @@
 }
 
 html {
-  font-family: var(--font-peyda), system-ui, sans-serif;
+  font-family: var(--font-peyda), Vazirmatn, Shabnam, Tahoma, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   letter-spacing: 0; /* فارسی: صفر (منفی بودن مال Inter/لاتین است) */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -78,8 +78,26 @@ body {
   font-size: 14px;
   font-weight: 500;
   line-height: 1.8;
-  transition: background-color 0.4s cubic-bezier(0.165, 0.84, 0.44, 1),
-    color 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Custom modern scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 
 /* Focus ring — پررنگ و همیشه قابل مشاهده */

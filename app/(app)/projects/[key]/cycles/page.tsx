@@ -1,34 +1,88 @@
+"use client";
+
+import { use, useState } from "react";
+import { Plus, Rocket, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MOCK_CYCLES } from "@/components/features/__fixtures__/mock-data";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { CYCLE_STATUS_LABEL } from "@/components/features/types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { MOCK_CYCLES } from "@/components/features/__fixtures__/mock-data";
+import { CYCLE_STATUS_LABEL, type Cycle, type CycleStatus } from "@/components/features/types";
 import { faDate, faNumber, faPercent } from "@/lib/format";
 
-/**
- * نمای سایکل‌ها — اسپرینت‌ها با پیشرفت وزنی و burndown خلاصه.
- */
-export default async function CyclesPage({
+export default function CyclesPage({
   params,
 }: {
   params: Promise<{ key: string }>;
 }) {
-  const { key } = await params;
+  const { key } = use(params);
+  const [cyclesList, setCyclesList] = useState<Cycle[]>(MOCK_CYCLES);
+  const [createOpen, setCreateOpen] = useState(false);
+
+  // Form state
+  const [name, setName] = useState("");
+  const [goal, setGoal] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [status, setStatus] = useState<CycleStatus>("planned");
+
+  const handleCreateCycle = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+
+    const newCycle: Cycle = {
+      id: `c-${Date.now()}`,
+      name: name.trim(),
+      goal: goal.trim() || undefined,
+      startDate: startDate || new Date().toISOString().slice(0, 10),
+      endDate: endDate || new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+      status,
+      progress: 0,
+      totalEstimate: 0,
+      doneEstimate: 0,
+    };
+
+    setCyclesList((prev) => [...prev, newCycle]);
+    setName("");
+    setGoal("");
+    setStartDate("");
+    setEndDate("");
+    setCreateOpen(false);
+  };
 
   return (
-    <section aria-label="سایکل‌ها" className="space-y-[20px]">
-      <header>
-        <h1 className="text-[20px] font-semibold">سایکل‌ها — {key}</h1>
-        <p className="text-[14px] text-[var(--text-muted)]">
-          اسپرینت‌ها با پیشرفت وزنی (نه تعداد خام)
-        </p>
+    <section aria-label="سایکل‌ها" className="space-y-[20px] max-w-5xl mx-auto">
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="text-[20px] font-bold text-[var(--text-primary)]">
+            سایکل‌ها (اسپرینت‌ها) — {key}
+          </h1>
+          <p className="text-[13px] text-[var(--text-muted)] mt-1">
+            برنامه‌ریزی دوره‌ای، اهداف اسپرینت و محاسبه پیشرفت وزنی
+          </p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)} className="gap-1.5 shadow-sm">
+          <Plus size={16} />
+          سایکل جدید
+        </Button>
       </header>
 
       <div className="grid grid-cols-1 gap-[16px] lg:grid-cols-2">
-        {MOCK_CYCLES.map((cycle) => (
-          <Card key={cycle.id}>
-            <CardHeader>
+        {cyclesList.map((cycle) => (
+          <Card key={cycle.id} className="border-[var(--border)] bg-[var(--surface)] shadow-xs">
+            <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle>{cycle.name}</CardTitle>
+                <CardTitle className="flex items-center gap-2 text-[16px]">
+                  <Rocket size={16} className="text-[var(--primary)]" />
+                  {cycle.name}
+                </CardTitle>
                 <Badge
                   variant={
                     cycle.status === "active"
@@ -37,22 +91,23 @@ export default async function CyclesPage({
                         ? "success"
                         : "secondary"
                   }
+                  className="text-[11px]"
                 >
                   {CYCLE_STATUS_LABEL[cycle.status]}
                 </Badge>
               </div>
-              <p className="text-[14px] text-[var(--text-muted)]">
+              <p className="text-[13px] text-[var(--text-muted)] mt-1">
                 {faDate(cycle.startDate)} تا {faDate(cycle.endDate)}
               </p>
               {cycle.goal && (
-                <p className="text-[14px] text-[var(--text-secondary)]">
-                  هدف: {cycle.goal}
+                <p className="text-[13px] text-[var(--text-secondary)] mt-1 bg-[var(--surface-raised)] p-2 rounded-[8px]">
+                  🎯 <strong>هدف:</strong> {cycle.goal}
                 </p>
               )}
             </CardHeader>
             <CardContent className="space-y-[12px]">
               <div>
-                <div className="mb-[5px] flex items-center justify-between text-[14px]">
+                <div className="mb-[5px] flex items-center justify-between text-[13px]">
                   <span>پیشرفت وزنی</span>
                   <span className="font-semibold">
                     {faPercent(cycle.progress ?? 0)}
@@ -60,7 +115,7 @@ export default async function CyclesPage({
                 </div>
                 <div className="h-[8px] w-full overflow-hidden rounded-full bg-[var(--surface-raised)]">
                   <div
-                    className="h-full rounded-full bg-[var(--primary)] transition-[width_0.4s_cubic-bezier(0.165,0.84,0.44,1)]"
+                    className="h-full rounded-full bg-[var(--primary)] transition-[width_0.4s_ease-in-out]"
                     style={{ width: `${(cycle.progress ?? 0) * 100}%` }}
                     role="progressbar"
                     aria-valuenow={Math.round((cycle.progress ?? 0) * 100)}
@@ -69,7 +124,7 @@ export default async function CyclesPage({
                   />
                 </div>
               </div>
-              <div className="flex items-center justify-between text-[14px] text-[var(--text-muted)]">
+              <div className="flex items-center justify-between text-[13px] text-[var(--text-muted)] border-t border-[var(--border)] pt-2.5">
                 <span>
                   استوری‌پوینت: {faNumber(cycle.doneEstimate ?? 0)} از{" "}
                   {faNumber(cycle.totalEstimate ?? 0)}
@@ -83,6 +138,110 @@ export default async function CyclesPage({
           </Card>
         ))}
       </div>
+
+      {/* Create Cycle Modal */}
+      {createOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+          onClick={() => setCreateOpen(false)}
+        >
+          <div
+            className="w-full max-w-[480px] rounded-[12px] border border-[var(--border)] bg-[var(--surface)] p-[24px] shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            dir="rtl"
+          >
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <h2 className="text-[17px] font-bold text-[var(--text-primary)]">
+                ساخت سایکل جدید
+              </h2>
+              <button
+                type="button"
+                onClick={() => setCreateOpen(false)}
+                className="rounded-[8px] p-1 text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCycle} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
+                  نام اسپرینت / سایکل <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="مثال: اسپرینت ۳"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
+                  هدف اصلی سایکل
+                </label>
+                <textarea
+                  value={goal}
+                  onChange={(e) => setGoal(e.target.value)}
+                  rows={2}
+                  placeholder="مثال: تحویل ماژول پرداخت و تست‌های نهایی"
+                  className="w-full rounded-[10px] border border-[var(--border)] bg-[var(--background)] p-2.5 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
+                    تاریخ شروع
+                  </label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
+                    تاریخ پایان
+                  </label>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
+                  وضعیت اولیه
+                </label>
+                <Select value={status} onValueChange={(v) => setStatus(v as CycleStatus)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="planned">برنامه‌ریزی‌شده</SelectItem>
+                    <SelectItem value="active">فعال</SelectItem>
+                    <SelectItem value="completed">پایان‌یافته</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-2 border-t border-[var(--border)] pt-4">
+                <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+                  انصراف
+                </Button>
+                <Button type="submit" className="gap-1.5" disabled={!name.trim()}>
+                  <Plus size={16} />
+                  ایجاد سایکل
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
+

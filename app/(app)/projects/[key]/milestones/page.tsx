@@ -1,10 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { AlertCircle, ChevronDown, ChevronUp, Inbox } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import { AlertCircle, ChevronDown, ChevronUp, Inbox, Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { faDate, faNumber, faPercent } from "@/lib/format";
 import {
@@ -14,6 +23,10 @@ import {
   type Milestone,
   type MilestoneStatus,
 } from "@/components/features/types";
+import {
+  MOCK_ISSUES,
+  MOCK_MILESTONES,
+} from "@/components/features/__fixtures__/mock-data";
 
 const STATUS_BADGE: Record<MilestoneStatus, string> = {
   completed: "bg-emerald-500/10 text-emerald-600",
@@ -36,7 +49,7 @@ function MilestoneCard({
   const pct = issues.length ? done / issues.length : 0;
 
   return (
-    <div className="rounded-[10px] border border-[var(--border)] bg-[var(--surface)]">
+    <div className="rounded-[10px] border border-[var(--border)] bg-[var(--surface)] transition-all">
       <button
         type="button"
         onClick={onToggle}
@@ -48,7 +61,7 @@ function MilestoneCard({
               {milestone.title}
             </h3>
             {milestone.description && (
-              <p className="mt-1 text-[14px] leading-6 text-[var(--text-muted)]">
+              <p className="mt-1 text-[13px] leading-6 text-[var(--text-muted)]">
                 {milestone.description}
               </p>
             )}
@@ -61,7 +74,7 @@ function MilestoneCard({
           </Badge>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[14px] text-[var(--text-secondary)]">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-[var(--text-secondary)]">
           <span>سررسید: {milestone.targetDate ? faDate(milestone.targetDate) : "—"}</span>
           <span>{faNumber(issues.length)} ایشو</span>
           <span>{faNumber(done)} انجام‌شده</span>
@@ -75,13 +88,13 @@ function MilestoneCard({
           </div>
           <div className="mt-[4px] h-[6px] w-full overflow-hidden rounded-full bg-[var(--border)]">
             <div
-              className="h-full rounded-full bg-[var(--primary)] transition-[0.15s_ease-in-out]"
+              className="h-full rounded-full bg-[var(--primary)] transition-[width_0.4s_ease-in-out]"
               style={{ width: `${Math.round(pct * 100)}%` }}
             />
           </div>
         </div>
 
-        <span className="inline-flex items-center gap-1 text-[12px] text-[var(--primary)]">
+        <span className="inline-flex items-center gap-1 text-[12px] text-[var(--primary)] font-medium">
           {expanded ? (
             <>
               بستن <ChevronUp size={14} />
@@ -97,7 +110,7 @@ function MilestoneCard({
       {expanded && (
         <div className="border-t border-[var(--border)] p-[20px] pt-[12px]">
           {issues.length === 0 ? (
-            <p className="text-[14px] text-[var(--text-muted)]">
+            <p className="text-[13px] text-[var(--text-muted)]">
               ایشویی در این مایلستون ثبت نشده است.
             </p>
           ) : (
@@ -114,11 +127,11 @@ function MilestoneCard({
                     >
                       {issue.key}
                     </span>
-                    <span className="text-[14px] text-[var(--text-primary)]">
+                    <span className="text-[13px] text-[var(--text-primary)] font-medium">
                       {issue.title}
                     </span>
                   </div>
-                  <Badge variant="secondary" className="shrink-0">
+                  <Badge variant="secondary" className="shrink-0 text-[11px]">
                     {ISSUE_STATUS_LABEL[issue.status]}
                   </Badge>
                 </li>
@@ -132,30 +145,55 @@ function MilestoneCard({
 }
 
 export default function MilestonesPage() {
-  // Mock data — replaced by real queries in a later wave
+  const params = useParams<{ key: string }>();
+  const projectKey = (params?.key || "PM").toUpperCase();
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
-  // Simulated fetch
-  useMemo(() => {
-    import("@/components/features/__fixtures__/mock-data").then(
-      ({ MOCK_ISSUES, MOCK_MILESTONES }) => {
-        setTimeout(() => {
-          setMilestones([...MOCK_MILESTONES].sort((a, b) => a.order - b.order));
-          setIssues(MOCK_ISSUES);
-          setLoading(false);
-        }, 500);
-      }
-    );
+  // Create form state
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [targetDate, setTargetDate] = useState("");
+  const [status, setStatus] = useState<MilestoneStatus>("planned");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMilestones([...MOCK_MILESTONES].sort((a, b) => a.order - b.order));
+      setIssues(MOCK_ISSUES);
+      setLoading(false);
+    }, 200);
+    return () => clearTimeout(timer);
   }, []);
+
+  const handleCreateMilestone = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+
+    const newMs: Milestone = {
+      id: `ms-${Date.now()}`,
+      title: title.trim(),
+      description: description.trim() || undefined,
+      targetDate: targetDate || undefined,
+      status,
+      order: milestones.length + 1,
+    };
+
+    setMilestones((prev) => [...prev, newMs]);
+    setTitle("");
+    setDescription("");
+    setTargetDate("");
+    setCreateOpen(false);
+  };
 
   const retry = () => {
     setError(false);
     setLoading(true);
-    setTimeout(() => setLoading(false), 400);
+    setTimeout(() => setLoading(false), 300);
   };
 
   if (error) {
@@ -182,13 +220,19 @@ export default function MilestonesPage() {
 
   return (
     <div className="flex flex-col gap-[16px] p-[20px]">
-      <div>
-        <h1 className="text-[18px] font-bold text-[var(--text-primary)]">
-          مایلستون‌ها
-        </h1>
-        <p className="mt-1 text-[14px] text-[var(--text-muted)]">
-          نقاط عطف پروژه و پیشرفت هر کدام
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-[18px] font-bold text-[var(--text-primary)]">
+            مایلستون‌های پروژه {projectKey}
+          </h1>
+          <p className="mt-1 text-[13px] text-[var(--text-muted)]">
+            نقاط عطف و اهداف کلیدی تحویل پروژه
+          </p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)} className="gap-1.5 shadow-sm">
+          <Plus size={16} />
+          ساخت مایلستون
+        </Button>
       </div>
 
       {milestones.length === 0 ? (
@@ -204,7 +248,7 @@ export default function MilestonesPage() {
               اولین مایلستون پروژه را بسازید.
             </p>
           </div>
-          <Button>ساخت مایلستون</Button>
+          <Button onClick={() => setCreateOpen(true)}>ساخت مایلستون</Button>
         </div>
       ) : (
         <div className="grid gap-[12px] md:grid-cols-2">
@@ -219,6 +263,100 @@ export default function MilestonesPage() {
           ))}
         </div>
       )}
+
+      {/* Create Milestone Modal */}
+      {createOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+          onClick={() => setCreateOpen(false)}
+        >
+          <div
+            className="w-full max-w-[480px] rounded-[12px] border border-[var(--border)] bg-[var(--surface)] p-[24px] shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            dir="rtl"
+          >
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <h2 className="text-[17px] font-bold text-[var(--text-primary)]">
+                ساخت مایلستون جدید
+              </h2>
+              <button
+                type="button"
+                onClick={() => setCreateOpen(false)}
+                className="rounded-[8px] p-1 text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateMilestone} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
+                  عنوان مایلستون <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="مثال: انتشار نسخه بتا"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
+                  توضیحات
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={2}
+                  placeholder="هدف اصلی و خروجی‌های مورد نظر..."
+                  className="w-full rounded-[10px] border border-[var(--border)] bg-[var(--background)] p-2.5 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] resize-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
+                    وضعیت
+                  </label>
+                  <Select value={status} onValueChange={(v) => setStatus(v as MilestoneStatus)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="planned">برنامه‌ریزی‌شده</SelectItem>
+                      <SelectItem value="active">فعال</SelectItem>
+                      <SelectItem value="completed">تکمیل‌شده</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <label className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
+                    تاریخ سررسید
+                  </label>
+                  <Input
+                    type="date"
+                    value={targetDate}
+                    onChange={(e) => setTargetDate(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-2 border-t border-[var(--border)] pt-4">
+                <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+                  انصراف
+                </Button>
+                <Button type="submit" className="gap-1.5" disabled={!title.trim()}>
+                  <Plus size={16} />
+                  ایجاد مایلستون
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

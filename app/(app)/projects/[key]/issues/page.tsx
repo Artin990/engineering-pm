@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CircleDot, Search, SortAsc } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { useParams } from "next/navigation";
+import { Plus, Search, SortAsc } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -23,6 +23,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
+import { faNumber } from "@/lib/format";
 import {
   ISSUE_PRIORITY_LABEL,
   ISSUE_STATUS_LABEL,
@@ -33,6 +34,11 @@ import {
 import { IssuesTable } from "@/components/features/issues/issues-table";
 import { IssuesBoard } from "@/components/features/issues/issues-board";
 import { IssueDetailPanel } from "@/components/features/issues/issue-detail-panel";
+import { CreateIssueDialog } from "@/components/features/issues/create-issue-dialog";
+import {
+  getIssuesByProject,
+  issues as defaultIssues,
+} from "@/components/features/__fixtures__/mock-data";
 
 type SortField = "updatedAt" | "priority" | "estimate" | "dueDate";
 
@@ -56,7 +62,10 @@ const ALL_STATUSES: IssueStatus[] = [
 ];
 
 export default function IssuesPage() {
-  const [view, setView] = useState("list");
+  const params = useParams<{ key: string }>();
+  const projectKey = (params?.key || "PM").toUpperCase();
+
+  const [view, setView] = useState("board");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
@@ -64,7 +73,7 @@ export default function IssuesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [selected, setSelected] = useState<Issue | null>(null);
 
-  // Mock loading state — data source is mocked for now
+  // Issues state initialized with project issues
   const [issues, setIssues] = useState<Issue[] | null>(null);
   const [error, setError] = useState(false);
 
@@ -74,15 +83,53 @@ export default function IssuesPage() {
     setError(false);
     setIssues(null);
     const t = setTimeout(() => {
-      // Simulated fetch — replaced by real query later
-      setIssues([]);
-    }, 600);
+      const projectScoped = getIssuesByProject(projectKey);
+      setIssues(projectScoped.length > 0 ? projectScoped : defaultIssues);
+    }, 250);
     return () => clearTimeout(t);
-  }, []);
+  }, [projectKey]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Handle Drag & Drop move
+  const handleIssueMove = (issueId: string, newStatus: IssueStatus) => {
+    setIssues((prev) => {
+      if (!prev) return prev;
+      return prev.map((i) =>
+        i.id === issueId ? { ...i, status: newStatus, updatedAt: new Date().toISOString() } : i
+      );
+    });
+    if (selected && selected.id === issueId) {
+      setSelected((prev) => (prev ? { ...prev, status: newStatus } : null));
+    }
+  };
+
+  // Handle creating a new issue
+  const handleCreateIssue = (newIssue: Issue) => {
+    setIssues((prev) => [newIssue, ...(prev || [])]);
+  };
+
+  // Handle updating an existing issue
+  const handleUpdateIssue = (updated: Issue) => {
+    setIssues((prev) => {
+      if (!prev) return prev;
+      return prev.map((i) => (i.id === updated.id ? updated : i));
+    });
+    setSelected(updated);
+  };
+
+  // Handle deleting an issue
+  const handleDeleteIssue = (issueId: string) => {
+    setIssues((prev) => {
+      if (!prev) return prev;
+      return prev.filter((i) => i.id !== issueId);
+    });
+    if (selected?.id === issueId) {
+      setSelected(null);
+    }
+  };
 
   // Keyboard shortcuts: `c` create, `/` or Ctrl+K focus search
   useEffect(() => {
@@ -150,24 +197,26 @@ export default function IssuesPage() {
   }, [filtered, sortField]);
 
   return (
-    <div className="flex flex-col gap-[16px] p-[20px]">
+    <div className="flex flex-col gap-[16px] p-[20px] max-w-full">
       {/* Page header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-[18px] font-bold text-[var(--text-primary)]">ایشوها</h1>
-          <p className="mt-1 text-[14px] text-[var(--text-muted)]">
-            مدیریت و پیگیری ایشوهای پروژه
+          <h1 className="text-[20px] font-bold text-[var(--text-primary)]">
+            مدیریت ایشوها — {projectKey}
+          </h1>
+          <p className="mt-1 text-[13px] text-[var(--text-muted)]">
+            بورد کانبان، نمای جدولی، فیلترها و بررسی تسک‌ها
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
-          <CircleDot size={16} />
-          ساخت ایشو
+        <Button onClick={() => setCreateOpen(true)} className="gap-1.5 shadow-sm">
+          <Plus size={16} />
+          ساخت ایشو جدید
         </Button>
       </div>
 
       {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-[12px]">
-        <div className="relative min-w-[220px] flex-1">
+      <div className="flex flex-wrap items-center gap-[10px] rounded-[10px] border border-[var(--border)] bg-[var(--surface)] p-3">
+        <div className="relative min-w-[200px] flex-1">
           <Search
             size={16}
             className="pointer-events-none absolute end-[12px] top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
@@ -176,13 +225,13 @@ export default function IssuesPage() {
             ref={searchRef}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="جست‌وجو… (Ctrl+K یا /)"
-            className="pe-9"
+            placeholder="جست‌وجو در عنوان یا کلید ایشو… (Ctrl+K)"
+            className="pe-9 bg-[var(--background)]"
             dir="rtl"
           />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[170px]">
+          <SelectTrigger className="w-[160px] bg-[var(--background)]">
             <SelectValue placeholder="وضعیت" />
           </SelectTrigger>
           <SelectContent>
@@ -195,7 +244,7 @@ export default function IssuesPage() {
           </SelectContent>
         </Select>
         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-          <SelectTrigger className="w-[170px]">
+          <SelectTrigger className="w-[150px] bg-[var(--background)]">
             <SelectValue placeholder="اولویت" />
           </SelectTrigger>
           <SelectContent>
@@ -209,8 +258,8 @@ export default function IssuesPage() {
         </Select>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline">
-              <SortAsc size={16} />
+            <Button variant="outline" className="bg-[var(--background)] gap-1.5">
+              <SortAsc size={15} />
               مرتب‌سازی: {SORT_LABELS[sortField]}
             </Button>
           </DropdownMenuTrigger>
@@ -232,10 +281,36 @@ export default function IssuesPage() {
 
       {/* List / Board toggle */}
       <Tabs value={view} onValueChange={setView}>
-        <TabsList>
-          <TabsTrigger value="list">لیست</TabsTrigger>
-          <TabsTrigger value="board">بورد</TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="board">بورد کانبان</TabsTrigger>
+            <TabsTrigger value="list">لیست جدولی</TabsTrigger>
+          </TabsList>
+          {issues !== null && (
+            <span className="text-[13px] text-[var(--text-muted)] font-medium">
+              {filtered.length === 0
+                ? "نتیجه‌ای یافت نشد"
+                : `${faNumber(sorted.length)} ایشو یافت شد`}
+            </span>
+          )}
+        </div>
+
+        <TabsContent value="board" className="mt-[16px]">
+          {issues === null ? (
+            <div className="flex gap-[12px] overflow-x-auto pb-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-[360px] w-[280px] rounded-[10px] shrink-0" />
+              ))}
+            </div>
+          ) : (
+            <IssuesBoard
+              issues={sorted}
+              onIssueMove={handleIssueMove}
+              onIssueClick={setSelected}
+            />
+          )}
+        </TabsContent>
+
         <TabsContent value="list" className="mt-[16px]">
           <IssuesTable
             issues={sorted}
@@ -246,54 +321,24 @@ export default function IssuesPage() {
             onCreate={() => setCreateOpen(true)}
           />
         </TabsContent>
-        <TabsContent value="board" className="mt-[16px]">
-          {issues === null ? (
-            <div className="flex gap-[12px]">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-[300px] w-[280px] rounded-[10px]" />
-              ))}
-            </div>
-          ) : (
-            <IssuesBoard issues={sorted} onIssueClick={setSelected} />
-          )}
-        </TabsContent>
       </Tabs>
 
-      {/* Result count */}
-      {issues !== null && (
-        <p className="text-[14px] text-[var(--text-muted)]">
-          {filtered.length === 0
-            ? "نتیجه‌ای یافت نشد"
-            : `${sorted.length.toLocaleString("fa-IR")} ایشو`}
-        </p>
-      )}
+      {/* Issue Detail Panel */}
+      <IssueDetailPanel
+        issue={selected}
+        onClose={() => setSelected(null)}
+        onUpdateIssue={handleUpdateIssue}
+        onDeleteIssue={handleDeleteIssue}
+      />
 
-      <IssueDetailPanel issue={selected} onClose={() => setSelected(null)} />
-
-      {/* Create dialog — placeholder (Wave 2+) */}
-      {createOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={() => setCreateOpen(false)}
-        >
-          <div
-            className="w-[400px] rounded-[10px] border border-[var(--border)] bg-[var(--surface)] p-[20px]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-[16px] font-bold text-[var(--text-primary)]">
-              ساخت ایشو
-            </h2>
-            <p className="mt-2 text-[14px] text-[var(--text-muted)]">
-              فرم ساخت ایشو در موج بعدی اضافه می‌شود.
-            </p>
-            <div className="mt-[16px] flex justify-end">
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>
-                بستن
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Create Issue Dialog */}
+      <CreateIssueDialog
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        projectKey={projectKey}
+        onCreate={handleCreateIssue}
+      />
     </div>
   );
 }
+

@@ -96,33 +96,33 @@ export default async function RoadmapPage({
             )}
 
             {/* Base line */}
-            <div className="absolute top-[32px] h-[2px] w-full rounded-full bg-[var(--border)]" />
+            <div className="absolute top-[32px] h-[3px] w-full rounded-full bg-[var(--border)]" />
 
             {/* Milestone markers along the line */}
             {milestoneStats.map(({ milestone, pct }) => {
               const pos = milestone.targetDate
-                ? Math.min(Math.max(pctOf(milestone.targetDate), 0), 100)
+                ? Math.min(Math.max(pctOf(milestone.targetDate), 5), 95)
                 : null;
               return (
                 <div
                   key={milestone.id}
-                  className="absolute top-0 flex w-[140px] -translate-x-1/2 flex-col items-center text-center"
+                  className="absolute top-0 flex w-[120px] -translate-x-1/2 rtl:translate-x-1/2 flex-col items-center text-center"
                   style={
                     pos !== null
                       ? { insetInlineStart: `${pos}%` }
                       : { position: "relative", marginInlineStart: "8px" }
                   }
                 >
-                  <span className="mb-[6px] text-[12px] text-[var(--text-secondary)]" dir="rtl">
+                  <span className="mb-[6px] text-[11px] font-medium text-[var(--text-muted)]" dir="rtl">
                     {milestone.targetDate ? faDate(milestone.targetDate) : "—"}
                   </span>
                   <span
                     className={cn(
-                      "z-10 inline-block h-[14px] w-[14px] rounded-full border-2 border-[var(--surface)]",
+                      "z-10 inline-block h-[14px] w-[14px] rounded-full border-2 border-[var(--surface)] shadow-xs",
                       MILESTONE_DOT[milestone.status]
                     )}
                   />
-                  <span className="mt-[6px] line-clamp-2 text-[12px] font-medium leading-4 text-[var(--text-primary)]">
+                  <span className="mt-[6px] line-clamp-1 text-[12px] font-semibold text-[var(--text-primary)]">
                     {milestone.title}
                   </span>
                   <span className="mt-[2px] text-[11px] text-[var(--text-muted)]">

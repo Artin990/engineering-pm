@@ -5,7 +5,6 @@ import {
   GitMerge,
   ListTodo,
   Loader,
-  EyeOff,
   CheckCircle2,
   AlertTriangle,
   Lock,
@@ -15,7 +14,6 @@ import {
   FolderGit2,
   Target,
   Rocket,
-  Scale,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -46,7 +44,6 @@ import {
   MILESTONE_STATUS_LABEL,
   CYCLE_STATUS_LABEL,
   ISSUE_STATUS_LABEL,
-  PR_STATE_LABEL,
   type IssueStatus,
   type Milestone,
   type Cycle,
