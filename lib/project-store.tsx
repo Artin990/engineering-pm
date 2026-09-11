@@ -192,6 +192,24 @@ export function ProjectStoreProvider({
     };
   }, [state]);
 
+  // Sync updated project state to general flowdeck_projects_list
+  useEffect(() => {
+    try {
+      const listSaved = localStorage.getItem("flowdeck_projects_list");
+      const list: Project[] = listSaved ? JSON.parse(listSaved) : [];
+      const idx = list.findIndex((p) => p.key === computedState.project.key);
+      if (idx >= 0) {
+        list[idx] = { ...list[idx], ...computedState.project };
+        localStorage.setItem("flowdeck_projects_list", JSON.stringify(list));
+      } else if (list.length > 0) {
+        list.unshift(computedState.project);
+        localStorage.setItem("flowdeck_projects_list", JSON.stringify(list));
+      }
+    } catch {
+      // ignore
+    }
+  }, [computedState.project]);
+
   // Actions
   const addIssue = useCallback(
     (issue: Issue) => {

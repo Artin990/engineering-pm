@@ -40,12 +40,37 @@ export const MOCK_RISKS: Risk[] = risks;
 /* ── Project Scoped Query Helpers ────────────────────────────── */
 
 export function getProjectByKey(key: string): Project | undefined {
-  const found = MOCK_PROJECTS.find((p) => p.key.toUpperCase() === key.toUpperCase());
+  const cleanKey = key.toUpperCase();
+  const found = MOCK_PROJECTS.find((p) => p.key.toUpperCase() === cleanKey);
   if (found) return found;
+
+  // Check localStorage if available in browser
+  if (typeof window !== "undefined") {
+    try {
+      // 1. Check individual project store
+      const savedStore = localStorage.getItem(`flowdeck_project_store_${cleanKey}`);
+      if (savedStore) {
+        const parsed = JSON.parse(savedStore);
+        if (parsed?.project?.name) {
+          return parsed.project;
+        }
+      }
+      // 2. Check general projects list
+      const savedList = localStorage.getItem("flowdeck_projects_list");
+      if (savedList) {
+        const parsedList: Project[] = JSON.parse(savedList);
+        const match = parsedList.find((p) => p.key.toUpperCase() === cleanKey);
+        if (match) return match;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   return {
-    id: `p-${key.toLowerCase()}`,
-    key: key.toUpperCase(),
-    name: `پروژه ${key.toUpperCase()}`,
+    id: `p-${cleanKey.toLowerCase()}`,
+    key: cleanKey,
+    name: `پروژه ${cleanKey}`,
     description: "پروژه فعال در Flowdeck",
     status: "active",
     progress: 0,

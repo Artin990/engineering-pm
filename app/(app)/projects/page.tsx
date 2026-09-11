@@ -70,11 +70,28 @@ export default function ProjectsPage() {
 
   const fetchProjects = async () => {
     setLoading(true);
+
+    // 1. First load from localStorage for instant offline/persisted data
+    let localProjects: Project[] = [];
+    try {
+      const saved = localStorage.getItem("flowdeck_projects_list");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          localProjects = parsed;
+          setProjectsList(parsed);
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // 2. Fetch from API to sync with DB
     try {
       const res = await fetch("/api/v1/projects");
       if (res.ok) {
         const json = await res.json();
-        if (json.data && Array.isArray(json.data)) {
+        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
           const mapped: Project[] = json.data.map((p: ApiProjectItem) => ({
             id: p.id,
             key: p.key,
@@ -98,11 +115,24 @@ export default function ProjectsPage() {
             openPrs: 0,
             mergedPrs: 0,
           }));
-          setProjectsList(mapped);
+
+          // Merge without duplicate keys
+          const merged = [...mapped];
+          for (const lp of localProjects) {
+            if (!merged.some((m) => m.key === lp.key)) {
+              merged.push(lp);
+            }
+          }
+          setProjectsList(merged);
+          try {
+            localStorage.setItem("flowdeck_projects_list", JSON.stringify(merged));
+          } catch {
+            // ignore
+          }
         }
       }
     } catch {
-      // Fallback
+      // Fallback to local
     } finally {
       setLoading(false);
     }
@@ -145,8 +175,55 @@ export default function ProjectsPage() {
     setSaving(true);
     setError("");
 
+    const newProject: Project = {
+      id: `p-${Date.now()}`,
+      key: cleanKey,
+      name: name.trim(),
+      description: description.trim() || null,
+      status: "active",
+      health: "on_track",
+      targetDate: targetDate || null,
+      owner: null,
+      teamName: teamName.trim() || "تیم مهندسی",
+      progress: 0,
+      counts: {
+        todo: 0,
+        inProgress: 0,
+        inReview: 0,
+        blocked: 0,
+        done: 0,
+        backlog: 0,
+        cancelled: 0,
+      },
+      openPrs: 0,
+      mergedPrs: 0,
+    };
+
+    // 1. Immediately persist to localStorage and React state
+    const updatedList = [newProject, ...projectsList];
+    setProjectsList(updatedList);
     try {
-      const res = await fetch("/api/v1/projects", {
+      localStorage.setItem("flowdeck_projects_list", JSON.stringify(updatedList));
+      localStorage.setItem(
+        `flowdeck_project_store_${cleanKey}`,
+        JSON.stringify({
+          project: newProject,
+          issues: [],
+          cycles: [],
+          milestones: [],
+          members: [
+            { id: "artin-1", displayName: "آرتین امیری", githubLogin: "artin-amiri", email: "artinamiri185@gmail.com", role: "admin", status: "active", joinedAt: "امروز" },
+            { id: "sara-1", displayName: "سارا احمدی", githubLogin: "sara-ahmadi", email: "sara.ahmadi@flowdeck.dev", role: "member", status: "active", joinedAt: "امروز" },
+          ],
+        })
+      );
+    } catch {
+      // ignore
+    }
+
+    // 2. Background sync with backend DB (non-blocking for UI)
+    try {
+      await fetch("/api/v1/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -156,48 +233,17 @@ export default function ProjectsPage() {
           targetDate: targetDate || undefined,
         }),
       });
-
-      if (!res.ok) {
-        const errJson = await res.json();
-        throw new Error(errJson.error || "خطا در ایجاد پروژه");
-      }
-
-      const newProject: Project = {
-        id: `p-${Date.now()}`,
-        key: cleanKey,
-        name: name.trim(),
-        description: description.trim() || null,
-        status: "active",
-        health: "on_track",
-        targetDate: targetDate || null,
-        owner: null,
-        teamName: teamName.trim() || "تیم مهندسی",
-        progress: 0,
-        counts: {
-          todo: 0,
-          inProgress: 0,
-          inReview: 0,
-          blocked: 0,
-          done: 0,
-          backlog: 0,
-          cancelled: 0,
-        },
-        openPrs: 0,
-        mergedPrs: 0,
-      };
-
-      setProjectsList((prev) => [newProject, ...prev]);
-      setName("");
-      setKey("");
-      setDescription("");
-      setTargetDate("");
-      setError("");
-      setCreateOpen(false);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "خطا در برقراری ارتباط با سرور");
-    } finally {
-      setSaving(false);
+    } catch {
+      // Offline or network error - already stored locally
     }
+
+    setName("");
+    setKey("");
+    setDescription("");
+    setTargetDate("");
+    setError("");
+    setSaving(false);
+    setCreateOpen(false);
   };
 
   return (
