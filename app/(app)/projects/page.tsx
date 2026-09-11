@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProgressRing } from "@/components/features/dashboard/progress-ring";
+import { GithubIcon } from "@/components/ui/github-icon";
 import {
   PROJECT_HEALTH_LABEL,
   PROJECT_STATUS_LABEL,
@@ -64,6 +65,7 @@ export default function ProjectsPage() {
   const [key, setKey] = useState("");
   const [description, setDescription] = useState("");
   const [teamName, setTeamName] = useState("تیم مهندسی");
+  const [githubRepo, setGithubRepo] = useState("");
   const [targetDate, setTargetDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -172,8 +174,7 @@ export default function ProjectsPage() {
       return;
     }
 
-    setSaving(true);
-    setError("");
+    const cleanRepo = githubRepo.trim().replace(/^https?:\/\/github\.com\//i, "").replace(/\/$/, "");
 
     const newProject: Project = {
       id: `p-${Date.now()}`,
@@ -185,6 +186,7 @@ export default function ProjectsPage() {
       targetDate: targetDate || null,
       owner: null,
       teamName: teamName.trim() || "تیم مهندسی",
+      githubRepo: cleanRepo || null,
       progress: 0,
       counts: {
         todo: 0,
@@ -204,6 +206,9 @@ export default function ProjectsPage() {
     setProjectsList(updatedList);
     try {
       localStorage.setItem("flowdeck_projects_list", JSON.stringify(updatedList));
+      if (cleanRepo) {
+        localStorage.setItem(`flowdeck_repo_${cleanKey}`, cleanRepo);
+      }
       const orgMembersSaved = localStorage.getItem("flowdeck_org_members");
       const defaultProjectMembers = orgMembersSaved ? JSON.parse(orgMembersSaved) : [];
       localStorage.setItem(
@@ -390,6 +395,12 @@ export default function ProjectsPage() {
                         {faDate(project.targetDate)}
                       </Badge>
                     )}
+                    {project.githubRepo && (
+                      <Badge variant="outline" className="text-[11px] gap-1 border-[var(--border)] font-mono text-[var(--text-secondary)]">
+                        <GithubIcon size={12} />
+                        {project.githubRepo}
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center justify-between border-t border-[var(--border)] pt-[12px] text-[12px] text-[var(--text-muted)]">
                     <span className="flex items-center gap-[4px]">
@@ -492,6 +503,24 @@ export default function ProjectsPage() {
                   placeholder="شرح مختصری از اهداف و دستاوردهای پروژه..."
                   className="w-full rounded-[10px] border border-[var(--border)] bg-[var(--background)] p-2.5 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] resize-none"
                 />
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
+                  مخزن GitHub جهت مانیتورینگ خودکار (اختیاری)
+                </label>
+                <div className="relative">
+                  <Input
+                    value={githubRepo}
+                    onChange={(e) => setGithubRepo(e.target.value)}
+                    placeholder="مثال: Artin990/engineering-pm"
+                    className="font-mono text-start bg-[var(--background)]"
+                    dir="ltr"
+                  />
+                </div>
+                <span className="text-[11px] text-[var(--text-muted)] mt-1 block">
+                  تمام کامیت‌ها، PRها و فعالیت اعضا مستقیماً از این مخزن در پروژه مانیتور و ارزیابی خواهد شد.
+                </span>
               </div>
 
               <div>

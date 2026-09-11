@@ -504,11 +504,15 @@ export default function AnalyticsPage({
                           <div className="flex items-center justify-between w-full">
                             <div className="flex items-center gap-2.5">
                               <span
-                                className={`flex size-9 items-center justify-center rounded-full text-white text-[13px] font-bold shadow-xs ${
+                                className={`flex size-9 items-center justify-center rounded-full text-white text-[13px] font-bold shadow-xs overflow-hidden ${
                                   isIntern ? "bg-emerald-600" : "bg-[var(--primary)]"
                                 }`}
                               >
-                                {member.avatar}
+                                {member.avatar && member.avatar.startsWith("http") ? (
+                                  <img src={member.avatar} alt={member.name} className="size-full object-cover" />
+                                ) : (
+                                  member.avatar
+                                )}
                               </span>
                               <div>
                                 <div className="font-bold text-[13px] text-[var(--text-primary)] flex items-center gap-1">
@@ -642,11 +646,15 @@ export default function AnalyticsPage({
                       <div className="flex flex-wrap items-center justify-between gap-4">
                         <div className="flex items-center gap-3.5">
                           <span
-                            className={`flex size-14 items-center justify-center rounded-full text-white text-[22px] font-bold shadow-md ${
+                            className={`flex size-14 items-center justify-center rounded-full text-white text-[22px] font-bold shadow-md overflow-hidden ${
                               currentProfile.type === "intern" ? "bg-emerald-600" : "bg-[var(--primary)]"
                             }`}
                           >
-                            {currentProfile.avatar}
+                            {currentProfile.avatar && currentProfile.avatar.startsWith("http") ? (
+                              <img src={currentProfile.avatar} alt={currentProfile.name} className="size-full object-cover" />
+                            ) : (
+                              currentProfile.avatar
+                            )}
                           </span>
                           <div>
                             <div className="flex items-center gap-2">

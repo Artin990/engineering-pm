@@ -295,13 +295,17 @@ export function Sidebar() {
       <footer className="border-t border-[var(--border)] pt-[12px] text-[12px] space-y-[8px]">
         {!collapsed ? (
           <div className="flex items-center justify-between rounded-[8px] bg-[var(--surface-raised)] p-[8px]">
-            <div className="flex items-center gap-[8px]">
-              <span className={`flex size-7 items-center justify-center rounded-full text-white text-[11px] font-bold ${isAdmin ? "bg-[var(--primary)]" : "bg-blue-600"}`}>
-                {profile.avatar || profile.name.charAt(0)}
+            <div className="flex items-center gap-[8px] min-w-0">
+              <span className={`flex size-8 shrink-0 items-center justify-center rounded-full text-white text-[12px] font-bold overflow-hidden border border-[var(--border)] ${isAdmin ? "bg-[var(--primary)]" : "bg-blue-600"}`}>
+                {profile.avatar && profile.avatar.startsWith("http") ? (
+                  <img src={profile.avatar} alt={profile.name} className="size-full object-cover" />
+                ) : (
+                  profile.name?.charAt(0) || "ک"
+                )}
               </span>
-              <div className="flex flex-col">
-                <span className="text-[12px] font-medium text-[var(--text-primary)]">{profile.name}</span>
-                <span className="text-[10px] text-[var(--text-muted)]">{profile.roleTitle}</span>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[12px] font-medium text-[var(--text-primary)] truncate">{profile.name}</span>
+                <span className="text-[10px] text-[var(--text-muted)] truncate">{profile.roleTitle}</span>
               </div>
             </div>
             <button
@@ -310,7 +314,7 @@ export function Sidebar() {
                 await logout();
                 window.location.href = "/login";
               }}
-              className="text-[11px] text-[var(--primary)] hover:underline cursor-pointer"
+              className="text-[11px] text-[var(--primary)] hover:underline cursor-pointer shrink-0 ms-1"
             >
               خروج
             </button>
@@ -318,10 +322,14 @@ export function Sidebar() {
         ) : (
           <div className="flex justify-center">
             <span
-              className={`flex size-8 items-center justify-center rounded-full text-white text-[12px] font-bold ${isAdmin ? "bg-[var(--primary)]" : "bg-blue-600"}`}
+              className={`flex size-8 items-center justify-center rounded-full text-white text-[12px] font-bold overflow-hidden border border-[var(--border)] ${isAdmin ? "bg-[var(--primary)]" : "bg-blue-600"}`}
               title={`${profile.name} (${profile.roleTitle})`}
             >
-              {profile.avatar || profile.name.charAt(0)}
+              {profile.avatar && profile.avatar.startsWith("http") ? (
+                <img src={profile.avatar} alt={profile.name} className="size-full object-cover" />
+              ) : (
+                profile.name?.charAt(0) || "ک"
+              )}
             </span>
           </div>
         )}

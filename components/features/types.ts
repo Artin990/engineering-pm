@@ -143,6 +143,7 @@ export interface Project {
   teamName?: string | null;
   progress: number; // 0..1 — weighted completion
   healthReason?: string;
+  githubRepo?: string | null;
   counts: {
     todo: number;
     inProgress: number;

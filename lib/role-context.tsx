@@ -15,22 +15,24 @@ export interface UserProfile {
   github?: string;
 }
 
-export const DEFAULT_ADMIN_PROFILE: UserProfile = {
-  id: "00000000-0000-0000-0000-000000000001",
-  name: "مدیر سیستم",
-  email: "admin@flowdeck.dev",
-  role: "admin",
-  roleTitle: "مدیر ارشد",
-  avatar: "م",
-};
+const ADMIN_EMAILS = [
+  "amiriartin185@gmil.com",
+  "amiriartin185@gmail.com",
+  "artinamiri185@gmail.com",
+];
+
+export function isUserAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return ADMIN_EMAILS.some((adm) => adm.toLowerCase() === email.trim().toLowerCase());
+}
 
 export const DEFAULT_MEMBER_PROFILE: UserProfile = {
   id: "00000000-0000-0000-0000-000000000002",
-  name: "کاربر توسعه‌دهنده",
-  email: "member@flowdeck.dev",
+  name: "کاربر جدید",
+  email: "user@flowdeck.dev",
   role: "member",
-  roleTitle: "توسعه‌دهنده مهندسی",
-  avatar: "ت",
+  roleTitle: "توسعه‌دهنده / کاربر عادی",
+  avatar: "ک",
 };
 
 interface RoleContextValue {
@@ -58,12 +60,11 @@ function deleteCookie(name: string) {
 }
 
 export function RoleProvider({ children }: { children: React.ReactNode }) {
-  const [role, setRoleState] = useState<UserRole>("admin");
-  const [profile, setProfile] = useState<UserProfile>(DEFAULT_ADMIN_PROFILE);
+  const [role, setRoleState] = useState<UserRole>("member");
+  const [profile, setProfile] = useState<UserProfile>(DEFAULT_MEMBER_PROFILE);
   const [isLoading, setIsLoading] = useState(true);
   const supabase = createClient();
 
-  // همگام‌سازی سشن کاربر از Supabase و لوکال استوریج
   useEffect(() => {
     let mounted = true;
 
@@ -75,15 +76,20 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
           const userMeta = session.user.user_metadata || {};
           const userEmail = session.user.email || "";
           const userName = userMeta.name || userMeta.full_name || userMeta.user_name || userEmail.split("@")[0] || "کاربر Flowdeck";
-          const userRole: UserRole = userMeta.role || "admin";
+          
+          // فقط ایمیل‌های مجاز دسترسی ادمین دارند و سایر کاربران جدید عادی خواهند بود
+          const isAdminUser = isUserAdminEmail(userEmail);
+          const userRole: UserRole = isAdminUser ? "admin" : "member";
+          const roleTitle = isAdminUser ? "مدیرعامل و ادمین ارشد" : "توسعه‌دهنده / کاربر عادی";
+          const avatarUrl = userMeta.avatar_url || userMeta.picture || null;
 
           const userProf: UserProfile = {
             id: session.user.id,
             name: userName,
             email: userEmail,
             role: userRole,
-            roleTitle: userRole === "admin" || userRole === "owner" ? "مدیر ارشد مهندسی" : "توسعه‌دهنده",
-            avatar: userMeta.avatar_url || userName.charAt(0),
+            roleTitle: roleTitle,
+            avatar: avatarUrl || userName.charAt(0),
             github: userMeta.user_name || userMeta.github_login,
           };
 
@@ -102,9 +108,15 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         const savedSession = localStorage.getItem("flowdeck_user_session");
         if (savedSession && mounted) {
           const parsed = JSON.parse(savedSession) as UserProfile;
+          const isAdminUser = isUserAdminEmail(parsed.email);
+          const userRole: UserRole = isAdminUser ? "admin" : "member";
+          const roleTitle = isAdminUser ? "مدیرعامل و ادمین ارشد" : "توسعه‌دهنده / کاربر عادی";
+
+          parsed.role = userRole;
+          parsed.roleTitle = roleTitle;
           setProfile(parsed);
-          setRoleState(parsed.role || "admin");
-          setCookie("flowdeck_active_role", parsed.role || "admin");
+          setRoleState(userRole);
+          setCookie("flowdeck_active_role", userRole);
           setCookie("flowdeck_user_email", parsed.email);
           setCookie("flowdeck_user_id", parsed.id);
           setCookie("flowdeck_user_name", parsed.name);
@@ -126,15 +138,19 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         const userMeta = session.user.user_metadata || {};
         const userEmail = session.user.email || "";
         const userName = userMeta.name || userMeta.full_name || userMeta.user_name || userEmail.split("@")[0] || "کاربر Flowdeck";
-        const userRole: UserRole = userMeta.role || "admin";
+        
+        const isAdminUser = isUserAdminEmail(userEmail);
+        const userRole: UserRole = isAdminUser ? "admin" : "member";
+        const roleTitle = isAdminUser ? "مدیرعامل و ادمین ارشد" : "توسعه‌دهنده / کاربر عادی";
+        const avatarUrl = userMeta.avatar_url || userMeta.picture || null;
 
         const userProf: UserProfile = {
           id: session.user.id,
           name: userName,
           email: userEmail,
           role: userRole,
-          roleTitle: userRole === "admin" || userRole === "owner" ? "مدیر ارشد مهندسی" : "توسعه‌دهنده",
-          avatar: userMeta.avatar_url || userName.charAt(0),
+          roleTitle: roleTitle,
+          avatar: avatarUrl || userName.charAt(0),
           github: userMeta.user_name,
         };
 
@@ -155,7 +171,10 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     };
   }, [supabase]);
 
+  // فقط ادمین اصلی اجازه تغییر نقش دارد
   const setRole = useCallback((newRole: UserRole) => {
+    if (!isUserAdminEmail(profile.email)) return; // کاربران عادی اجازه تغییر نقش به ادمین را ندارند
+
     setRoleState(newRole);
     localStorage.setItem("flowdeck_active_role", newRole);
     setCookie("flowdeck_active_role", newRole);
@@ -164,21 +183,24 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       const updated: UserProfile = {
         ...prev,
         role: newRole,
-        roleTitle: newRole === "admin" || newRole === "owner" ? "مدیر ارشد مهندسی" : "توسعه‌دهنده",
+        roleTitle: newRole === "admin" || newRole === "owner" ? "مدیرعامل و ادمین ارشد" : "توسعه‌دهنده / کاربر عادی",
       };
       localStorage.setItem("flowdeck_user_session", JSON.stringify(updated));
       return updated;
     });
-  }, []);
+  }, [profile.email]);
 
   const setUserSession = useCallback((user: Partial<UserProfile>) => {
-    const activeRole: UserRole = user.role || "admin";
+    const isAdminUser = isUserAdminEmail(user.email);
+    const activeRole: UserRole = isAdminUser ? "admin" : "member";
+    const roleTitle = isAdminUser ? "مدیرعامل و ادمین ارشد" : "توسعه‌دهنده / کاربر عادی";
+
     const newProfile: UserProfile = {
-      id: user.id || DEFAULT_ADMIN_PROFILE.id,
+      id: user.id || DEFAULT_MEMBER_PROFILE.id,
       name: user.name || "کاربر Flowdeck",
       email: user.email || "user@flowdeck.dev",
       role: activeRole,
-      roleTitle: activeRole === "admin" || activeRole === "owner" ? "مدیر ارشد مهندسی" : "توسعه‌دهنده",
+      roleTitle: roleTitle,
       avatar: user.avatar || user.name?.charAt(0) || "ک",
       github: user.github,
     };
@@ -207,8 +229,8 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     deleteCookie("flowdeck_user_email");
     deleteCookie("flowdeck_user_id");
     deleteCookie("flowdeck_user_name");
-    setProfile(DEFAULT_ADMIN_PROFILE);
-    setRoleState("admin");
+    setProfile(DEFAULT_MEMBER_PROFILE);
+    setRoleState("member");
   }, [supabase]);
 
   return (
@@ -233,13 +255,13 @@ export function useUserRole() {
   const context = useContext(RoleContext);
   if (!context) {
     return {
-      role: "admin" as UserRole,
-      profile: DEFAULT_ADMIN_PROFILE,
+      role: "member" as UserRole,
+      profile: DEFAULT_MEMBER_PROFILE,
       setRole: () => {},
       setUserSession: () => {},
       logout: async () => {},
-      isAdmin: true,
-      isMember: false,
+      isAdmin: false,
+      isMember: true,
       isLoading: false,
     };
   }
