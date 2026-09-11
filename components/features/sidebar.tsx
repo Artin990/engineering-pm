@@ -27,7 +27,7 @@ import { useUserRole } from "@/lib/role-context";
 import { getProjectByKey } from "@/components/features/__fixtures__/mock-data";
 
 /**
- * Sidebar اصلی اپلیکیشن Flowdeck — RTL (سمت راست) با قابلیت باز و بسته شدن و تفکیک نقش.
+ * Sidebar اصلی اپلیکیشن RadarCheck — RTL (سمت راست) با قابلیت باز و بسته شدن و تفکیک نقش.
  */
 export function Sidebar() {
   const pathname = usePathname();
@@ -62,7 +62,7 @@ export function Sidebar() {
         <Link
           href="/projects"
           className="flex items-center gap-[10px] text-[15px] font-bold text-[var(--text-primary)] transition-opacity hover:opacity-85"
-          title="FlowDeck — سامانه مدیریت مهندسی"
+          title="RadarCheck — سامانه مدیریت مهندسی"
         >
           {collapsed ? (
             <div className="relative size-9 shrink-0 overflow-hidden rounded-[8px] bg-transparent p-1 shadow-xs border border-[var(--border)]">
@@ -335,7 +335,7 @@ export function Sidebar() {
         )}
         {!collapsed && (
           <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] px-[4px]">
-            <span>Flowdeck v1.0</span>
+            <span>RadarCheck v1.0</span>
             <span className="inline-flex items-center gap-1">
               <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
               متصل به سوپابیس

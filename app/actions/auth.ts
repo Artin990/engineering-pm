@@ -18,7 +18,7 @@ export interface SyncUserProfileInput {
  */
 export async function syncUserProfile(input: SyncUserProfileInput) {
   try {
-    const displayName = input.name?.trim() || input.email.split("@")[0] || "کاربر Flowdeck";
+    const displayName = input.name?.trim() || input.email.split("@")[0] || "کاربر RadarCheck";
 
     // 1. ذخیره/بروزرسانی پروفایل در دیتابیس
     await db

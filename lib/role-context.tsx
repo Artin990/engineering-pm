@@ -29,7 +29,7 @@ export function isUserAdminEmail(email?: string | null): boolean {
 export const DEFAULT_MEMBER_PROFILE: UserProfile = {
   id: "00000000-0000-0000-0000-000000000002",
   name: "کاربر جدید",
-  email: "user@flowdeck.dev",
+  email: "user@radarcheck.dev",
   role: "member",
   roleTitle: "توسعه‌دهنده / کاربر عادی",
   avatar: "ک",
@@ -76,7 +76,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         if (session?.user && mounted) {
           const userMeta = session.user.user_metadata || {};
           const userEmail = session.user.email || "";
-          const userName = userMeta.name || userMeta.full_name || userMeta.user_name || userEmail.split("@")[0] || "کاربر Flowdeck";
+          const userName = userMeta.name || userMeta.full_name || userMeta.user_name || userEmail.split("@")[0] || "کاربر RadarCheck";
           
           // فقط ایمیل‌های مجاز دسترسی ادمین دارند و سایر کاربران جدید عادی خواهند بود
           const isAdminUser = isUserAdminEmail(userEmail);
@@ -132,7 +132,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         const userMeta = session.user.user_metadata || {};
         const userEmail = session.user.email || "";
-        const userName = userMeta.name || userMeta.full_name || userMeta.user_name || userEmail.split("@")[0] || "کاربر Flowdeck";
+        const userName = userMeta.name || userMeta.full_name || userMeta.user_name || userEmail.split("@")[0] || "کاربر RadarCheck";
         
         const isAdminUser = isUserAdminEmail(userEmail);
         const userRole: UserRole = isAdminUser ? "admin" : "member";
@@ -192,8 +192,8 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
 
     const newProfile: UserProfile = {
       id: user.id || DEFAULT_MEMBER_PROFILE.id,
-      name: user.name || "کاربر Flowdeck",
-      email: user.email || "user@flowdeck.dev",
+      name: user.name || "کاربر RadarCheck",
+      email: user.email || "user@radarcheck.dev",
       role: activeRole,
       roleTitle: roleTitle,
       avatar: user.avatar || user.name?.charAt(0) || "ک",

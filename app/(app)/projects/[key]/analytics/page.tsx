@@ -1198,10 +1198,10 @@ export default function AnalyticsPage({
             <div className="flex flex-wrap items-center justify-between gap-4 border-b-2 border-blue-600 pb-5 print-avoid-break">
               <div className="flex items-center gap-3">
                 <div className="size-12 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black text-xl shadow-sm">
-                  FD
+                  RC
                 </div>
                 <div>
-                  <h2 className="text-xl font-black text-gray-900">سامانه مدیریت مهندسی FlowDeck</h2>
+                  <h2 className="text-xl font-black text-gray-900">سامانه مدیریت مهندسی RadarCheck</h2>
                   <p className="text-xs text-gray-500">گزارش جامع ارزیابی عملکرد، کیفیت کد و بهره‌وری پرسنل</p>
                 </div>
               </div>

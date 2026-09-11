@@ -81,7 +81,7 @@ export default function UserSettingsPage() {
       const finalAvatar = avatarUrl.trim() || (github.trim() ? `https://github.com/${github.trim().replace(/^@/, "")}.png` : name.charAt(0) || "ک");
       
       const res = await updateProfile({
-        name: name.trim() || "کاربر Flowdeck",
+        name: name.trim() || "کاربر RadarCheck",
         roleTitle: roleTitle.trim() || (isAdmin ? "مدیرعامل و ادمین ارشد" : "توسعه‌دهنده / کاربر عادی"),
         github: github.trim().replace(/^@/, "") || undefined,
         avatar: finalAvatar,
