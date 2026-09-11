@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { faNumber } from "@/lib/format";
 import { useUserRole } from "@/lib/role-context";
+import { useProjectStore } from "@/lib/project-store";
 import {
   ISSUE_PRIORITY_LABEL,
   ISSUE_STATUS_LABEL,
@@ -36,10 +37,6 @@ import { IssuesTable } from "@/components/features/issues/issues-table";
 import { IssuesBoard } from "@/components/features/issues/issues-board";
 import { IssueDetailPanel } from "@/components/features/issues/issue-detail-panel";
 import { CreateIssueDialog } from "@/components/features/issues/create-issue-dialog";
-import {
-  getIssuesByProject,
-  issues as defaultIssues,
-} from "@/components/features/__fixtures__/mock-data";
 
 type SortField = "updatedAt" | "priority" | "estimate" | "dueDate";
 
@@ -67,6 +64,7 @@ export default function IssuesPage() {
   const projectKey = (params?.key || "PM").toUpperCase();
 
   const { isMember, profile } = useUserRole();
+  const { issues, addIssue, updateIssue, deleteIssue } = useProjectStore();
 
   const [view, setView] = useState("board");
   const [scopeFilter, setScopeFilter] = useState<"all" | "my">("all");
@@ -81,59 +79,24 @@ export default function IssuesPage() {
   const [requestText, setRequestText] = useState("");
   const [selected, setSelected] = useState<Issue | null>(null);
 
-  // Issues state initialized with project issues
-  const [issues, setIssues] = useState<Issue[] | null>(null);
-  const [error, setError] = useState(false);
-
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(() => {
-    setError(false);
-    setIssues(null);
-    const t = setTimeout(() => {
-      const projectScoped = getIssuesByProject(projectKey);
-      setIssues(projectScoped.length > 0 ? projectScoped : defaultIssues);
-    }, 250);
-    return () => clearTimeout(t);
-  }, [projectKey]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  // Handle Drag & Drop move
-  const handleIssueMove = (issueId: string, newStatus: IssueStatus) => {
-    setIssues((prev) => {
-      if (!prev) return prev;
-      return prev.map((i) =>
-        i.id === issueId ? { ...i, status: newStatus, updatedAt: new Date().toISOString() } : i
-      );
-    });
+  // Handle status changes (drag and drop or menu)
+  const handleStatusChange = (issueId: string, nextStatus: IssueStatus) => {
+    updateIssue(issueId, { status: nextStatus });
     if (selected && selected.id === issueId) {
-      setSelected((prev) => (prev ? { ...prev, status: newStatus } : null));
+      setSelected({ ...selected, status: nextStatus });
     }
   };
 
   // Handle creating a new issue
-  const handleCreateIssue = (newIssue: Issue) => {
-    setIssues((prev) => [newIssue, ...(prev || [])]);
-  };
-
-  // Handle updating an existing issue
-  const handleUpdateIssue = (updated: Issue) => {
-    setIssues((prev) => {
-      if (!prev) return prev;
-      return prev.map((i) => (i.id === updated.id ? updated : i));
-    });
-    setSelected(updated);
+  const handleCreate = (newIssue: Issue) => {
+    addIssue(newIssue);
   };
 
   // Handle deleting an issue
   const handleDeleteIssue = (issueId: string) => {
-    setIssues((prev) => {
-      if (!prev) return prev;
-      return prev.filter((i) => i.id !== issueId);
-    });
+    deleteIssue(issueId);
     if (selected?.id === issueId) {
       setSelected(null);
     }

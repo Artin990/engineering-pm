@@ -1,392 +1,402 @@
-/**
- * GitHub tab — Project settings > GitHub.
- *
- * Sections (DOC-04 §5):
- * - Install status (connect / disconnect GitHub App)
- * - Repositories (list + link-to-project actions)
- * - Pull requests (recent + state)
- * - Pending status suggestions (accept/reject — SSOT stays internal)
- */
-import { db } from "@/lib/db";
+"use client";
+
+import { useState, useTransition } from "react";
+import { useParams } from "next/navigation";
 import {
-  githubCommits,
-  githubInstallations,
-  githubIssueLinks,
-  githubPullRequests,
-  githubRepositories,
-  issues,
-  projects,
-  workspaces,
-} from "@/lib/db/schema";
-import { and, desc, eq } from "drizzle-orm";
-import { getSession } from "@/lib/auth/session";
-import { listReposByWorkspace } from "@/lib/github/queries";
+  GitBranch,
+  GitPullRequest,
+  GitCommit,
+  Copy,
+  Check,
+  ExternalLink,
+  Users,
+  Link as LinkIcon,
+  ShieldCheck,
+  Sparkles,
+  RefreshCw,
+  Plus,
+  Mail,
+  UserCheck,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { GithubIcon } from "@/components/ui/github-icon";
+import { useUserRole } from "@/lib/role-context";
+import { useProjectStore } from "@/lib/project-store";
+import { faNumber } from "@/lib/format";
 
-export const dynamic = "force-dynamic";
+export default function GithubPage() {
+  const params = useParams<{ key: string }>();
+  const projectKey = (params?.key || "PM").toUpperCase();
 
-type PageProps = { params: Promise<{ key: string }> };
+  const { isAdmin } = useUserRole();
+  const { members, updateMember } = useProjectStore();
 
-interface GithubRepoItem {
-  id: string;
-  name: string;
-  isPrivate: boolean;
-  projectId: string | null;
-}
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [activeTab, setActiveTab] = useState<"overview" | "members" | "prs" | "commits">("overview");
 
-interface GithubPrItem {
-  id: string;
-  prNumber: number;
-  title: string | null;
-  state: string;
-  authorLogin: string | null;
-  url: string | null;
-  repoName: string;
-  updatedAt: string | Date | null;
-}
+  // Mock initial PRs and Commits
+  const [prs] = useState([
+    {
+      id: "pr1",
+      prNumber: 42,
+      title: "feat: بهینه‌سازی کوئری‌های داشبورد",
+      state: "open",
+      authorLogin: "artin-amiri",
+      url: "https://github.com/org/engineering-pm/pull/42",
+      repoName: "org/engineering-pm",
+      updatedAt: "۲ ساعت پیش",
+    },
+    {
+      id: "pr2",
+      prNumber: 41,
+      title: "feat: لایوت داشبورد مدیریت پروژه",
+      state: "open",
+      authorLogin: "sara-ahmadi",
+      url: "https://github.com/org/engineering-pm/pull/41",
+      repoName: "org/engineering-pm",
+      updatedAt: "دیروز",
+    },
+    {
+      id: "pr3",
+      prNumber: 40,
+      title: "fix: همگام‌سازی داده‌ها بعد از رفرش",
+      state: "merged",
+      authorLogin: "reza-dev",
+      url: "https://github.com/org/engineering-pm/pull/40",
+      repoName: "org/engineering-pm",
+      updatedAt: "۳ روز پیش",
+    },
+  ]);
 
-interface GithubCommitItem {
-  id: string;
-  sha: string;
-  message: string | null;
-  authorLogin: string | null;
-  branch: string | null;
-  committedAt: string | Date | null;
-  repoName: string;
-}
+  const [commits] = useState([
+    {
+      id: "c1",
+      sha: "a3f8e2d",
+      message: "refactor: جدا کردن استیت‌های پروژه و افزودن Provider",
+      authorLogin: "artin-amiri",
+      branch: "main",
+      time: "۱۰ دقیقه پیش",
+    },
+    {
+      id: "c2",
+      sha: "b7c1d9a",
+      message: "fix: اصلاح ارورهای نال در صفحات تحلیل و تنظیمات",
+      authorLogin: "artin-amiri",
+      branch: "fix/analytics",
+      time: "۱ ساعت پیش",
+    },
+    {
+      id: "c3",
+      sha: "e4f2c8b",
+      message: "style: طراحی صفحه 404 و تنظیم دسترسی کاربران",
+      authorLogin: "sara-ahmadi",
+      branch: "feature/not-found",
+      time: "۳ ساعت پیش",
+    },
+  ]);
 
-interface GithubSuggestionItem {
-  linkId: string;
-  issueKey: string;
-  issueTitle: string;
-  issueStatus: string;
-  suggestedStatus: string | null;
-  prNumber?: number | null;
-  repoName?: string | null;
-}
+  const [suggestions, setSuggestions] = useState([
+    {
+      id: "sug-1",
+      issueKey: `${projectKey}-104`,
+      issueTitle: "بهینه‌سازی کوئری‌های دیتابیس",
+      currentStatus: "in_progress",
+      suggestedStatus: "in_review",
+      prNumber: 42,
+    },
+  ]);
 
-interface GithubInstallationItem {
-  id: string;
-  accountLogin: string;
-  installationId: number;
-}
+  const inviteLink = typeof window !== "undefined"
+    ? `${window.location.origin}/register?invite=${projectKey.toLowerCase()}`
+    : `https://flowdeck.dev/register?invite=${projectKey.toLowerCase()}`;
 
-export default async function GithubPage({ params }: PageProps) {
-  const { key } = await params;
+  const copyInvite = () => {
+    navigator.clipboard.writeText(inviteLink);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
 
-  // Attempt real auth + DB resolution; gracefully fallback for demo/offline
-  let connected = false;
-  let allRepos: GithubRepoItem[] = [];
-  let prs: GithubPrItem[] = [];
-  let commits: GithubCommitItem[] = [];
-  let suggestions: GithubSuggestionItem[] = [];
-  let installations: GithubInstallationItem[] = [];
-  const appSlug = process.env.GITHUB_APP_SLUG ?? "";
-
-  try {
-    await getSession();
-
-
-    const [project] = await db
-      .select({ id: projects.id, workspaceId: projects.workspaceId, name: projects.name, key: projects.key })
-      .from(projects)
-      .innerJoin(workspaces, eq(projects.workspaceId, workspaces.id))
-      .where(and(eq(projects.key, key.toUpperCase())))
-      .limit(1);
-
-    if (project) {
-      installations = await db
-        .select()
-        .from(githubInstallations)
-        .where(eq(githubInstallations.workspaceId, project.workspaceId));
-
-      allRepos = await listReposByWorkspace(project.workspaceId);
-
-      prs = await db
-        .select({
-          id: githubPullRequests.id,
-          prNumber: githubPullRequests.prNumber,
-          title: githubPullRequests.title,
-          state: githubPullRequests.state,
-          authorLogin: githubPullRequests.authorLogin,
-          url: githubPullRequests.url,
-          repoName: githubRepositories.name,
-          updatedAt: githubPullRequests.updatedAt,
-        })
-        .from(githubPullRequests)
-        .innerJoin(githubRepositories, eq(githubPullRequests.repoId, githubRepositories.id))
-        .where(eq(githubRepositories.projectId, project.id))
-        .orderBy(desc(githubPullRequests.updatedAt))
-        .limit(15);
-
-      commits = await db
-        .select({
-          id: githubCommits.id,
-          sha: githubCommits.sha,
-          message: githubCommits.message,
-          authorLogin: githubCommits.authorLogin,
-          branch: githubCommits.branch,
-          committedAt: githubCommits.committedAt,
-          repoName: githubRepositories.name,
-        })
-        .from(githubCommits)
-        .innerJoin(githubRepositories, eq(githubCommits.repoId, githubRepositories.id))
-        .where(eq(githubRepositories.projectId, project.id))
-        .orderBy(desc(githubCommits.committedAt))
-        .limit(15);
-
-      suggestions = await db
-        .select({
-          linkId: githubIssueLinks.id,
-          issueKey: issues.key,
-          issueTitle: issues.title,
-          issueStatus: issues.status,
-          suggestedStatus: githubIssueLinks.suggestedStatus,
-          prNumber: githubPullRequests.prNumber,
-          repoName: githubRepositories.name,
-        })
-        .from(githubIssueLinks)
-        .innerJoin(issues, eq(githubIssueLinks.issueId, issues.id))
-        .leftJoin(githubPullRequests, eq(githubIssueLinks.pullRequestId, githubPullRequests.id))
-        .leftJoin(githubRepositories, eq(githubPullRequests.repoId, githubRepositories.id))
-        .where(
-          and(
-            eq(issues.projectId, project.id),
-            eq(githubIssueLinks.suggestionState, "pending")
-          )
-        )
-        .limit(20);
-
-      connected = installations.length > 0;
-    }
-  } catch {
-    // Graceful fallback to rich mock data
-    connected = true;
-    installations = [{ id: "inst-1", accountLogin: "org-engineering", installationId: 123456 }];
-    allRepos = [
-      { id: "repo-1", name: "org/engineering-pm", isPrivate: true, projectId: "p1" },
-      { id: "repo-2", name: "org/api-gateway", isPrivate: true, projectId: "p1" },
-    ];
-    prs = [
-      {
-        id: "pr1",
-        prNumber: 42,
-        title: "feat: بهینه‌سازی کوئری‌های داشبورد",
-        state: "open",
-        authorLogin: "mohammad-rezaei",
-        url: "https://github.com/org/engineering-pm/pull/42",
-        repoName: "org/engineering-pm",
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        id: "pr2",
-        prNumber: 41,
-        title: "feat: لایوت داشبورد مدیریت پروژه",
-        state: "open",
-        authorLogin: "niloofar-karimi",
-        url: "https://github.com/org/engineering-pm/pull/41",
-        repoName: "org/engineering-pm",
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        id: "pr3",
-        prNumber: 40,
-        title: "fix: همگام‌سازی داده‌ها بعد از رفرش",
-        state: "merged",
-        authorLogin: "ali-mohammadi",
-        url: "https://github.com/org/engineering-pm/pull/40",
-        repoName: "org/engineering-pm",
-        updatedAt: new Date().toISOString(),
-      },
-    ];
-    commits = [
-      {
-        id: "c1",
-        sha: "a3f8e2d491c",
-        message: "refactor: جدا کردن هوک‌های داشبورد",
-        authorLogin: "niloofar-karimi",
-        branch: "main",
-        committedAt: new Date().toISOString(),
-        repoName: "org/engineering-pm",
-      },
-      {
-        id: "c2",
-        sha: "b7c1d9a20ef",
-        message: "fix: اصلاح کوئری JOIN برای آمار",
-        authorLogin: "mohammad-rezaei",
-        branch: "fix/queries",
-        committedAt: new Date().toISOString(),
-        repoName: "org/engineering-pm",
-      },
-      {
-        id: "c3",
-        sha: "e4f2c8b881a",
-        message: "style: RTL فرم‌ها و چک‌لیست",
-        authorLogin: "zahra-hosseini",
-        branch: "main",
-        committedAt: new Date().toISOString(),
-        repoName: "org/engineering-pm",
-      },
-    ];
-    suggestions = [
-      {
-        linkId: "sug-1",
-        issueKey: `${key.toUpperCase()}-104`,
-        issueTitle: "بهینه‌سازی کوئری‌های دیتابیس",
-        issueStatus: "in_progress",
-        suggestedStatus: "in_review",
-        prNumber: 42,
-        repoName: "org/engineering-pm",
-      },
-    ];
-  }
-
-  const installUrl = appSlug
-    ? `https://github.com/apps/${appSlug}/installations/new`
-    : "https://github.com/apps";
+  const handleSuggestionAction = (id: string, action: "accept" | "reject") => {
+    setSuggestions((prev) => prev.filter((s) => s.id !== id));
+  };
 
   return (
-    <div className="space-y-8">
-      {/* ── Connection status ─────────────────────────────────────────────── */}
-      <section className="rounded-lg border p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">
-              {connected ? "متصل به GitHub" : "اتصال GitHub"}
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {connected
-                ? `${installations.length} نصب فعال — حساب: ${installations.map((i) => i.accountLogin).join(", ")}`
-                : "برای همگام‌سازی PR‌ها و کامیت‌ها، ابتدا GitHub App را نصب کنید."}
-            </p>
+    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+      {/* Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+              هوش و یکپارچه‌سازی GitHub
+            </h1>
+            <Badge variant="outline" className="font-mono text-xs">
+              {projectKey}
+            </Badge>
           </div>
-          {installUrl && (
-            <a
-              href={installUrl}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              {connected ? "مدیریت نصب" : "نصب GitHub App"}
-            </a>
-          )}
-          {!installUrl && (
-            <span className="text-xs text-muted-foreground">
-              GITHUB_APP_SLUG تنظیم نشده — به مستندات مراجعه کنید.
-            </span>
-          )}
+          <p className="text-sm text-muted-foreground mt-1">
+            مشاهده حساب‌های گیت‌هاب اعضا، تولید لینک دعوت، بررسی PRها و همگام‌سازی مخازن
+          </p>
         </div>
-      </section>
 
-      {/* ── Repositories ──────────────────────────────────────────────────── */}
-      <section>
-        <h3 className="mb-3 text-sm font-semibold">مخازن ({allRepos.length})</h3>
-        {allRepos.length === 0 ? (
-          <p className="text-sm text-muted-foreground">هنوز مخزنی همگام نشده.</p>
-        ) : (
-          <ul className="divide-y rounded-lg border">
-            {allRepos.map((repo) => (
-              <li key={repo.id} className="flex items-center justify-between px-4 py-3">
-                <div>
-                  <span className="font-mono text-sm">{repo.name}</span>
-                  {repo.isPrivate && (
-                    <span className="mr-2 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                      private
-                    </span>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={copyInvite}
+            variant="outline"
+            className="gap-2 text-xs border-border bg-card shadow-xs"
+          >
+            {copiedLink ? (
+              <Check className="w-3.5 h-3.5 text-emerald-500" />
+            ) : (
+              <LinkIcon className="w-3.5 h-3.5" />
+            )}
+            {copiedLink ? "لینک کپی شد!" : "کپی لینک دعوت همکاران"}
+          </Button>
+
+          <Button asChild size="sm" className="gap-2">
+            <a
+              href="https://github.com/apps"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <GithubIcon size={14} />
+              اتصال GitHub App
+            </a>
+          </Button>
+        </div>
+      </div>
+
+      {/* Invite Link Banner */}
+      <Card className="border-primary/30 bg-primary/5 shadow-xs">
+        <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+              <LinkIcon className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-foreground">لینک دعوت سریع به پروژه {projectKey}</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                این لینک را برای اعضای تیم ارسال کنید تا مستقیم وارد پروژه شده و گیت‌هاب خود را وصل کنند.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Input
+              readOnly
+              value={inviteLink}
+              className="bg-card text-xs font-mono max-w-xs h-9"
+              dir="ltr"
+            />
+            <Button size="sm" onClick={copyInvite} className="gap-1.5 shrink-0">
+              {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              {copiedLink ? "کپی شد" : "کپی"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Team Members' GitHub Accounts Section */}
+      <Card className="border-border/80 shadow-xs">
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <GithubIcon size={16} />
+              حساب‌های GitHub اعضای تیم ({faNumber(members.length)})
+            </CardTitle>
+            <CardDescription className="text-xs mt-1">
+              یوزرنیم‌های متصل به پروژه جهت رهگیری PRها، کامیت‌ها و آنالیتیکس فردی
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {members.map((m) => (
+              <div
+                key={m.id}
+                className="p-3 rounded-xl border border-border/70 bg-card hover:border-primary/50 transition-colors flex flex-col justify-between gap-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs text-white ${
+                        m.role === "admin"
+                          ? "bg-amber-600"
+                          : m.role === "intern"
+                          ? "bg-purple-600"
+                          : "bg-blue-600"
+                      }`}
+                    >
+                      {m.displayName.charAt(0)}
+                    </div>
+                    <div>
+                      <span className="font-semibold text-xs text-foreground block truncate">
+                        {m.displayName}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground block font-mono">
+                        {m.role === "admin"
+                          ? "مدیر"
+                          : m.role === "intern"
+                          ? "کارآموز"
+                          : "مهندس"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-border/50 flex items-center justify-between">
+                  {m.githubLogin ? (
+                    <a
+                      href={`https://github.com/${m.githubLogin}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-mono text-primary hover:underline"
+                    >
+                      <GithubIcon size={12} />
+                      @{m.githubLogin}
+                      <ExternalLink className="w-2.5 h-2.5 opacity-60" />
+                    </a>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground">متصل نشده</span>
+                  )}
+
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextGh = prompt(`یوزرنیم GitHub برای ${m.displayName}:`, m.githubLogin || "");
+                        if (nextGh !== null) {
+                          updateMember(m.id, { githubLogin: nextGh.trim() });
+                        }
+                      }}
+                      className="text-[10px] text-muted-foreground hover:text-foreground underline"
+                    >
+                      {m.githubLogin ? "ویرایش" : "+ افزودن"}
+                    </button>
                   )}
                 </div>
-                <span className="text-xs text-muted-foreground">
-                  {repo.projectId ? "لینک‌شده به پروژه" : "بدون پروژه"}
-                </span>
-              </li>
+              </div>
             ))}
-          </ul>
-        )}
-      </section>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* ── Pull requests ─────────────────────────────────────────────────── */}
-      <section>
-        <h3 className="mb-3 text-sm font-semibold">Pull Request‌های اخیر</h3>
-        {prs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            PR‌ای برای مخازن لینک‌شده به این پروژه یافت نشد.
-          </p>
-        ) : (
-          <ul className="divide-y rounded-lg border">
+      {/* Status Suggestions */}
+      {suggestions.length > 0 && (
+        <Card className="border-amber-500/30 bg-amber-500/5 shadow-xs">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-bold flex items-center gap-2 text-amber-600 dark:text-amber-400">
+              <Sparkles className="w-4 h-4" />
+              پیشنهادهای هوشمند تغییر وضعیت از GitHub ({faNumber(suggestions.length)})
+            </CardTitle>
+            <CardDescription className="text-xs">
+              بر اساس مرج یا بسته شدن PRها، این تغییر وضعیت‌ها پیشنهاد شده است:
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {suggestions.map((s) => (
+              <div
+                key={s.id}
+                className="flex items-center justify-between p-3 rounded-lg border border-amber-500/20 bg-card text-xs"
+              >
+                <div>
+                  <span className="font-mono font-bold text-foreground">{s.issueKey}</span>
+                  <span className="ms-2 font-medium">{s.issueTitle}</span>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    تغییر وضعیت از <span className="font-semibold">{s.currentStatus}</span> به{" "}
+                    <span className="font-semibold text-primary">{s.suggestedStatus}</span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => handleSuggestionAction(s.id, "accept")}
+                    className="h-7 px-3 text-xs"
+                  >
+                    تأیید
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleSuggestionAction(s.id, "reject")}
+                    className="h-7 px-3 text-xs"
+                  >
+                    رد
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* PRs and Commits Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Pull Requests */}
+        <Card className="border-border/80 shadow-xs">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <GitPullRequest className="w-4 h-4 text-purple-500" />
+              Pull Requestهای اخیر
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="divide-y divide-border/60">
             {prs.map((pr) => (
-              <li key={pr.id} className="flex items-center justify-between px-4 py-3">
+              <div key={pr.id} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-3 text-xs">
                 <div className="min-w-0">
                   <a
-                    href={pr.url ?? "#"}
+                    href={pr.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="truncate text-sm font-medium hover:underline"
+                    className="font-medium hover:underline block truncate text-foreground text-sm"
                   >
                     #{pr.prNumber} — {pr.title}
                   </a>
-                  <p className="text-xs text-muted-foreground">
-                    {pr.repoName} · {pr.authorLogin}
+                  <p className="text-muted-foreground text-[11px] mt-0.5">
+                    {pr.repoName} · توسط @{pr.authorLogin} · {pr.updatedAt}
                   </p>
                 </div>
-                <span className="rounded bg-muted px-2 py-1 text-xs">{pr.state}</span>
-              </li>
+                <Badge
+                  variant={pr.state === "merged" ? "secondary" : "default"}
+                  className="text-[10px] shrink-0"
+                >
+                  {pr.state === "merged" ? "مرج‌شده" : "باز"}
+                </Badge>
+              </div>
             ))}
-          </ul>
-        )}
-      </section>
+          </CardContent>
+        </Card>
 
-      {/* ── Commits ───────────────────────────────────────────────────────── */}
-      <section>
-        <h3 className="mb-3 text-sm font-semibold">کامیت‌های اخیر</h3>
-        {commits.length === 0 ? (
-          <p className="text-sm text-muted-foreground">کامیتی یافت نشد.</p>
-        ) : (
-          <ul className="divide-y rounded-lg border">
+        {/* Commits */}
+        <Card className="border-border/80 shadow-xs">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <GitCommit className="w-4 h-4 text-blue-500" />
+              آخرین کامیت‌های ثبت‌شده
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="divide-y divide-border/60">
             {commits.map((c) => (
-              <li key={c.id} className="flex items-center justify-between px-4 py-2">
+              <div key={c.id} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-3 text-xs">
                 <div className="min-w-0">
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {c.sha.slice(0, 7)}
-                  </span>
-                  <span className="mr-3 truncate text-sm">{c.message}</span>
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {c.authorLogin} · {c.branch}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* ── Suggestions ───────────────────────────────────────────────────── */}
-      <section>
-        <h3 className="mb-3 text-sm font-semibold">
-          پیشنهادهای وضعیت ({suggestions.length})
-        </h3>
-        <p className="mb-3 text-xs text-muted-foreground">
-          GitHub وضعیت پیشنهاد می‌دهد؛ تأیید نهایی با شماست (SSOT داخلی).
-        </p>
-        {suggestions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">پیشنهاد فعالی وجود ندارد.</p>
-        ) : (
-          <ul className="divide-y rounded-lg border">
-            {suggestions.map((s) => (
-              <li key={s.linkId} className="flex items-center justify-between px-4 py-3">
-                <div>
-                  <span className="font-medium text-sm">{s.issueKey}</span>
-                  <span className="mr-2 text-sm">{s.issueTitle}</span>
-                  <p className="text-xs text-muted-foreground">
-                    {s.repoName ? `${s.repoName}#${s.prNumber} → ` : ""}
-                    پیشنهاد: {s.suggestedStatus} (فعلی: {s.issueStatus})
+                  <span className="font-mono text-[11px] text-primary font-bold">{c.sha}</span>
+                  <span className="ms-2 font-medium text-foreground">{c.message}</span>
+                  <p className="text-muted-foreground text-[11px] mt-0.5">
+                    شاخه {c.branch} · توسط @{c.authorLogin} · {c.time}
                   </p>
                 </div>
-                <SuggestionActions linkId={s.linkId} />
-              </li>
+              </div>
             ))}
-          </ul>
-        )}
-      </section>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
-
-/** Client component for accept/reject actions. */
-import SuggestionActions from "./suggestion-actions";

@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
-import { AlertCircle, ChevronDown, ChevronUp, Inbox, Plus, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Inbox, Plus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -16,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { faDate, faNumber, faPercent } from "@/lib/format";
+import { useProjectStore } from "@/lib/project-store";
 import {
   ISSUE_STATUS_LABEL,
   MILESTONE_STATUS_LABEL,
@@ -23,10 +23,6 @@ import {
   type Milestone,
   type MilestoneStatus,
 } from "@/components/features/types";
-import {
-  MOCK_ISSUES,
-  MOCK_MILESTONES,
-} from "@/components/features/__fixtures__/mock-data";
 
 const STATUS_BADGE: Record<MilestoneStatus, string> = {
   completed: "bg-emerald-500/10 text-emerald-600",
@@ -101,38 +97,33 @@ function MilestoneCard({
             </>
           ) : (
             <>
-              نمایش ایشوها <ChevronDown size={14} />
+              نمایش ایشوها ({faNumber(issues.length)}) <ChevronDown size={14} />
             </>
           )}
         </span>
       </button>
 
       {expanded && (
-        <div className="border-t border-[var(--border)] p-[20px] pt-[12px]">
+        <div className="border-t border-[var(--border)] p-[16px]">
           {issues.length === 0 ? (
             <p className="text-[13px] text-[var(--text-muted)]">
-              ایشویی در این مایلستون ثبت نشده است.
+              هیچ ایشویی برای این مایلستون تعریف نشده است.
             </p>
           ) : (
             <ul className="flex flex-col gap-[8px]">
-              {issues.map((issue) => (
+              {issues.map((i) => (
                 <li
-                  key={issue.id}
-                  className="flex items-center justify-between gap-2 rounded-[10px] border border-[var(--border)] bg-[var(--background)] p-[12px]"
+                  key={i.id}
+                  className="flex items-center justify-between rounded-[8px] bg-[var(--background)] p-[10px] text-[13px]"
                 >
-                  <div className="min-w-0">
-                    <span
-                      dir="ltr"
-                      className="me-2 text-[12px] font-bold text-[var(--text-muted)]"
-                    >
-                      {issue.key}
+                  <div className="flex items-center gap-[8px]">
+                    <span className="font-mono text-[11px] text-[var(--text-muted)]" dir="ltr">
+                      {i.key}
                     </span>
-                    <span className="text-[13px] text-[var(--text-primary)] font-medium">
-                      {issue.title}
-                    </span>
+                    <span className="text-[var(--text-primary)]">{i.title}</span>
                   </div>
-                  <Badge variant="secondary" className="shrink-0 text-[11px]">
-                    {ISSUE_STATUS_LABEL[issue.status]}
+                  <Badge variant="secondary" className="text-[10px]">
+                    {ISSUE_STATUS_LABEL[i.status]}
                   </Badge>
                 </li>
               ))}
@@ -145,13 +136,10 @@ function MilestoneCard({
 }
 
 export default function MilestonesPage() {
-  const params = useParams<{ key: string }>();
+  const params = useParams<{ key?: string }>();
   const projectKey = (params?.key || "PM").toUpperCase();
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [milestones, setMilestones] = useState<Milestone[]>([]);
-  const [issues, setIssues] = useState<Issue[]>([]);
+  const { milestones, issues, addMilestone } = useProjectStore();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -160,15 +148,6 @@ export default function MilestonesPage() {
   const [description, setDescription] = useState("");
   const [targetDate, setTargetDate] = useState("");
   const [status, setStatus] = useState<MilestoneStatus>("planned");
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setMilestones([...MOCK_MILESTONES].sort((a, b) => a.order - b.order));
-      setIssues(MOCK_ISSUES);
-      setLoading(false);
-    }, 200);
-    return () => clearTimeout(timer);
-  }, []);
 
   const handleCreateMilestone = (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,43 +162,15 @@ export default function MilestonesPage() {
       order: milestones.length + 1,
     };
 
-    setMilestones((prev) => [...prev, newMs]);
+    addMilestone(newMs);
     setTitle("");
     setDescription("");
     setTargetDate("");
     setCreateOpen(false);
   };
 
-  const retry = () => {
-    setError(false);
-    setLoading(true);
-    setTimeout(() => setLoading(false), 300);
-  };
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center gap-4 p-[40px] text-center">
-        <AlertCircle size={24} className="text-red-500" />
-        <p className="text-[14px] text-[var(--text-secondary)]">
-          خطا در بارگذاری مایلستون‌ها
-        </p>
-        <Button onClick={retry}>تلاش مجدد</Button>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="grid gap-[12px] p-[20px] md:grid-cols-2">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-[180px] rounded-[10px]" />
-        ))}
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-[16px] p-[20px]">
+    <div className="flex flex-col gap-[16px] p-[20px] max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[18px] font-bold text-[var(--text-primary)]">
@@ -248,7 +199,9 @@ export default function MilestonesPage() {
               اولین مایلستون پروژه را بسازید.
             </p>
           </div>
-          <Button onClick={() => setCreateOpen(true)}>ساخت مایلستون</Button>
+          <Button size="sm" onClick={() => setCreateOpen(true)}>
+            ساخت مایلستون جدید
+          </Button>
         </div>
       ) : (
         <div className="grid gap-[12px] md:grid-cols-2">
@@ -258,7 +211,7 @@ export default function MilestonesPage() {
               milestone={m}
               issues={issues.filter((i) => i.milestoneId === m.id)}
               expanded={expandedId === m.id}
-              onToggle={() => setExpandedId(expandedId === m.id ? null : m.id)}
+              onToggle={() => setExpandedId((cur) => (cur === m.id ? null : m.id))}
             />
           ))}
         </div>
@@ -296,7 +249,7 @@ export default function MilestonesPage() {
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="مثال: انتشار نسخه بتا"
+                  placeholder="مثال: انتشار نسخه بتا (Beta Launch)"
                   autoFocus
                 />
               </div>
@@ -309,7 +262,7 @@ export default function MilestonesPage() {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={2}
-                  placeholder="هدف اصلی و خروجی‌های مورد نظر..."
+                  placeholder="شرح اهداف این نقطه عطف..."
                   className="w-full rounded-[10px] border border-[var(--border)] bg-[var(--background)] p-2.5 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] resize-none"
                 />
               </div>
@@ -367,4 +320,3 @@ export default function MilestonesPage() {
     </div>
   );
 }
-

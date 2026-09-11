@@ -45,6 +45,10 @@ export interface Member {
   displayName: string;
   avatarUrl?: string | null;
   githubLogin?: string | null;
+  email?: string | null;
+  role?: "admin" | "member" | "intern";
+  status?: "active" | "invited";
+  joinedAt?: string | null;
 }
 
 export interface Issue {

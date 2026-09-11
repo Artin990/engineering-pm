@@ -39,6 +39,7 @@ import {
   type ProjectStatus,
 } from "@/components/features/types";
 import { faNumber, faDate } from "@/lib/format";
+import { useUserRole } from "@/lib/role-context";
 
 interface ApiProjectItem {
   id: string;
@@ -51,6 +52,7 @@ interface ApiProjectItem {
 }
 
 export default function ProjectsPage() {
+  const { isAdmin } = useUserRole();
   const [projectsList, setProjectsList] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -234,10 +236,12 @@ export default function ProjectsPage() {
               ))}
             </SelectContent>
           </Select>
-          <Button onClick={() => setCreateOpen(true)} className="gap-1.5 shadow-sm">
-            <Plus className="size-4" />
-            پروژه جدید
-          </Button>
+          {isAdmin && (
+            <Button onClick={() => setCreateOpen(true)} className="gap-1.5 shadow-sm">
+              <Plus className="size-4" />
+              پروژه جدید
+            </Button>
+          )}
         </div>
       </header>
 
@@ -255,15 +259,17 @@ export default function ProjectsPage() {
             پروژه‌ای با این مشخصات یافت نشد
           </h3>
           <p className="text-[13px] text-[var(--text-muted)] mt-1 max-w-sm">
-            می‌توانید فیلتر جستجو را پاک کنید یا پروژه جدیدی بسازید.
+            می‌توانید فیلتر جستجو را پاک کنید {isAdmin ? "یا پروژه جدیدی بسازید." : "یا منتظر ایجاد پروژه توسط مدیر باشید."}
           </p>
           <div className="mt-4 flex gap-2">
             <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatusFilter("all"); }}>
               پاک کردن فیلترها
             </Button>
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
-              ساخت پروژه جدید
-            </Button>
+            {isAdmin && (
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                ساخت پروژه جدید
+              </Button>
+            )}
           </div>
         </div>
       ) : (

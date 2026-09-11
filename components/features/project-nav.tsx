@@ -11,6 +11,7 @@ import {
   Activity,
   BarChart3,
   Settings,
+  Users,
 } from "lucide-react";
 import { GithubIcon } from "@/components/ui/github-icon";
 
@@ -21,6 +22,7 @@ const TABS = [
   { href: "roadmap", label: "رودمپ", icon: Map },
   { href: "milestones", label: "مایلستون‌ها", icon: Target },
   { href: "github", label: "گیت‌هاب", icon: GithubIcon },
+  { href: "members", label: "اعضا و دسترسی‌ها", icon: Users },
   { href: "activity", label: "فعالیت", icon: Activity },
   { href: "analytics", label: "آنالیتیکس", icon: BarChart3 },
   { href: "settings", label: "تنظیمات", icon: Settings },

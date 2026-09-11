@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useState } from "react";
-import { Plus, Rocket, X } from "lucide-react";
+import { Plus, Rocket, X, Layers } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MOCK_CYCLES } from "@/components/features/__fixtures__/mock-data";
+import { useProjectStore } from "@/lib/project-store";
 import { CYCLE_STATUS_LABEL, type Cycle, type CycleStatus } from "@/components/features/types";
 import { faDate, faNumber, faPercent } from "@/lib/format";
 
@@ -23,7 +23,7 @@ export default function CyclesPage({
   params: Promise<{ key: string }>;
 }) {
   const { key } = use(params);
-  const [cyclesList, setCyclesList] = useState<Cycle[]>(MOCK_CYCLES);
+  const { cycles, addCycle } = useProjectStore();
   const [createOpen, setCreateOpen] = useState(false);
 
   // Form state
@@ -49,7 +49,7 @@ export default function CyclesPage({
       doneEstimate: 0,
     };
 
-    setCyclesList((prev) => [...prev, newCycle]);
+    addCycle(newCycle);
     setName("");
     setGoal("");
     setStartDate("");
@@ -74,70 +74,88 @@ export default function CyclesPage({
         </Button>
       </header>
 
-      <div className="grid grid-cols-1 gap-[16px] lg:grid-cols-2">
-        {cyclesList.map((cycle) => (
-          <Card key={cycle.id} className="border-[var(--border)] bg-[var(--surface)] shadow-xs">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-[16px]">
-                  <Rocket size={16} className="text-[var(--primary)]" />
-                  {cycle.name}
-                </CardTitle>
-                <Badge
-                  variant={
-                    cycle.status === "active"
-                      ? "default"
-                      : cycle.status === "completed"
-                        ? "success"
-                        : "secondary"
-                  }
-                  className="text-[11px]"
-                >
-                  {CYCLE_STATUS_LABEL[cycle.status]}
-                </Badge>
-              </div>
-              <p className="text-[13px] text-[var(--text-muted)] mt-1">
-                {faDate(cycle.startDate)} تا {faDate(cycle.endDate)}
-              </p>
-              {cycle.goal && (
-                <p className="text-[13px] text-[var(--text-secondary)] mt-1 bg-[var(--surface-raised)] p-2 rounded-[8px]">
-                  🎯 <strong>هدف:</strong> {cycle.goal}
+      {cycles.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-[12px] border border-dashed border-[var(--border)] bg-[var(--surface)] p-[48px] text-center">
+          <Layers className="size-12 text-[var(--text-muted)] mb-3" />
+          <h3 className="text-[16px] font-semibold text-[var(--text-primary)]">
+            هنوز سایکلی برای این پروژه تعریف نشده است
+          </h3>
+          <p className="text-[13px] text-[var(--text-muted)] mt-1 max-w-sm">
+            می‌توانید اولین سایکل یا اسپرینت خود را برای برنامه‌ریزی و ارزیابی پیشرفت بسازید.
+          </p>
+          <div className="mt-4">
+            <Button size="sm" onClick={() => setCreateOpen(true)} className="gap-1.5">
+              <Plus size={15} />
+              ایجاد اولین سایکل
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-[16px] lg:grid-cols-2">
+          {cycles.map((cycle) => (
+            <Card key={cycle.id} className="border-[var(--border)] bg-[var(--surface)] shadow-xs">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-[16px]">
+                    <Rocket size={16} className="text-[var(--primary)]" />
+                    {cycle.name}
+                  </CardTitle>
+                  <Badge
+                    variant={
+                      cycle.status === "active"
+                        ? "default"
+                        : cycle.status === "completed"
+                          ? "success"
+                          : "secondary"
+                    }
+                    className="text-[11px]"
+                  >
+                    {CYCLE_STATUS_LABEL[cycle.status]}
+                  </Badge>
+                </div>
+                <p className="text-[13px] text-[var(--text-muted)] mt-1">
+                  {faDate(cycle.startDate)} تا {faDate(cycle.endDate)}
                 </p>
-              )}
-            </CardHeader>
-            <CardContent className="space-y-[12px]">
-              <div>
-                <div className="mb-[5px] flex items-center justify-between text-[13px]">
-                  <span>پیشرفت وزنی</span>
-                  <span className="font-semibold">
-                    {faPercent(cycle.progress ?? 0)}
+                {cycle.goal && (
+                  <p className="text-[13px] text-[var(--text-secondary)] mt-1 bg-[var(--surface-raised)] p-2 rounded-[8px]">
+                    🎯 <strong>هدف:</strong> {cycle.goal}
+                  </p>
+                )}
+              </CardHeader>
+              <CardContent className="space-y-[12px]">
+                <div>
+                  <div className="mb-[5px] flex items-center justify-between text-[13px]">
+                    <span>پیشرفت وزنی اسپرینت</span>
+                    <span className="font-semibold">
+                      {faPercent(cycle.progress ?? 0)}
+                    </span>
+                  </div>
+                  <div className="h-[8px] w-full overflow-hidden rounded-full bg-[var(--surface-raised)]">
+                    <div
+                      className="h-full rounded-full bg-[var(--primary)] transition-[width_0.4s_ease-in-out]"
+                      style={{ width: `${(cycle.progress ?? 0) * 100}%` }}
+                      role="progressbar"
+                      aria-valuenow={Math.round((cycle.progress ?? 0) * 100)}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-[13px] text-[var(--text-muted)] border-t border-[var(--border)] pt-2.5">
+                  <span>
+                    استوری‌پوینت: {faNumber(cycle.doneEstimate ?? 0)} از{" "}
+                    {faNumber(cycle.totalEstimate ?? 0)}
+                  </span>
+                  <span>
+                    {faNumber(cycle.totalEstimate && cycle.doneEstimate ? cycle.totalEstimate - cycle.doneEstimate : 0)}{" "}
+                    باقی‌مانده
                   </span>
                 </div>
-                <div className="h-[8px] w-full overflow-hidden rounded-full bg-[var(--surface-raised)]">
-                  <div
-                    className="h-full rounded-full bg-[var(--primary)] transition-[width_0.4s_ease-in-out]"
-                    style={{ width: `${(cycle.progress ?? 0) * 100}%` }}
-                    role="progressbar"
-                    aria-valuenow={Math.round((cycle.progress ?? 0) * 100)}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                  />
-                </div>
-              </div>
-              <div className="flex items-center justify-between text-[13px] text-[var(--text-muted)] border-t border-[var(--border)] pt-2.5">
-                <span>
-                  استوری‌پوینت: {faNumber(cycle.doneEstimate ?? 0)} از{" "}
-                  {faNumber(cycle.totalEstimate ?? 0)}
-                </span>
-                <span>
-                  {faNumber(cycle.totalEstimate && cycle.doneEstimate ? cycle.totalEstimate - cycle.doneEstimate : 0)}{" "}
-                  باقی‌مانده
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Create Cycle Modal */}
       {createOpen && (
@@ -191,9 +209,16 @@ export default function CyclesPage({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
-                    تاریخ شروع
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[13px] font-medium text-[var(--text-primary)]">
+                      تاریخ شروع
+                    </label>
+                    {startDate && (
+                      <span className="text-[11px] text-[var(--primary)]">
+                        {faDate(startDate)}
+                      </span>
+                    )}
+                  </div>
                   <Input
                     type="date"
                     value={startDate}
@@ -201,9 +226,16 @@ export default function CyclesPage({
                   />
                 </div>
                 <div>
-                  <label className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
-                    تاریخ پایان
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[13px] font-medium text-[var(--text-primary)]">
+                      تاریخ پایان
+                    </label>
+                    {endDate && (
+                      <span className="text-[11px] text-[var(--primary)]">
+                        {faDate(endDate)}
+                      </span>
+                    )}
+                  </div>
                   <Input
                     type="date"
                     value={endDate}
@@ -244,4 +276,3 @@ export default function CyclesPage({
     </section>
   );
 }
-

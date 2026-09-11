@@ -12,17 +12,26 @@ import {
   Activity,
   BarChart3,
   Settings,
+import {
+  FolderKanban,
+  CheckSquare,
+  Layers,
+  Map,
+  Activity,
+  BarChart3,
+  Settings,
   Layers3,
   Target,
   PanelRightClose,
   PanelRightOpen,
   Shield,
   User,
+  Users,
 } from "lucide-react";
 import { GithubIcon } from "@/components/ui/github-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useUserRole } from "@/lib/role-context";
-import { MOCK_PROJECTS } from "@/components/features/__fixtures__/mock-data";
+import { getProjectByKey } from "@/components/features/__fixtures__/mock-data";
 
 /**
  * Sidebar اصلی اپلیکیشن Flowdeck — RTL (سمت راست) با قابلیت باز و بسته شدن و تفکیک نقش.
@@ -31,7 +40,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const params = useParams<{ key?: string }>();
   const currentKey = (params?.key || "PM").toUpperCase();
-  const currentProject = MOCK_PROJECTS.find((p) => p.key === currentKey) || MOCK_PROJECTS[0];
+  const currentProject = getProjectByKey(currentKey);
 
   const { role, profile, setRole, logout, isAdmin } = useUserRole();
   const [collapsed, setCollapsed] = useState(false);
@@ -228,6 +237,7 @@ export function Sidebar() {
                 { href: `/projects/${currentKey}/roadmap`, label: "رودمپ", icon: Map },
                 { href: `/projects/${currentKey}/milestones`, label: "مایلستون‌ها", icon: Target },
                 { href: `/projects/${currentKey}/github`, label: "گیت‌هاب", icon: GithubIcon },
+                { href: `/projects/${currentKey}/members`, label: "اعضا و دسترسی‌ها", icon: Users },
                 { href: `/projects/${currentKey}/activity`, label: "فعالیت", icon: Activity },
                 { href: `/projects/${currentKey}/analytics`, label: "آنالیتیکس و ارزیابی", icon: BarChart3 },
                 { href: `/projects/${currentKey}/settings`, label: "تنظیمات", icon: Settings },

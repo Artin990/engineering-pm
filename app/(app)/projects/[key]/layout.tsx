@@ -1,18 +1,22 @@
+import { use } from "react";
 import { ProjectNav } from "@/components/features/project-nav";
+import { ProjectStoreProvider } from "@/lib/project-store";
 
-/**
- * Project section layout — هدر پروژه + ناوبری تب‌ها.
- * TODO (موج ۲+): guard دسترسی با requireProjectKeyRole از lib/auth/rbac.
- */
 export default function ProjectLayout({
   children,
+  params,
 }: {
   children: React.ReactNode;
+  params: Promise<{ key: string }>;
 }) {
+  const { key } = use(params);
+
   return (
-    <div>
-      <ProjectNav />
-      <div className="p-[30px]">{children}</div>
-    </div>
+    <ProjectStoreProvider projectKey={key}>
+      <div>
+        <ProjectNav />
+        <div className="p-4 sm:p-6 lg:p-8">{children}</div>
+      </div>
+    </ProjectStoreProvider>
   );
 }
