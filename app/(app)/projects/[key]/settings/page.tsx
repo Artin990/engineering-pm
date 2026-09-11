@@ -1,7 +1,19 @@
 "use client";
 
 import { use, useState } from "react";
-import { Settings, Users, Check, AlertTriangle, Trash2, UserPlus, X } from "lucide-react";
+import {
+  Settings,
+  Users,
+  Check,
+  AlertTriangle,
+  Trash2,
+  UserPlus,
+  X,
+  Link as LinkIcon,
+  Copy,
+  CheckCheck,
+  Shield,
+} from "lucide-react";
 import {
   Card,
   CardContent,
@@ -12,6 +24,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { MOCK_MEMBERS, MOCK_PROJECTS } from "@/components/features/__fixtures__/mock-data";
 import { faNumber } from "@/lib/format";
 
@@ -32,6 +51,18 @@ export default function ProjectSettingsPage({
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberGithub, setNewMemberGithub] = useState("");
+
+  // Invite Link State
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [inviteRole, setInviteRole] = useState("contributor");
+  const [copied, setCopied] = useState(false);
+  const inviteLink = `https://engineering-pm.vercel.app/invite?project=${project.key.toLowerCase()}&role=${inviteRole}`;
+
+  const handleCopyInvite = () => {
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,7 +157,7 @@ export default function ProjectSettingsPage({
       {/* Members */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <CardTitle className="flex items-center gap-[8px] text-[16px]">
                 <Users className="size-4 text-[var(--primary)]" />
@@ -136,10 +167,16 @@ export default function ProjectSettingsPage({
                 افرادی که به این پروژه دسترسی دارند
               </CardDescription>
             </div>
-            <Button size="sm" variant="outline" onClick={() => setAddMemberOpen(true)} className="gap-1.5">
-              <UserPlus size={15} />
-              افزودن عضو
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => setInviteModalOpen(true)} className="gap-1.5">
+                <LinkIcon size={14} />
+                تولید لینک دعوت
+              </Button>
+              <Button size="sm" onClick={() => setAddMemberOpen(true)} className="gap-1.5">
+                <UserPlus size={14} />
+                افزودن مستقیم
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-[10px]">
@@ -269,6 +306,82 @@ export default function ProjectSettingsPage({
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Invite Link Modal */}
+      {inviteModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+          onClick={() => setInviteModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-[460px] rounded-[12px] border border-[var(--border)] bg-[var(--surface)] p-[24px] shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            dir="rtl"
+          >
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <div className="flex items-center gap-2">
+                <LinkIcon className="size-5 text-[var(--primary)]" />
+                <h2 className="text-[17px] font-bold text-[var(--text-primary)]">
+                  تولید لینک دعوت به پروژه
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInviteModalOpen(false)}
+                className="rounded-[8px] p-1 text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <p className="text-[13px] text-[var(--text-muted)]">
+                هر شخصی که این لینک را داشته باشد می‌تواند به پروژه <strong>{project.name}</strong> ملحق شود.
+              </p>
+
+              <div>
+                <label className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
+                  نقش دسترسی دعوت‌شونده
+                </label>
+                <Select value={inviteRole} onValueChange={setInviteRole}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="انتخاب نقش" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="viewer">مشاهده‌کننده (Viewer - فقط خواندنی)</SelectItem>
+                    <SelectItem value="contributor">همکار (Contributor - ثبت و ویرایش تسک‌ها)</SelectItem>
+                    <SelectItem value="lead">مدیر فنی (Lead - دسترسی کامل پروژه)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
+                  لینک اختصاصی دعوت
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input value={inviteLink} readOnly dir="ltr" className="font-mono text-[12px] bg-[var(--background)] select-all" />
+                  <Button type="button" onClick={handleCopyInvite} className="shrink-0 gap-1.5">
+                    {copied ? <CheckCheck size={16} className="text-emerald-300" /> : <Copy size={16} />}
+                    {copied ? "کپی شد!" : "کپی"}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-[8px] bg-[var(--surface-raised)] p-3 text-[12px] text-[var(--text-muted)] flex items-start gap-2">
+                <Shield size={16} className="text-[var(--primary)] shrink-0 mt-0.5" />
+                <span>این لینک دارای اعتبارسنجی خودکار RLS در سوپابیس است و دسترسی بر اساس نقش تعیین‌شده محدود می‌گردد.</span>
+              </div>
+
+              <div className="mt-6 flex justify-end border-t border-[var(--border)] pt-4">
+                <Button type="button" variant="outline" onClick={() => setInviteModalOpen(false)}>
+                  بستن
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}

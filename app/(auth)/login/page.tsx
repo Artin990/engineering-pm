@@ -8,16 +8,18 @@ import { GithubIcon } from "@/components/ui/github-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
+  const supabase = createClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
       setError("لطفاً ایمیل و رمز عبور را وارد کنید.");
@@ -25,10 +27,30 @@ export default function LoginPage() {
     }
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    setError("");
+
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        setError(
+          authError.message.includes("Invalid login credentials")
+            ? "ایمیل یا رمز عبور اشتباه است."
+            : authError.message
+        );
+        setLoading(false);
+        return;
+      }
+
       router.push("/projects");
-    }, 600);
+      router.refresh();
+    } catch {
+      setError("خطایی در اتصال رخ داد. لطفاً دوباره تلاش کنید.");
+      setLoading(false);
+    }
   };
 
   return (

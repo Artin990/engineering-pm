@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   CircleDot,
@@ -13,7 +13,6 @@ import {
   AlertCircle,
 } from "lucide-react";
 
-import { MOCK_PROJECTS } from "@/components/features/__fixtures__/mock-data";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,8 +39,19 @@ import {
 } from "@/components/features/types";
 import { faNumber } from "@/lib/format";
 
+interface ApiProjectItem {
+  id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  status?: Project["status"];
+  health?: Project["health"];
+  targetDate?: string | null;
+}
+
 export default function ProjectsPage() {
-  const [projectsList, setProjectsList] = useState<Project[]>(MOCK_PROJECTS);
+  const [projectsList, setProjectsList] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [createOpen, setCreateOpen] = useState(false);
@@ -52,7 +62,52 @@ export default function ProjectsPage() {
   const [description, setDescription] = useState("");
   const [teamName, setTeamName] = useState("تیم مهندسی");
   const [targetDate, setTargetDate] = useState("");
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const fetchProjects = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/v1/projects");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          const mapped: Project[] = json.data.map((p: ApiProjectItem) => ({
+            id: p.id,
+            key: p.key,
+            name: p.name,
+            description: p.description,
+            status: p.status || "active",
+            health: p.health || "on_track",
+            targetDate: p.targetDate ? String(p.targetDate).split("T")[0] : null,
+            owner: null,
+            teamName: "تیم مهندسی",
+            progress: 0,
+            counts: {
+              todo: 0,
+              inProgress: 0,
+              inReview: 0,
+              blocked: 0,
+              done: 0,
+              backlog: 0,
+              cancelled: 0,
+            },
+            openPrs: 0,
+            mergedPrs: 0,
+          }));
+          setProjectsList(mapped);
+        }
+      }
+    } catch {
+      // Fallback
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
 
   const filteredProjects = useMemo(() => {
     return projectsList.filter((p) => {
@@ -66,7 +121,7 @@ export default function ProjectsPage() {
     });
   }, [projectsList, search, statusFilter]);
 
-  const handleCreateProject = (e: React.FormEvent) => {
+  const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !key.trim()) {
       setError("نام و کلید پروژه الزامی است.");
@@ -84,37 +139,62 @@ export default function ProjectsPage() {
       return;
     }
 
-    const newProject: Project = {
-      id: `p-${Date.now()}`,
-      key: cleanKey,
-      name: name.trim(),
-      description: description.trim() || null,
-      status: "active",
-      health: "on_track",
-      targetDate: targetDate || null,
-      owner: null,
-      teamName: teamName.trim() || "تیم مهندسی",
-      progress: 0,
-      counts: {
-        todo: 0,
-        inProgress: 0,
-        inReview: 0,
-        blocked: 0,
-        done: 0,
-        backlog: 0,
-        cancelled: 0,
-      },
-      openPrs: 0,
-      mergedPrs: 0,
-    };
-
-    setProjectsList((prev) => [newProject, ...prev]);
-    setName("");
-    setKey("");
-    setDescription("");
-    setTargetDate("");
+    setSaving(true);
     setError("");
-    setCreateOpen(false);
+
+    try {
+      const res = await fetch("/api/v1/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          key: cleanKey,
+          description: description.trim() || undefined,
+          targetDate: targetDate || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json();
+        throw new Error(errJson.error || "خطا در ایجاد پروژه");
+      }
+
+      const newProject: Project = {
+        id: `p-${Date.now()}`,
+        key: cleanKey,
+        name: name.trim(),
+        description: description.trim() || null,
+        status: "active",
+        health: "on_track",
+        targetDate: targetDate || null,
+        owner: null,
+        teamName: teamName.trim() || "تیم مهندسی",
+        progress: 0,
+        counts: {
+          todo: 0,
+          inProgress: 0,
+          inReview: 0,
+          blocked: 0,
+          done: 0,
+          backlog: 0,
+          cancelled: 0,
+        },
+        openPrs: 0,
+        mergedPrs: 0,
+      };
+
+      setProjectsList((prev) => [newProject, ...prev]);
+      setName("");
+      setKey("");
+      setDescription("");
+      setTargetDate("");
+      setError("");
+      setCreateOpen(false);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "خطا در برقراری ارتباط با سرور");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -161,7 +241,13 @@ export default function ProjectsPage() {
       </header>
 
       {/* Grid */}
-      {filteredProjects.length === 0 ? (
+      {loading ? (
+        <div className="grid grid-cols-1 gap-[16px] md:grid-cols-2 xl:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-44 rounded-[10px] border border-[var(--border)] bg-[var(--surface)] p-5 animate-pulse" />
+          ))}
+        </div>
+      ) : filteredProjects.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-[12px] border border-dashed border-[var(--border)] bg-[var(--surface)] p-[48px] text-center">
           <Layers className="size-12 text-[var(--text-muted)] mb-3" />
           <h3 className="text-[16px] font-semibold text-[var(--text-primary)]">
@@ -346,9 +432,9 @@ export default function ProjectsPage() {
                 <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
                   انصراف
                 </Button>
-                <Button type="submit" className="gap-1.5">
+                <Button type="submit" disabled={saving} className="gap-1.5">
                   <Plus size={16} />
-                  ایجاد پروژه
+                  {saving ? "در حال ایجاد…" : "ایجاد پروژه"}
                 </Button>
               </div>
             </form>

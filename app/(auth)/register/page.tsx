@@ -8,17 +8,20 @@ import { GithubIcon } from "@/components/ui/github-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { createClient } from "@/lib/supabase/client";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const supabase = createClient();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim() || !password) {
       setError("لطفاً تمامی فیلدها را پر کنید.");
@@ -31,10 +34,36 @@ export default function RegisterPage() {
     }
 
     setLoading(true);
-    setTimeout(() => {
+    setError("");
+
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name.trim(),
+          },
+        },
+      });
+
+      if (signUpError) {
+        setError(signUpError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (data.session) {
+        router.push("/projects");
+        router.refresh();
+      } else {
+        setSuccess(true);
+        setLoading(false);
+      }
+    } catch {
+      setError("خطایی رخ داد. لطفاً دوباره تلاش کنید.");
       setLoading(false);
-      router.push("/projects");
-    }, 600);
+    }
   };
 
   return (
@@ -75,14 +104,24 @@ export default function RegisterPage() {
           </span>
         </div>
 
-        {error && (
-          <div className="mb-4 rounded-[8px] bg-red-500/10 border border-red-500/20 p-2.5 text-[13px] text-red-500 text-center">
-            {error}
+        {success ? (
+          <div className="mb-4 rounded-[8px] bg-emerald-500/10 border border-emerald-500/20 p-4 text-[13px] text-emerald-600 dark:text-emerald-400 text-center space-y-2">
+            <p className="font-semibold">ثبت‌نام شما با موفقیت انجام شد!</p>
+            <p className="text-[12px]">در صورت نیاز، ایمیل تایید برای شما ارسال شد. اکنون می‌توانید وارد شوید.</p>
+            <Link href="/login" className="inline-block mt-2 font-bold text-[var(--primary)] hover:underline">
+              رفتن به صفحه ورود
+            </Link>
           </div>
-        )}
+        ) : (
+          <>
+            {error && (
+              <div className="mb-4 rounded-[8px] bg-red-500/10 border border-red-500/20 p-2.5 text-[13px] text-red-500 text-center">
+                {error}
+              </div>
+            )}
 
-        {/* Register Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Register Form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
               نام و نام خانوادگی
@@ -143,6 +182,8 @@ export default function RegisterPage() {
             {loading ? "در حال ایجاد حساب…" : "تأیید و ساخت حساب کاربری"}
           </Button>
         </form>
+        </>
+        )}
 
         <p className="mt-6 text-center text-[13px] text-[var(--text-muted)]">
           قبلاً حساب کاربری داشته‌اید؟{" "}
