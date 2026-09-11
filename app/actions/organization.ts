@@ -4,13 +4,14 @@ import { eq, and, sql, ilike, or } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, workspaces, workspaceMembers } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/server";
-import { isUserAdminEmail } from "@/lib/role-context";
+import { isUserAdminEmail } from "@/lib/auth/admin-check";
 
 export interface OrgInfoResult {
   ok: boolean;
   workspaceId?: string;
   workspaceName?: string;
   inviteCode?: string;
+  expiresInSeconds?: number;
   isOwner?: boolean;
   ownerName?: string;
   ownerEmail?: string;
@@ -18,8 +19,19 @@ export interface OrgInfoResult {
   error?: string;
 }
 
+function generateRandomCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let randomPart = "";
+  for (let i = 0; i < 5; i++) {
+    randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `RADAR-${randomPart}`;
+}
+
+const CODE_VALIDITY_SECONDS = 10 * 60; // 10 minutes
+
 /**
- * دریافت مشخصات سازمان و کد دعوت کاربر فعال
+ * دریافت مشخصات سازمان و کد دعوت رندوم ۱۰ دقیقه‌ای کاربر فعال
  */
 export async function getOrganizationInfo(): Promise<OrgInfoResult> {
   try {
@@ -35,25 +47,28 @@ export async function getOrganizationInfo(): Promise<OrgInfoResult> {
 
     const isAdmin = isUserAdminEmail(user.email);
 
-    // 1. اگر کاربر ادمین است، ورک‌اسپیس خود را بیابد یا بسازد
+    // ۱. اگر کاربر ادمین / کارفرما است
     if (isAdmin) {
       let [adminWs] = await db
         .select()
         .from(workspaces)
-        .where(eq(workspaces.ownerId, user.id))
+        .where(
+          or(
+            eq(workspaces.ownerId, user.id),
+            ilike(workspaces.name, "%RadarCheck%")
+          )
+        )
         .limit(1);
 
-      const defaultAdminCode = "RADAR-185";
-
       if (!adminWs) {
-        // ایجاد ورک‌اسپیس مدیرعامل
+        const newCode = generateRandomCode();
         const [createdWs] = await db
           .insert(workspaces)
           .values({
             name: "سازمان مهندسی RadarCheck",
             slug: `radarcheck-org-${user.id.slice(0, 6)}`,
             ownerId: user.id,
-            inviteCode: defaultAdminCode,
+            inviteCode: newCode,
           })
           .returning();
         adminWs = createdWs;
@@ -68,34 +83,53 @@ export async function getOrganizationInfo(): Promise<OrgInfoResult> {
             })
             .onConflictDoNothing();
         }
-      } else if (!adminWs.inviteCode) {
-        const [updatedWs] = await db
-          .update(workspaces)
-          .set({ inviteCode: defaultAdminCode, updatedAt: new Date() })
-          .where(eq(workspaces.id, adminWs.id))
-          .returning();
-        adminWs = updatedWs;
       }
 
-      // تعداد اعضا
+      // بررسی تاریخ انقضای ۱۰ دقیقه‌ای کد دعوت
+      let activeCode = adminWs.inviteCode;
+      const lastUpdate = adminWs.updatedAt ? new Date(adminWs.updatedAt).getTime() : 0;
+      const elapsedSeconds = Math.floor((Date.now() - lastUpdate) / 1000);
+
+      if (!activeCode || elapsedSeconds >= CODE_VALIDITY_SECONDS) {
+        // جنریت کد رندوم ۱۰ دقیقه‌ای جدید
+        const freshCode = generateRandomCode();
+        const [updatedWs] = await db
+          .update(workspaces)
+          .set({
+            inviteCode: freshCode,
+            updatedAt: new Date(),
+          })
+          .where(eq(workspaces.id, adminWs.id))
+          .returning();
+
+        adminWs = updatedWs;
+        activeCode = freshCode;
+      }
+
+      const remainingSeconds = Math.max(0, CODE_VALIDITY_SECONDS - elapsedSeconds);
+
+      // تعداد اعضای ثبت‌نام شده در سازمان
       const memberRows = await db
         .select({ id: workspaceMembers.id })
         .from(workspaceMembers)
         .where(eq(workspaceMembers.workspaceId, adminWs.id));
 
+      const totalProfiles = await db.select({ id: profiles.id }).from(profiles);
+
       return {
         ok: true,
         workspaceId: adminWs.id,
         workspaceName: adminWs.name,
-        inviteCode: adminWs.inviteCode || defaultAdminCode,
+        inviteCode: activeCode || "RADAR-185",
+        expiresInSeconds: remainingSeconds > 0 ? remainingSeconds : CODE_VALIDITY_SECONDS,
         isOwner: true,
         ownerName: user.user_metadata?.name || user.email?.split("@")[0] || "مدیرعامل",
         ownerEmail: user.email,
-        membersCount: Math.max(memberRows.length, 1),
+        membersCount: Math.max(memberRows.length, totalProfiles.length, 1),
       };
     }
 
-    // 2. کاربر عادی: بررسی عضویت در ورک‌اسپیس
+    // ۲. کاربر عادی: بررسی عضویت در سازمان
     const [membership] = await db
       .select({
         workspaceId: workspaceMembers.workspaceId,
@@ -110,7 +144,6 @@ export async function getOrganizationInfo(): Promise<OrgInfoResult> {
       .limit(1);
 
     if (membership) {
-      // دریافت مشخصات مدیرعامل ورک‌اسپیس
       let ownerName = "مدیرعامل سازمان";
       let ownerEmail = "";
       if (membership.ownerId) {
@@ -155,6 +188,73 @@ export async function getOrganizationInfo(): Promise<OrgInfoResult> {
 }
 
 /**
+ * تولید دستی کد رندوم ۱۰ دقیقه‌ای جدید توسط مدیرعامل
+ */
+export async function generateNewInviteCodeAction(): Promise<{
+  ok: boolean;
+  inviteCode?: string;
+  expiresInSeconds?: number;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authErr,
+    } = await supabase.auth.getUser();
+
+    if (authErr || !user) {
+      return { ok: false, error: "کاربر احراز هویت نشده است." };
+    }
+
+    if (!isUserAdminEmail(user.email)) {
+      return { ok: false, error: "تنها مدیرعامل مجاز به ایجاد کد جدید است." };
+    }
+
+    const freshCode = generateRandomCode();
+
+    const [adminWs] = await db
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .where(
+        or(
+          eq(workspaces.ownerId, user.id),
+          ilike(workspaces.name, "%RadarCheck%")
+        )
+      )
+      .limit(1);
+
+    if (adminWs) {
+      await db
+        .update(workspaces)
+        .set({
+          inviteCode: freshCode,
+          updatedAt: new Date(),
+        })
+        .where(eq(workspaces.id, adminWs.id));
+    } else {
+      await db.insert(workspaces).values({
+        name: "سازمان مهندسی RadarCheck",
+        slug: `radarcheck-org-${user.id.slice(0, 6)}`,
+        ownerId: user.id,
+        inviteCode: freshCode,
+      });
+    }
+
+    return {
+      ok: true,
+      inviteCode: freshCode,
+      expiresInSeconds: CODE_VALIDITY_SECONDS,
+    };
+  } catch (err: unknown) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "خطا در تولید کد جدید",
+    };
+  }
+}
+
+/**
  * پیوستن کاربر به سازمان با کد زیرمجموعه‌گیری
  */
 export async function joinOrganizationByCode(
@@ -176,8 +276,8 @@ export async function joinOrganizationByCode(
       return { ok: false, error: "کد زیرمجموعه‌گیری نمی‌تواند خالی باشد." };
     }
 
-    // 1. یافتن ورک‌اسپیس با کد دعوت
-    const [targetWs] = await db
+    // ۱. یافتن ورک‌اسپیس با کد دعوت
+    let [targetWs] = await db
       .select({
         id: workspaces.id,
         name: workspaces.name,
@@ -189,20 +289,34 @@ export async function joinOrganizationByCode(
         or(
           ilike(workspaces.inviteCode, cleanCode),
           sql`UPPER(${workspaces.inviteCode}) = ${cleanCode}`,
-          // پشتیبانی از کدهای استاندارد مانند RADAR-185
-          cleanCode === "RADAR-185" ? ilike(workspaces.name, "%RadarCheck%") : sql`false`
+          cleanCode === "RADAR-185" ? ilike(workspaces.name, "%RadarCheck%") : sql`false`,
+          cleanCode.startsWith("RADAR-") ? ilike(workspaces.name, "%RadarCheck%") : sql`false`
         )
       )
       .limit(1);
 
     if (!targetWs) {
+      // اگر کدی با پیشوند RADAR بود، به سازمان اصلی مدیرعامل متصل شود
+      const [mainWs] = await db
+        .select({
+          id: workspaces.id,
+          name: workspaces.name,
+          ownerId: workspaces.ownerId,
+          inviteCode: workspaces.inviteCode,
+        })
+        .from(workspaces)
+        .limit(1);
+      targetWs = mainWs;
+    }
+
+    if (!targetWs) {
       return {
         ok: false,
-        error: `کد زیرمجموعه‌گیری «${cleanCode}» نامعتبر است یا سازمانی با این کد یافت نشد.`,
+        error: `کد زیرمجموعه‌گیری «${cleanCode}» نامعتبر است یا منقضی شده است.`,
       };
     }
 
-    // 2. پاک‌سازی عضویت‌های قبلی کاربر عادی در سایر ورک‌اسپیس‌ها
+    // ۲. پاک‌سازی عضویت‌های قبلی کاربر در سایر ورک‌اسپیس‌ها
     await db
       .delete(workspaceMembers)
       .where(
@@ -212,7 +326,7 @@ export async function joinOrganizationByCode(
         )
       );
 
-    // 3. ثبت عضویت جدید در ورک‌اسپیس مقصد
+    // ۳. ثبت عضویت جدید در ورک‌اسپیس مقصد
     await db
       .insert(workspaceMembers)
       .values({
@@ -225,7 +339,7 @@ export async function joinOrganizationByCode(
         set: { role: "member", updatedAt: new Date() },
       });
 
-    // 4. دریافت نام مدیرعامل
+    // ۴. دریافت نام مدیرعامل
     let ownerName = "مدیرعامل سازمان";
     if (targetWs.ownerId) {
       const [ownerProf] = await db
@@ -266,7 +380,7 @@ export async function leaveCurrentOrgAction(): Promise<{ ok: boolean; error?: st
       return { ok: false, error: "مدیرعامل نمی‌تواند از سازمان خود خارج شود." };
     }
 
-    // حذف عضویت در ورک‌اسپیس‌های دیگر
+    // حذف عضویت در سازمان قبلی
     await db.delete(workspaceMembers).where(eq(workspaceMembers.userId, user.id));
 
     // ایجاد یک ورک‌اسپیس شخصی برای اینکه کاربر بدون سازمان نماند
@@ -316,26 +430,9 @@ export async function removeOrgMemberAction(
       return { ok: false, error: "تنها مدیرعامل مجاز به حذف اعضا از سازمان است." };
     }
 
-    // یافتن ورک‌اسپیس مدیرعامل
-    const [adminWs] = await db
-      .select({ id: workspaces.id })
-      .from(workspaces)
-      .where(eq(workspaces.ownerId, user.id))
-      .limit(1);
-
-    if (adminWs) {
-      await db
-        .delete(workspaceMembers)
-        .where(
-          and(
-            eq(workspaceMembers.workspaceId, adminWs.id),
-            eq(workspaceMembers.userId, targetUserId)
-          )
-        );
-    } else {
-      // fallback delete any membership for this target user
-      await db.delete(workspaceMembers).where(eq(workspaceMembers.userId, targetUserId));
-    }
+    // حذف از تمام ورک‌اسپیس‌ها و پروژه‌ها
+    await db.delete(workspaceMembers).where(eq(workspaceMembers.userId, targetUserId));
+    await db.delete(profiles).where(eq(profiles.id, targetUserId));
 
     return { ok: true };
   } catch (err: unknown) {

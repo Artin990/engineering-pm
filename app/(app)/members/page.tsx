@@ -19,6 +19,8 @@ import {
   Copy,
   Sparkles,
   Users,
+  RefreshCw,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,10 +44,11 @@ import {
 import { GithubIcon } from "@/components/ui/github-icon";
 import { useUserRole } from "@/lib/role-context";
 import { type Member } from "@/components/features/types";
-import { faNumber } from "@/lib/format";
+import { faNumber, toPersianDigits } from "@/lib/format";
 import { deleteUserAccountAction } from "@/app/actions/auth";
 import {
   getOrganizationInfo,
+  generateNewInviteCodeAction,
   removeOrgMemberAction,
   type OrgInfoResult,
 } from "@/app/actions/organization";
@@ -60,6 +63,8 @@ export default function OrganizationMembersPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [orgInfo, setOrgInfo] = useState<OrgInfoResult | null>(null);
+  const [remainingCodeSec, setRemainingCodeSec] = useState<number>(600);
+  const [generatingCode, setGeneratingCode] = useState(false);
 
   // Form State
   const [name, setName] = useState("");
@@ -99,6 +104,9 @@ export default function OrganizationMembersPage() {
       const info = await getOrganizationInfo();
       if (info.ok) {
         setOrgInfo(info);
+        if (typeof info.expiresInSeconds === "number") {
+          setRemainingCodeSec(info.expiresInSeconds);
+        }
       }
     } catch {
       // ignore
@@ -176,6 +184,35 @@ export default function OrganizationMembersPage() {
     const interval = setInterval(fetchMembers, 3500);
     return () => clearInterval(interval);
   }, []);
+
+  // 10-minute code rotation ticker
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setRemainingCodeSec((prev) => {
+        if (prev <= 1) {
+          fetchMembers();
+          return 600;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const handleGenerateNewCode = async () => {
+    setGeneratingCode(true);
+    try {
+      const res = await generateNewInviteCodeAction();
+      if (res.ok && res.inviteCode) {
+        setOrgInfo((prev) => (prev ? { ...prev, inviteCode: res.inviteCode } : null));
+        setRemainingCodeSec(res.expiresInSeconds || 600);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setGeneratingCode(false);
+    }
+  };
 
   const saveMembers = (updated: Member[]) => {
     setMembers(updated);
@@ -288,7 +325,6 @@ export default function OrganizationMembersPage() {
   };
 
   const handleDelete = async (id: string) => {
-    // حذف سریع از سازمان و دیتابیس توسط ادمین
     const updated = members.filter((m) => m.id !== id);
     saveMembers(updated);
 
@@ -320,6 +356,12 @@ export default function OrganizationMembersPage() {
       intern: members.filter((m) => m.role === "intern").length,
     };
   }, [members]);
+
+  const formatCountdown = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${toPersianDigits(String(m).padStart(2, "0"))}:${toPersianDigits(String(s).padStart(2, "0"))}`;
+  };
 
   if (!isAdmin) {
     return (
@@ -354,7 +396,7 @@ export default function OrganizationMembersPage() {
             </h1>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            مدیریت متمرکز پرسنل، رهگیر کد زیرمجموعه‌گیری و اعطای دسترسی به پروژه‌ها
+            مدیریت متمرکز پرسنل، رهگیر کد زیرمجموعه‌گیری ۱۰ دقیقه‌ای و اعطای دسترسی به پروژه‌ها
           </p>
         </div>
 
@@ -366,24 +408,25 @@ export default function OrganizationMembersPage() {
         </div>
       </div>
 
-      {/* CEO Referral Code & Invite Banner */}
+      {/* CEO Rotating 10-Min Referral Code Banner */}
       <div className="rounded-2xl border border-[var(--primary)]/30 bg-gradient-to-r from-[var(--primary)]/10 via-[var(--surface-raised)] to-[var(--surface)] p-5 sm:p-6 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
           <div className="space-y-2 max-w-2xl">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Badge className="bg-[var(--primary)] text-white text-xs px-2.5 py-0.5 font-medium flex items-center gap-1">
                 <Sparkles className="size-3" />
-                کد زیرمجموعه‌گیری اختصاصی مدیرعامل
+                کد زیرمجموعه‌گیری رندوم (تغییر هر ۱۰ دقیقه)
               </Badge>
-              <span className="text-xs text-[var(--text-muted)] font-mono">
-                {orgInfo?.workspaceName || "سازمان مهندسی RadarCheck"}
+              <span className="text-xs text-[var(--text-muted)] font-mono flex items-center gap-1">
+                <Clock className="size-3 text-amber-500" />
+                اعتبار کد فعال: <span className="font-bold text-amber-500 font-mono">{formatCountdown(remainingCodeSec)}</span>
               </span>
             </div>
             <h2 className="text-lg font-bold text-[var(--text-primary)]">
-              پرسنل را با کد زیرمجموعه‌گیری به سازمان متصل کنید
+              کد رندوم ورود زیرمجموعه برای کارفرما
             </h2>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
-              این کد یا لینک اختصاصی را در اختیار اعضای تیم خود قرار دهید. با وارد کردن این کد در مرحله ثبت‌نام، کاربر به صورت خودکار زیرمجموعه شما شده و در این لیست قرار می‌گیرد و به پروژه‌ها، چت و تسک‌های مشترک دسترسی خواهد داشت.
+              این کد امن هر ۱۰ دقیقه یکبار به صورت خودکار تغییر می‌کند. کد یا لینک زیر را در اختیار پرسنل قرار دهید تا با وارد کردن آن در فرم ثبت‌نام، بلافاصله به عنوان زیرمجموعه شما در این لیست ظاهر شوند.
             </p>
           </div>
 
@@ -392,25 +435,38 @@ export default function OrganizationMembersPage() {
             <div className="flex items-center justify-between gap-3 bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 shadow-xs">
               <div className="text-start">
                 <span className="block text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">
-                  کد سازمان
+                  کد فعال
                 </span>
                 <span className="text-base sm:text-lg font-mono font-bold text-[var(--primary)] tracking-wider">
                   {activeInviteCode}
                 </span>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleCopyCode}
-                className="h-8 gap-1.5 text-xs border-[var(--border)] bg-[var(--background)]"
-              >
-                {copiedCode ? (
-                  <Check className="size-3.5 text-emerald-500" />
-                ) : (
-                  <Copy className="size-3.5" />
-                )}
-                {copiedCode ? "کپی شد" : "کپی کد"}
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleCopyCode}
+                  className="h-8 gap-1 text-xs border-[var(--border)] bg-[var(--background)]"
+                  title="کپی کد"
+                >
+                  {copiedCode ? (
+                    <Check className="size-3.5 text-emerald-500" />
+                  ) : (
+                    <Copy className="size-3.5" />
+                  )}
+                  {copiedCode ? "کپی شد" : "کپی"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleGenerateNewCode}
+                  disabled={generatingCode}
+                  className="h-8 w-8 p-0"
+                  title="تولید کد جدید"
+                >
+                  <RefreshCw className={`size-3.5 text-[var(--primary)] ${generatingCode ? "animate-spin" : ""}`} />
+                </Button>
+              </div>
             </div>
 
             {/* Link Button */}
@@ -423,7 +479,7 @@ export default function OrganizationMembersPage() {
               ) : (
                 <LinkIcon className="size-4" />
               )}
-              {copiedLink ? "لینک ثبت‌نام کپی شد!" : "کپی لینک ثبت‌نام مستقیم"}
+              {copiedLink ? "لینک کپی شد!" : "کپی لینک مستقیم دعوت"}
             </Button>
           </div>
         </div>

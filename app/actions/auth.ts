@@ -4,6 +4,7 @@ import { eq, or, ilike, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, workspaces, workspaceMembers } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/server";
+import { isUserAdminEmail } from "@/lib/auth/admin-check";
 
 export interface SyncUserProfileInput {
   id: string;
@@ -15,13 +16,14 @@ export interface SyncUserProfileInput {
 }
 
 /**
- * همگام‌سازی اطلاعات کاربر در جدول profiles و اطمینان از وجود حداقل یک Workspace برای او
+ * همگام‌سازی اطلاعات کاربر در جدول profiles و اتصال تضمینی به سازمان مدیرعامل
  */
 export async function syncUserProfile(input: SyncUserProfileInput) {
   try {
     const displayName = input.name?.trim() || input.email.split("@")[0] || "کاربر RadarCheck";
+    const isAdmin = isUserAdminEmail(input.email);
 
-    // 1. ذخیره/بروزرسانی پروفایل در دیتابیس
+    // ۱. ذخیره/بروزرسانی پروفایل در جدول profiles
     await db
       .insert(profiles)
       .values({
@@ -42,52 +44,70 @@ export async function syncUserProfile(input: SyncUserProfileInput) {
         },
       });
 
-    // 2. اگر کد زیرمجموعه‌گیری وارد شده باشد، مستقیماً به آن سازمان متصل شود
+    // ۲. یافتن سازمان اصلی کارفرما/مدیرعامل
+    let [mainOrgWs] = await db
+      .select({ id: workspaces.id })
+      .from(workspaces)
+      .where(
+        or(
+          ilike(workspaces.name, "%RadarCheck%"),
+          ilike(workspaces.name, "%سازمان%")
+        )
+      )
+      .limit(1);
+
+    if (!mainOrgWs) {
+      const [firstWs] = await db.select({ id: workspaces.id }).from(workspaces).limit(1);
+      mainOrgWs = firstWs;
+    }
+
+    // اگر کد زیرمجموعه‌گیری وارد شده بود، سازمان متناظر را بیاب
     if (input.inviteCode && input.inviteCode.trim()) {
       const cleanCode = input.inviteCode.trim().toUpperCase();
-      const [targetWs] = await db
+      const [customWs] = await db
         .select({ id: workspaces.id })
         .from(workspaces)
         .where(
           or(
             ilike(workspaces.inviteCode, cleanCode),
             sql`UPPER(${workspaces.inviteCode}) = ${cleanCode}`,
-            cleanCode === "RADAR-185" ? ilike(workspaces.name, "%RadarCheck%") : sql`false`
+            cleanCode === "RADAR-185" ? ilike(workspaces.name, "%RadarCheck%") : sql`false`,
+            cleanCode.startsWith("RADAR-") ? ilike(workspaces.name, "%RadarCheck%") : sql`false`
           )
         )
         .limit(1);
 
-      if (targetWs) {
-        await db
-          .insert(workspaceMembers)
-          .values({
-            workspaceId: targetWs.id,
-            userId: input.id,
-            role: "member",
-          })
-          .onConflictDoNothing();
-        return { ok: true, error: null };
+      if (customWs) {
+        mainOrgWs = customWs;
       }
     }
 
-    // 3. در غیر این صورت، بررسی عضویت در حداقل یک ورک‌اسپیس
-    const userMemberships = await db
-      .select({ workspaceId: workspaceMembers.workspaceId, role: workspaceMembers.role })
-      .from(workspaceMembers)
-      .where(eq(workspaceMembers.userId, input.id))
-      .limit(1);
-
-    if (userMemberships.length === 0) {
-      // ایجاد ورک‌اسپیس پیش‌فرض برای کاربر جدید
+    // ۳. اتصال کاربر به سازمان مدیرعامل
+    if (mainOrgWs) {
+      await db
+        .insert(workspaceMembers)
+        .values({
+          workspaceId: mainOrgWs.id,
+          userId: input.id,
+          role: isAdmin ? "owner" : "member",
+        })
+        .onConflictDoUpdate({
+          target: [workspaceMembers.workspaceId, workspaceMembers.userId],
+          set: {
+            role: isAdmin ? "owner" : "member",
+            updatedAt: new Date(),
+          },
+        });
+    } else {
+      // ایجاد اولین ورک‌اسپیس در صورت خالی بودن دیتابیس
       const cleanSlug = `ws-${input.id.slice(0, 8)}-${Date.now().toString().slice(-4)}`;
-      const wsName = `ورک‌اسپیس ${displayName}`;
-
       const [newWs] = await db
         .insert(workspaces)
         .values({
-          name: wsName,
+          name: isAdmin ? "سازمان مهندسی RadarCheck" : `ورک‌اسپیس ${displayName}`,
           slug: cleanSlug,
           ownerId: input.id,
+          inviteCode: isAdmin ? "RADAR-185" : undefined,
         })
         .returning();
 
@@ -95,7 +115,7 @@ export async function syncUserProfile(input: SyncUserProfileInput) {
         await db.insert(workspaceMembers).values({
           workspaceId: newWs.id,
           userId: input.id,
-          role: "owner",
+          role: isAdmin ? "owner" : "member",
         });
       }
     }
@@ -103,7 +123,6 @@ export async function syncUserProfile(input: SyncUserProfileInput) {
     return { ok: true, error: null };
   } catch (err: unknown) {
     console.error("[syncUserProfile] Error syncing user:", err);
-    // بازگرداندن خطا بدون کرش برنامه برای محیط‌های لوکال یا بدون دیتابیس مستقیم
     return { ok: false, error: err instanceof Error ? err.message : "خطای همگام‌سازی پروفایل" };
   }
 }
@@ -134,7 +153,11 @@ export async function getCurrentUser() {
       user,
       profile: profile || {
         id: user.id,
-        displayName: user.user_metadata?.name || user.user_metadata?.full_name || user.email?.split("@")[0] || "کاربر Flowdeck",
+        displayName:
+          user.user_metadata?.name ||
+          user.user_metadata?.full_name ||
+          user.email?.split("@")[0] ||
+          "کاربر RadarCheck",
         email: user.email || "",
         avatarUrl: user.user_metadata?.avatar_url || null,
         githubLogin: user.user_metadata?.user_name || null,
@@ -147,7 +170,7 @@ export async function getCurrentUser() {
 }
 
 /**
- * حذف کاربر از سامانه (حذف توسط خود کاربر یا حذف سریع توسط ادمین)
+ * حذف کاربر از سامانه
  */
 export async function deleteUserAccountAction(targetUserId?: string) {
   try {
@@ -164,14 +187,13 @@ export async function deleteUserAccountAction(targetUserId?: string) {
     const userIdToDelete = targetUserId || user.id;
     const isSelfDelete = userIdToDelete === user.id;
 
-    // فراخوانی تابع امن PostgreSQL جهت حذف کامل و Cascade
     const { error: rpcError } = await supabase.rpc("delete_user_account", {
       target_user_id: userIdToDelete,
     });
 
     if (rpcError) {
-      console.warn("[deleteUserAccountAction] RPC note, falling back to direct db delete:", rpcError);
       try {
+        await db.delete(workspaceMembers).where(eq(workspaceMembers.userId, userIdToDelete));
         await db.delete(profiles).where(eq(profiles.id, userIdToDelete));
       } catch {
         // ignore

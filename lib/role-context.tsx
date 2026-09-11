@@ -15,16 +15,8 @@ export interface UserProfile {
   github?: string;
 }
 
-const ADMIN_EMAILS = [
-  "amiriartin185@gmil.com",
-  "amiriartin185@gmail.com",
-  "artinamiri185@gmail.com",
-];
-
-export function isUserAdminEmail(email?: string | null): boolean {
-  if (!email) return false;
-  return ADMIN_EMAILS.some((adm) => adm.toLowerCase() === email.trim().toLowerCase());
-}
+import { ADMIN_EMAILS, isUserAdminEmail } from "@/lib/auth/admin-check";
+export { ADMIN_EMAILS, isUserAdminEmail };
 
 export const DEFAULT_MEMBER_PROFILE: UserProfile = {
   id: "00000000-0000-0000-0000-000000000002",
