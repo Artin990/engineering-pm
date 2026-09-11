@@ -821,7 +821,7 @@ $$;
 GRANT EXECUTE ON FUNCTION public.delete_project_by_key_or_id(text, uuid) TO authenticated;
 
 -- ============================================================
--- 12. Team Live Chat Sessions & Messages
+-- 12. Team Live Chat Sessions & Messages (Idempotent Migration)
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS public.chat_sessions (
@@ -849,28 +849,34 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
 ALTER TABLE public.chat_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow authenticated read chat_sessions" ON public.chat_sessions;
 CREATE POLICY "Allow authenticated read chat_sessions"
   ON public.chat_sessions FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Allow authenticated insert/update chat_sessions" ON public.chat_sessions;
 CREATE POLICY "Allow authenticated insert/update chat_sessions"
   ON public.chat_sessions FOR ALL
   TO authenticated
   USING (true)
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow authenticated read chat_messages" ON public.chat_messages;
 CREATE POLICY "Allow authenticated read chat_messages"
   ON public.chat_messages FOR SELECT
   TO authenticated
   USING (true);
 
+DROP POLICY IF EXISTS "Allow authenticated insert chat_messages" ON public.chat_messages;
 CREATE POLICY "Allow authenticated insert chat_messages"
   ON public.chat_messages FOR INSERT
   TO authenticated
   WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow authenticated delete chat_messages" ON public.chat_messages;
 CREATE POLICY "Allow authenticated delete chat_messages"
   ON public.chat_messages FOR DELETE
   TO authenticated
   USING (true);
+
