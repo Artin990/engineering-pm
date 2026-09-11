@@ -315,7 +315,7 @@ to authenticated using (public.is_workspace_member(workspace_id));
 create policy "github_repositories: اعضای پروژه/ورک‌اسپیس ببینند" on public.github_repositories for select
 to authenticated using (
   public.is_project_member(project_id)
-  or public.is_workspace_member((select installation_id from public.github_installations gi where gi.id = github_repositories.installation_id limit 1))
+  or public.is_workspace_member((select workspace_id from public.github_installations gi where gi.id = github_repositories.installation_id limit 1))
 );
 
 create policy "github_branches: read via repo" on public.github_branches for select
