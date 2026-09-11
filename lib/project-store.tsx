@@ -60,26 +60,7 @@ export function ProjectStoreProvider({
 
   const [state, setState] = useState<ProjectStoreState>(() => {
     return {
-      project: getProjectByKey(normalizedKey) || {
-        id: `p-${normalizedKey.toLowerCase()}`,
-        key: normalizedKey,
-        name: `پروژه ${normalizedKey}`,
-        description: "پروژه فعال در سامانه Flowdeck",
-        status: "active",
-        health: "on_track",
-        healthReason: "بدون ریسک شناسایی‌شده",
-        targetDate: null,
-        progress: 0,
-        counts: {
-          todo: 0,
-          inProgress: 0,
-          inReview: 0,
-          blocked: 0,
-          done: 0,
-          backlog: 0,
-          cancelled: 0,
-        },
-      },
+      project: getProjectByKey(normalizedKey)!,
       issues: [],
       cycles: [],
       milestones: [],

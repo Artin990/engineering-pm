@@ -343,7 +343,7 @@ export default function IssuesPage() {
           ) : (
             <IssuesBoard
               issues={sorted}
-              onIssueMove={handleIssueMove}
+              onIssueMove={handleStatusChange}
               onIssueClick={setSelected}
             />
           )}
@@ -352,9 +352,9 @@ export default function IssuesPage() {
         <TabsContent value="list" className="mt-[16px]">
           <IssuesTable
             issues={sorted}
-            loading={issues === null}
-            error={error}
-            onRetry={load}
+            loading={false}
+            error={false}
+            onRetry={() => {}}
             onRowClick={setSelected}
             onCreate={() => setCreateOpen(true)}
           />
@@ -365,7 +365,9 @@ export default function IssuesPage() {
       <IssueDetailPanel
         issue={selected}
         onClose={() => setSelected(null)}
-        onUpdateIssue={handleUpdateIssue}
+        onUpdateIssue={(updates) => {
+          if (selected) updateIssue(selected.id, updates);
+        }}
         onDeleteIssue={handleDeleteIssue}
       />
 
@@ -374,7 +376,7 @@ export default function IssuesPage() {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         projectKey={projectKey}
-        onCreate={handleCreateIssue}
+        onCreate={handleCreate}
       />
 
       {/* Request / Blocker Modal */}
