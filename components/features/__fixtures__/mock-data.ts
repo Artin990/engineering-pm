@@ -93,42 +93,52 @@ export function getProjectByKey(key: string): Project | undefined {
   };
 }
 
-export function getActiveCycleByProject(_projectKey: string): Cycle | undefined {
+export function getActiveCycleByProject(_projectKey?: string): Cycle | undefined {
+  void _projectKey;
   return cycles[0];
 }
 
 export function getBurndownData(_projectKey?: string) {
+  void _projectKey;
   return [];
 }
 
-export function getIssuesByProject(_projectKey: string): Issue[] {
+export function getIssuesByProject(_projectKey?: string): Issue[] {
+  void _projectKey;
   return issues;
 }
 
-export function getMilestonesByProject(_projectKey: string): Milestone[] {
+export function getMilestonesByProject(_projectKey?: string): Milestone[] {
+  void _projectKey;
   return milestones;
 }
 
-export function getCyclesByProject(_projectKey: string): Cycle[] {
+export function getCyclesByProject(_projectKey?: string): Cycle[] {
+  void _projectKey;
   return cycles;
 }
 
-export function getPullRequestsByProject(_projectKey: string): PullRequest[] {
+export function getPullRequestsByProject(_projectKey?: string): PullRequest[] {
+  void _projectKey;
   return pullRequests;
 }
 
-export function getCommitsByProject(_projectKey: string): Commit[] {
+export function getCommitsByProject(_projectKey?: string): Commit[] {
+  void _projectKey;
   return commits;
 }
 
-export function getActivityByProject(_projectKey: string): ActivityEvent[] {
+export function getActivityByProject(_projectKey?: string): ActivityEvent[] {
+  void _projectKey;
   return activityEvents;
 }
 
-export function getRisksByProject(_projectKey: string): Risk[] {
+export function getRisksByProject(_projectKey?: string): Risk[] {
+  void _projectKey;
   return risks;
 }
 
-export function getMembersByProject(_projectKey: string): Member[] {
+export function getMembersByProject(_projectKey?: string): Member[] {
+  void _projectKey;
   return members;
 }

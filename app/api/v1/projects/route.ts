@@ -23,7 +23,7 @@ function errJson(err: unknown) {
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession();
+    await getSession();
     const { searchParams } = new URL(request.url);
     const workspaceId = searchParams.get("workspaceId");
 

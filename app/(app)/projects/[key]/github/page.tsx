@@ -75,7 +75,8 @@ export default function GithubPage() {
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  const handleSuggestionAction = (id: string, _action: "accept" | "reject") => {
+  const handleSuggestionAction = (id: string, action?: "accept" | "reject") => {
+    void action;
     setSuggestions((prev) => prev.filter((s) => s.id !== id));
   };
 

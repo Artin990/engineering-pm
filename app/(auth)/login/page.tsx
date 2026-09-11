@@ -110,9 +110,10 @@ function LoginForm() {
         router.push(redirectTo);
         router.refresh();
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("[Login] error:", err);
-      setError(err?.message || "خطایی در برقراری ارتباط رخ داد. لطفاً اتصال اینترنت خود را بررسی نمایید.");
+      const message = err instanceof Error ? err.message : "خطایی در برقراری ارتباط رخ داد. لطفاً اتصال اینترنت خود را بررسی نمایید.";
+      setError(message);
       setLoading(false);
     }
   };

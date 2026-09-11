@@ -175,6 +175,7 @@ export function IssuesBoard({
   const signature = issues.map((i) => `${i.id}:${i.status}`).join(",");
   useEffect(() => {
     setColumns(buildColumns(issues));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature]);
 
   const issuesById = useMemo(() => {

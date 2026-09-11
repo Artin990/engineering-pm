@@ -5,14 +5,12 @@ import {
   Bug,
   CircleDot,
   GitMerge,
-  GitPullRequest,
   MessageSquare,
   Sparkles,
   UserPlus,
   Wrench,
   Layers,
   Activity as ActivityIcon,
-  Filter,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,7 +35,7 @@ export default function ProjectActivityPage({
   params: Promise<{ key: string }>;
 }) {
   const { key } = use(params);
-  const { activities, issues, project } = useProjectStore();
+  const { activities, issues } = useProjectStore();
   const [filterKind, setFilterKind] = useState<"all" | "internal" | "github">("all");
 
   // Fallback: If no explicit activity recorded yet, generate dynamic activity stream from project issues

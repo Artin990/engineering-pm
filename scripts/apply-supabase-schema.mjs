@@ -77,7 +77,7 @@ async function main() {
       try {
         await sql.unsafe(rlsSql);
         console.log("✅ RLS policies and helper functions applied successfully!");
-      } catch (rlsErr) {
+      } catch {
         console.log("Applying RLS block by block...");
         // If whole block has minor conflicts, execute block
         await executeStatements(rlsSql.replace(/;\s*$/gm, ";--> statement-breakpoint"), "RLS Policies");

@@ -439,8 +439,9 @@ export default function ProjectSettingsPage({
                       setDeleteError(res.error || "خطا در حذف حساب کاربری");
                       setIsDeletingAccount(false);
                     }
-                  } catch (err: any) {
-                    setDeleteError(err?.message || "خطای سیستمی در حذف اکانت");
+                  } catch (err: unknown) {
+                    const message = err instanceof Error ? err.message : "خطای سیستمی در حذف اکانت";
+                    setDeleteError(message);
                     setIsDeletingAccount(false);
                   }
                 }}

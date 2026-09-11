@@ -22,7 +22,6 @@ import {
 } from "@/components/features/types";
 import { useProjectStore } from "@/lib/project-store";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
-import { faDate } from "@/lib/format";
 
 interface CreateIssueDialogProps {
   open: boolean;
