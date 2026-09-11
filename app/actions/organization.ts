@@ -461,7 +461,7 @@ export async function getOrganizationMembersAction() {
     let workspaceId: string | null = null;
 
     if (isAdmin) {
-      let [adminWs] = await db
+      const [adminWs] = await db
         .select({ id: workspaces.id })
         .from(workspaces)
         .where(

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { desc, asc, eq, sql } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { chatMessages } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth/session";
@@ -195,7 +195,6 @@ export async function PATCH(request: NextRequest) {
   try {
     const session = await getSession().catch(() => null);
     const userEmail = session?.user?.email;
-    const isAdmin = isUserAdminEmail(userEmail);
     const body = await request.json();
     const { action, messageId } = body;
 

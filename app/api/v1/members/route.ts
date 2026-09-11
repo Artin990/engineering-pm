@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { desc, eq, and, sql, or, ilike } from "drizzle-orm";
+import { desc, eq, sql, or, ilike } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, workspaces, workspaceMembers } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth/session";
