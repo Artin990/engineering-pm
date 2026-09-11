@@ -212,6 +212,7 @@ export const projects = pgTable(
     status: projectStatusEnum("status").notNull().default("planning"),
     health: projectHealthEnum("health").notNull().default("on_track"),
     targetDate: date("target_date"),
+    githubRepo: varchar("github_repo", { length: 255 }),
     ownerId: uuid("owner_id").references(() => profiles.id),
     teamId: uuid("team_id").references(() => teams.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
