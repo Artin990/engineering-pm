@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { desc, isNull } from "drizzle-orm";
-import { AuthError } from "@/lib/auth/session";
+import { AuthError, getSession } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { workspaces, workspaceMembers, projects, profiles } from "@/lib/db/schema";
 import { listWorkspaceProjects, createProject } from "@/lib/db/queries/project";

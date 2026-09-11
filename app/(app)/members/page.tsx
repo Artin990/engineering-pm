@@ -202,27 +202,40 @@ export default function OrganizationMembersPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={handleCopyInvite}
-            className="gap-2 text-xs border-border bg-card shadow-xs"
-          >
-            {copiedLink ? (
-              <Check className="w-3.5 h-3.5 text-emerald-500" />
-            ) : (
-              <LinkIcon className="w-3.5 h-3.5" />
-            )}
-            {copiedLink ? "لینک کپی شد!" : "کپی لینک دعوت به سازمان"}
-          </Button>
-
-          {isAdmin && (
-            <Button onClick={handleOpenAdd} className="gap-1.5 shadow-sm">
-              <UserPlus className="w-4 h-4" />
-              افزودن عضو جدید
-            </Button>
+          {isAdmin ? (
+            <>
+              <Button
+                variant="outline"
+                onClick={handleCopyInvite}
+                className="gap-2 text-xs border-border bg-card shadow-xs"
+              >
+                {copiedLink ? (
+                  <Check className="w-3.5 h-3.5 text-emerald-500" />
+                ) : (
+                  <LinkIcon className="w-3.5 h-3.5" />
+                )}
+                {copiedLink ? "لینک کپی شد!" : "کپی لینک دعوت به سازمان"}
+              </Button>
+              <Button onClick={handleOpenAdd} className="gap-1.5 shadow-sm">
+                <UserPlus className="w-4 h-4" />
+                افزودن عضو جدید
+              </Button>
+            </>
+          ) : (
+            <Badge variant="outline" className="gap-1 text-xs py-1.5 px-3 border-blue-500/30 text-blue-600 dark:text-blue-400">
+              <Shield className="w-3.5 h-3.5" />
+              دسترسی مشاهده دایرکتوری
+            </Badge>
           )}
         </div>
       </div>
+
+      {!isAdmin && (
+        <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3.5 text-xs sm:text-sm text-blue-600 dark:text-blue-400 flex items-center justify-between">
+          <span>شما به عنوان کاربر عادی در حال مشاهده لیست اعضای سازمان هستید. تغییر نقش‌ها و حذف اعضا صرفاً توسط مدیر ارشد امکان‌پذیر است.</span>
+          <Badge variant="outline" className="text-xs border-blue-500/30">فقط خواندنی</Badge>
+        </div>
+      )}
 
       {/* Role Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

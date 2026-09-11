@@ -21,9 +21,14 @@ import {
   Activity,
   Users,
   UserPlus,
+  Lock,
+  ShieldAlert,
+  TrendingUp,
+  Sparkles,
 } from "lucide-react";
 
 import { useProjectStore } from "@/lib/project-store";
+import { useUserRole } from "@/lib/role-context";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -216,6 +221,7 @@ export default function AnalyticsPage({
   const projectKey = (key || "PM").toUpperCase();
 
   const { project, members, issues } = useProjectStore();
+  const { isAdmin, profile: currentUserProfile } = useUserRole();
 
   const [activeTab, setActiveTab] = useState<"individual" | "project">("individual");
   const [memberFilter, setMemberFilter] = useState<"all" | "employee" | "intern">("all");
@@ -227,7 +233,36 @@ export default function AnalyticsPage({
     return members.map((m) => buildIndividualProfile(m, issues));
   }, [members, issues]);
 
-  // Filtered members list
+  // Profile for non-admin user
+  const myProfile = useMemo(() => {
+    if (isAdmin) return null;
+    const match = dynamicProfiles.find(
+      (p) =>
+        p.id === currentUserProfile.id ||
+        p.name.toLowerCase() === currentUserProfile.name.toLowerCase() ||
+        members.some(
+          (m) =>
+            m.email &&
+            m.email.toLowerCase() === currentUserProfile.email.toLowerCase() &&
+            m.id === p.id
+        )
+    );
+    if (match) return match;
+
+    // Fallback: create self-profile from current user session
+    const selfMember: Member = {
+      id: currentUserProfile.id,
+      displayName: currentUserProfile.name,
+      email: currentUserProfile.email,
+      githubLogin: currentUserProfile.github || null,
+      role: currentUserProfile.role === "admin" ? "admin" : "member",
+      status: "active",
+      joinedAt: "امروز",
+    };
+    return buildIndividualProfile(selfMember, issues);
+  }, [isAdmin, dynamicProfiles, currentUserProfile, members, issues]);
+
+  // Filtered members list (Admin only)
   const filteredProfiles = useMemo(() => {
     if (memberFilter === "all") return dynamicProfiles;
     return dynamicProfiles.filter((m) => m.type === memberFilter);
@@ -235,13 +270,32 @@ export default function AnalyticsPage({
 
   // Current selected profile
   const currentProfile = useMemo(() => {
+    if (!isAdmin && myProfile) return myProfile;
     if (filteredProfiles.length === 0) return null;
     return (
       filteredProfiles.find((m) => m.id === selectedMemberId) ||
       filteredProfiles[0] ||
       null
     );
-  }, [filteredProfiles, selectedMemberId]);
+  }, [isAdmin, myProfile, filteredProfiles, selectedMemberId]);
+
+  // Team average calculations for benchmarking
+  const teamAverageQuality = useMemo(() => {
+    if (dynamicProfiles.length === 0) return 85;
+    const sum = dynamicProfiles.reduce((s, p) => s + p.qualityScore, 0);
+    return Math.round(sum / dynamicProfiles.length);
+  }, [dynamicProfiles]);
+
+  const userScoreNum = currentProfile ? currentProfile.qualityScore / 10 : 0;
+  const teamAvgScoreNum = teamAverageQuality / 10;
+  const scoreDiffNum = userScoreNum - teamAvgScoreNum;
+
+  const formatScore = (num: number) => {
+    return Number(num.toFixed(1)).toLocaleString("fa-IR", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    });
+  };
 
   // Overall Project calculations
   const scopedIssues = useMemo(
@@ -278,14 +332,16 @@ export default function AnalyticsPage({
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-[22px] font-bold text-[var(--text-primary)]">
-              سیستم آنالیتیکس فردی و ارزیابی عملکرد
+              {isAdmin ? "سیستم آنالیتیکس فردی و ارزیابی عملکرد تیم" : "گزارش عملکرد و آنالیتیکس فردی شما"}
             </h1>
             <Badge variant="outline" className="text-[11px] font-mono border-[var(--border)]">
               {projectKey}
             </Badge>
           </div>
           <p className="text-[13px] text-[var(--text-muted)] mt-1">
-            رصد داده‌محور عملکرد، رشد مهارت‌ها و بهره‌وری کارمندان و کارآموزان در پروژه {project?.name || projectKey}
+            {isAdmin
+              ? `رصد داده‌محور عملکرد، رشد مهارت‌ها و بهره‌وری پرسنل در پروژه ${project?.name || projectKey}`
+              : `مشاهده شاخص‌های عملکرد، مهارت‌ها و مقایسه نمره کیفیت شما با میانگین کل تیم`}
           </p>
         </div>
 
@@ -306,27 +362,48 @@ export default function AnalyticsPage({
             خروجی گزارش عملکرد
           </Button>
 
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-            <TabsList className="bg-[var(--surface-raised)] border border-[var(--border)]">
-              <TabsTrigger value="individual" className="gap-1.5 text-[13px]">
-                <UserCheck size={15} />
-                آنالیتیکس فردی
-              </TabsTrigger>
-              <TabsTrigger value="project" className="gap-1.5 text-[13px]">
-                <BarChart3 size={15} />
-                کلان پروژه
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          {isAdmin && (
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+              <TabsList className="bg-[var(--surface-raised)] border border-[var(--border)]">
+                <TabsTrigger value="individual" className="gap-1.5 text-[13px]">
+                  <UserCheck size={15} />
+                  آنالیتیکس فردی
+                </TabsTrigger>
+                <TabsTrigger value="project" className="gap-1.5 text-[13px]">
+                  <BarChart3 size={15} />
+                  کلان پروژه
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          )}
         </div>
       </header>
+
+      {/* Non-Admin Privacy Notice */}
+      {!isAdmin && (
+        <div className="rounded-[12px] border border-blue-500/20 bg-blue-500/10 p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm">
+          <div className="flex items-center gap-2.5">
+            <ShieldAlert className="size-5 text-blue-500 shrink-0" />
+            <div>
+              <span className="font-bold text-foreground block">نمای آنالیتیکس اختصاصی شما ({currentUserProfile.name})</span>
+              <span className="text-muted-foreground text-xs">
+                به منظور حفظ حریم خصوصی اعضا، شما فقط به گزارش عملکرد فردی خود و شاخص مقایسه نمره با میانگین کل تیم دسترسی دارید.
+              </span>
+            </div>
+          </div>
+          <Badge variant="outline" className="text-xs gap-1 border-blue-500/30 text-blue-600 dark:text-blue-400">
+            <Lock size={12} />
+            دسترسی کاربر عادی
+          </Badge>
+        </div>
+      )}
 
       {/* ========================================================
           TAB 1: INDIVIDUAL ANALYTICS (EMPLOYEE / INTERN DEEP-DIVE)
           ======================================================== */}
       {activeTab === "individual" && (
         <div className="space-y-6">
-          {dynamicProfiles.length === 0 ? (
+          {dynamicProfiles.length === 0 && !currentProfile ? (
             <Card className="border-dashed border-[var(--border)] bg-[var(--surface)] p-12 text-center">
               <div className="flex flex-col items-center justify-center space-y-3">
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -336,135 +413,225 @@ export default function AnalyticsPage({
                 <p className="text-sm text-muted-foreground max-w-md">
                   برای مشاهده شاخص‌های عملکرد و منحنی رشد مهارت‌ها، ابتدا اعضای تیم یا کارآموزان را به پروژه بیفزایید.
                 </p>
-                <div className="pt-2 flex items-center gap-3">
-                  <Link href={`/projects/${projectKey}/members`}>
-                    <Button size="sm" className="gap-1.5">
-                      <UserPlus className="w-4 h-4" />
-                      مدیریت و افزودن اعضای پروژه
-                    </Button>
-                  </Link>
-                  <Link href="/members">
-                    <Button size="sm" variant="outline" className="gap-1.5">
-                      دایرکتوری اعضای سازمان
-                    </Button>
-                  </Link>
-                </div>
+                {isAdmin && (
+                  <div className="pt-2 flex items-center gap-3">
+                    <Link href={`/projects/${projectKey}/members`}>
+                      <Button size="sm" className="gap-1.5">
+                        <UserPlus className="w-4 h-4" />
+                        مدیریت و افزودن اعضای پروژه
+                      </Button>
+                    </Link>
+                    <Link href="/members">
+                      <Button size="sm" variant="outline" className="gap-1.5">
+                        دایرکتوری اعضای سازمان
+                      </Button>
+                    </Link>
+                  </div>
+                )}
               </div>
             </Card>
           ) : (
             <>
-              {/* Filter Pills */}
-              <div className="flex flex-wrap items-center justify-between gap-3 bg-[var(--surface)] p-3 rounded-[12px] border border-[var(--border)]">
-                <div className="flex items-center gap-2">
-                  <Filter size={15} className="text-[var(--text-muted)]" />
-                  <span className="text-[13px] font-bold text-[var(--text-secondary)]">فیلتر پرسنل:</span>
-                  <div className="flex gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setMemberFilter("all")}
-                      className={`px-3 py-1 text-[12px] rounded-[8px] font-medium transition-colors ${
-                        memberFilter === "all"
-                          ? "bg-[var(--primary)] text-white"
-                          : "bg-[var(--surface-raised)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                      }`}
-                    >
-                      همه اعضا ({faNumber(dynamicProfiles.length)})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMemberFilter("employee")}
-                      className={`flex items-center gap-1 px-3 py-1 text-[12px] rounded-[8px] font-medium transition-colors ${
-                        memberFilter === "employee"
-                          ? "bg-indigo-600 text-white"
-                          : "bg-[var(--surface-raised)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                      }`}
-                    >
-                      <Briefcase size={13} />
-                      پرسنل مهندسی
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMemberFilter("intern")}
-                      className={`flex items-center gap-1 px-3 py-1 text-[12px] rounded-[8px] font-medium transition-colors ${
-                        memberFilter === "intern"
-                          ? "bg-emerald-600 text-white"
-                          : "bg-[var(--surface-raised)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                      }`}
-                    >
-                      <GraduationCap size={13} />
-                      کارآموزان (Interns)
-                    </button>
+              {/* ADMIN ONLY: Filter Pills & Member Carousel */}
+              {isAdmin && (
+                <>
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-[var(--surface)] p-3 rounded-[12px] border border-[var(--border)]">
+                    <div className="flex items-center gap-2">
+                      <Filter size={15} className="text-[var(--text-muted)]" />
+                      <span className="text-[13px] font-bold text-[var(--text-secondary)]">فیلتر پرسنل:</span>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setMemberFilter("all")}
+                          className={`px-3 py-1 text-[12px] rounded-[8px] font-medium transition-colors ${
+                            memberFilter === "all"
+                              ? "bg-[var(--primary)] text-white"
+                              : "bg-[var(--surface-raised)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                          }`}
+                        >
+                          همه اعضا ({faNumber(dynamicProfiles.length)})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMemberFilter("employee")}
+                          className={`flex items-center gap-1 px-3 py-1 text-[12px] rounded-[8px] font-medium transition-colors ${
+                            memberFilter === "employee"
+                              ? "bg-indigo-600 text-white"
+                              : "bg-[var(--surface-raised)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                          }`}
+                        >
+                          <Briefcase size={13} />
+                          پرسنل مهندسی
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMemberFilter("intern")}
+                          className={`flex items-center gap-1 px-3 py-1 text-[12px] rounded-[8px] font-medium transition-colors ${
+                            memberFilter === "intern"
+                              ? "bg-emerald-600 text-white"
+                              : "bg-[var(--surface-raised)] text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                          }`}
+                        >
+                          <GraduationCap size={13} />
+                          کارآموزان (Interns)
+                        </button>
+                      </div>
+                    </div>
+
+                    {currentProfile && (
+                      <span className="text-[12px] text-[var(--text-muted)]">
+                        عضو انتخابی: <strong>{currentProfile.name}</strong> ({currentProfile.type === "intern" ? "کارآموز" : "پرسنل رسمی"})
+                      </span>
+                    )}
                   </div>
-                </div>
 
-                {currentProfile && (
-                  <span className="text-[12px] text-[var(--text-muted)]">
-                    عضو انتخابی: <strong>{currentProfile.name}</strong> ({currentProfile.type === "intern" ? "کارآموز" : "پرسنل رسمی"})
-                  </span>
-                )}
-              </div>
-
-              {/* Member Selection Carousel / Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {filteredProfiles.map((member) => {
-                  const isSelected = (currentProfile?.id === member.id);
-                  const isIntern = member.type === "intern";
-                  return (
-                    <button
-                      key={member.id}
-                      type="button"
-                      onClick={() => setSelectedMemberId(member.id)}
-                      className={`text-start rounded-[12px] border p-3.5 transition-all flex flex-col justify-between gap-3 ${
-                        isSelected
-                          ? "border-[var(--primary)] bg-[var(--surface-raised)] shadow-md ring-2 ring-[var(--primary)]/30"
-                          : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--primary)]/50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center gap-2.5">
-                          <span
-                            className={`flex size-9 items-center justify-center rounded-full text-white text-[13px] font-bold shadow-xs ${
-                              isIntern ? "bg-emerald-600" : "bg-[var(--primary)]"
-                            }`}
-                          >
-                            {member.avatar}
-                          </span>
-                          <div>
-                            <div className="font-bold text-[13px] text-[var(--text-primary)] flex items-center gap-1">
-                              {member.name}
+                  {/* Member Selection Carousel / Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {filteredProfiles.map((member) => {
+                      const isSelected = (currentProfile?.id === member.id);
+                      const isIntern = member.type === "intern";
+                      return (
+                        <button
+                          key={member.id}
+                          type="button"
+                          onClick={() => setSelectedMemberId(member.id)}
+                          className={`text-start rounded-[12px] border p-3.5 transition-all flex flex-col justify-between gap-3 ${
+                            isSelected
+                              ? "border-[var(--primary)] bg-[var(--surface-raised)] shadow-md ring-2 ring-[var(--primary)]/30"
+                              : "border-[var(--border)] bg-[var(--surface)] hover:border-[var(--primary)]/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center gap-2.5">
+                              <span
+                                className={`flex size-9 items-center justify-center rounded-full text-white text-[13px] font-bold shadow-xs ${
+                                  isIntern ? "bg-emerald-600" : "bg-[var(--primary)]"
+                                }`}
+                              >
+                                {member.avatar}
+                              </span>
+                              <div>
+                                <div className="font-bold text-[13px] text-[var(--text-primary)] flex items-center gap-1">
+                                  {member.name}
+                                </div>
+                                <div className="text-[11px] text-[var(--text-muted)] truncate max-w-[130px]">
+                                  {member.roleTitle}
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-[11px] text-[var(--text-muted)] truncate max-w-[130px]">
-                              {member.roleTitle}
+
+                            <Badge
+                              variant={isIntern ? "success" : "secondary"}
+                              className="text-[10px] px-2 py-0.5"
+                            >
+                              {isIntern ? "کارآموز" : "کارمند"}
+                            </Badge>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 w-full pt-2 border-t border-[var(--border)] text-[11px]">
+                            <div>
+                              <span className="text-[var(--text-muted)] block">کیفیت:</span>
+                              <strong className="text-emerald-600 dark:text-emerald-400 font-mono">
+                                {faNumber(member.qualityScore)}٪
+                              </strong>
+                            </div>
+                            <div className="text-end">
+                              <span className="text-[var(--text-muted)] block">تحویل به‌موقع:</span>
+                              <strong className="text-[var(--text-primary)] font-mono">
+                                {faNumber(member.onTimeDeliveryRate)}٪
+                              </strong>
                             </div>
                           </div>
-                        </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
 
-                        <Badge
-                          variant={isIntern ? "success" : "secondary"}
-                          className="text-[10px] px-2 py-0.5"
-                        >
-                          {isIntern ? "کارآموز" : "کارمند"}
-                        </Badge>
+              {/* NON-ADMIN ONLY: Score Comparison Widget (Out of 10) */}
+              {!isAdmin && currentProfile && (
+                <Card className="border-primary/30 bg-gradient-to-br from-card via-card to-primary/5 shadow-xs">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <TrendingUp className="size-5 text-primary" />
+                        مقایسه نمره عملکرد شما با میانگین کل تیم (نمره از ۱۰)
+                      </CardTitle>
+                      <Badge variant="default" className="text-xs gap-1">
+                        <Sparkles size={12} />
+                        ارزیابی کیفی اسپرینت
+                      </Badge>
+                    </div>
+                    <CardDescription className="text-xs">
+                      نمره شما بر اساس کیفیت تحویل، دقت تخمین‌ها و عدم بازگشت کار محاسبه و با میانگین سایر اعضای پروژه مقایسه می‌شود
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {/* Your Score */}
+                      <div className="rounded-xl border border-primary/25 bg-primary/10 p-4 text-center">
+                        <span className="text-xs text-muted-foreground block mb-1 font-medium">نمره عملکرد شما</span>
+                        <div className="text-3xl font-black text-primary font-mono">
+                          {formatScore(userScoreNum)}
+                          <span className="text-sm font-normal text-muted-foreground"> / ۱۰</span>
+                        </div>
+                        <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-1 block">
+                          {scoreDiffNum >= 0 ? "بالاتر از میانگین تیم ✨" : "نزدیک به میانگین تیم"}
+                        </span>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 w-full pt-2 border-t border-[var(--border)] text-[11px]">
-                        <div>
-                          <span className="text-[var(--text-muted)] block">کیفیت:</span>
-                          <strong className="text-emerald-600 dark:text-emerald-400 font-mono">
-                            {faNumber(member.qualityScore)}٪
-                          </strong>
+                      {/* Team Average */}
+                      <div className="rounded-xl border border-border bg-muted/40 p-4 text-center">
+                        <span className="text-xs text-muted-foreground block mb-1 font-medium">میانگین نمره کل تیم</span>
+                        <div className="text-3xl font-black text-foreground font-mono">
+                          {formatScore(teamAvgScoreNum)}
+                          <span className="text-sm font-normal text-muted-foreground"> / ۱۰</span>
                         </div>
-                        <div className="text-end">
-                          <span className="text-[var(--text-muted)] block">تحویل به‌موقع:</span>
-                          <strong className="text-[var(--text-primary)] font-mono">
-                            {faNumber(member.onTimeDeliveryRate)}٪
-                          </strong>
-                        </div>
+                        <span className="text-[11px] text-muted-foreground mt-1 block">
+                          میانگین وزنی کل پرسنل پروژه
+                        </span>
                       </div>
-                    </button>
-                  );
-                })}
-              </div>
+
+                      {/* Score Difference */}
+                      <div className="rounded-xl border border-border bg-muted/40 p-4 text-center">
+                        <span className="text-xs text-muted-foreground block mb-1 font-medium">اختلاف نسبت به میانگین</span>
+                        <div className={`text-2xl font-black font-mono ${scoreDiffNum >= 0 ? "text-emerald-500" : "text-amber-500"}`}>
+                          {scoreDiffNum >= 0 ? `+${formatScore(scoreDiffNum)}` : formatScore(scoreDiffNum)} نمره
+                        </div>
+                        <span className="text-[11px] text-muted-foreground mt-1 block">
+                          {scoreDiffNum >= 0 ? "وضعیت کیفی بسیار مطلوب و پیشرو" : "فرصت ارتقا و بهبود شاخص‌ها"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Progress Benchmark Bar */}
+                    <div className="space-y-2 rounded-xl bg-card p-3.5 border border-border">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>جایگاه نمره کیفی شما روی نمودار عملکرد اسپرینت:</span>
+                        <span className="font-bold text-foreground font-mono">{formatScore(userScoreNum)} از ۱۰</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-3.5 overflow-hidden relative">
+                        {/* Team marker line */}
+                        <div
+                          className="absolute top-0 bottom-0 w-1 bg-amber-400 z-10"
+                          style={{ right: `${teamAverageQuality}%` }}
+                          title={`میانگین تیم: ${formatScore(teamAvgScoreNum)} از ۱۰`}
+                        />
+                        <div
+                          className="bg-gradient-to-l from-primary to-indigo-500 h-full rounded-full transition-all duration-500"
+                          style={{ width: `${currentProfile.qualityScore}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[11px] text-muted-foreground pt-1">
+                        <span>۰ (حداقل)</span>
+                        <span className="text-amber-500 font-medium">📍 میانگین تیم ({formatScore(teamAvgScoreNum)})</span>
+                        <span>۱۰ (حداکثر)</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Detailed Individual Performance Dashboard */}
               {currentProfile && (
@@ -515,10 +682,10 @@ export default function AnalyticsPage({
                           </div>
 
                           <div className="text-center rounded-[10px] bg-[var(--surface-raised)] p-2.5 border border-[var(--border)] min-w-[100px]">
-                            <span className="text-[10px] text-[var(--text-muted)] block">امتیاز کیفیت کل</span>
+                            <span className="text-[10px] text-[var(--text-muted)] block">نمره عملکرد کل</span>
                             <span className="text-[20px] font-black text-[var(--primary)]">
-                              {faNumber(currentProfile.qualityScore)}
-                              <span className="text-[12px] font-normal text-[var(--text-muted)]"> / ۱۰۰</span>
+                              {formatScore(userScoreNum)}
+                              <span className="text-[12px] font-normal text-[var(--text-muted)]"> / ۱۰</span>
                             </span>
                           </div>
                         </div>
@@ -807,9 +974,9 @@ export default function AnalyticsPage({
       )}
 
       {/* ========================================================
-          TAB 2: OVERALL PROJECT MACRO ANALYTICS
+          TAB 2: OVERALL PROJECT MACRO ANALYTICS (ADMIN ONLY)
           ======================================================== */}
-      {activeTab === "project" && (
+      {isAdmin && activeTab === "project" && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <Card>

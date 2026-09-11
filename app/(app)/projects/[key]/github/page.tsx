@@ -40,25 +40,29 @@ export default function GithubPage() {
     id: string;
     prNumber: number;
     title: string;
-    author: string;
+    authorLogin: string;
     state: "open" | "merged" | "closed";
-    createdAt: string;
-    linkedIssueKey?: string;
+    url: string;
+    repoName: string;
+    updatedAt: string;
   }[]>([]);
 
   const [commits] = useState<{
+    id: string;
     sha: string;
     message: string;
-    author: string;
-    date: string;
+    authorLogin: string;
+    branch: string;
+    time: string;
   }[]>([]);
 
   const [suggestions, setSuggestions] = useState<{
     id: string;
-    title: string;
-    reason: string;
-    confidence: number;
-    type: string;
+    issueKey: string;
+    issueTitle: string;
+    currentStatus: string;
+    suggestedStatus: string;
+    confidence?: number;
   }[]>([]);
 
   const inviteLink = typeof window !== "undefined"
