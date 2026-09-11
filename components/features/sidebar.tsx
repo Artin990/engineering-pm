@@ -418,14 +418,18 @@ export function Sidebar() {
         </div>
       </header>
 
-      {/* 2. Mobile Drawer (Slide-Over from Right) */}
+      {/* 2. Mobile Drawer (Slide-Over from Right side / RTL) */}
       {mobileOpen && (
-        <div
-          className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs lg:hidden transition-opacity"
-          onClick={() => setMobileOpen(false)}
-        >
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Backdrop overlay */}
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity duration-200"
+            onClick={() => setMobileOpen(false)}
+          />
+
+          {/* Drawer Sidebar explicitly anchored to the Right (راست) */}
           <aside
-            className="w-[280px] h-full flex flex-col border-l border-[var(--border)] bg-[var(--surface)] p-[16px] text-start shadow-2xl animate-in slide-in-from-right duration-200"
+            className="fixed inset-y-0 right-0 z-50 w-[285px] h-full flex flex-col border-l border-[var(--border)] bg-[var(--surface)] p-[16px] text-start shadow-2xl animate-in slide-in-from-right duration-200 overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
             dir="rtl"
           >
