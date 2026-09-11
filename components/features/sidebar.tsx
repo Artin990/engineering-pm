@@ -229,22 +229,6 @@ export function Sidebar() {
           </span>
         </Link>
 
-        <Link
-          href="/settings"
-          aria-current={pathname === "/settings" ? "page" : undefined}
-          title="تنظیمات حساب کاربری"
-          className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} rounded-[10px] px-[12px] py-[8px] text-[13px] font-medium transition-colors ${
-            pathname === "/settings"
-              ? "bg-[var(--primary)] text-white"
-              : "text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]"
-          }`}
-        >
-          <span className="flex items-center gap-[8px]">
-            <Settings size={16} />
-            {!collapsed && "تنظیمات حساب من"}
-          </span>
-        </Link>
-
         {/* Current Project Sub-links if inside a project */}
         {params?.key && (
           <div className="pt-[8px] pb-[4px]">
