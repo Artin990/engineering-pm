@@ -51,6 +51,11 @@ function LoginForm() {
       return;
     }
 
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")) {
+      setError("متغیرهای محیطی اتصال به Supabase در پنل ورسل تنظیم نشده‌اند (NEXT_PUBLIC_SUPABASE_URL).");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
