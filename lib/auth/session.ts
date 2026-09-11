@@ -17,11 +17,11 @@ export class AuthError extends Error {
 }
 
 /**
- * نشست کاربر فعلی — از روی کوکی Supabase یا نشست معتبر Flowdeck.
+ * دریافت نشست کاربر فعلی — از روی کوکی توکن Supabase یا کوکی‌های معتبر سشن Flowdeck.
  * در صورت نبود نشست، AuthError(401) پرتاب می‌کند.
  */
 export async function getSession(): Promise<SessionResult> {
-  // 1. اول تلاش برای خواندن توکن کاربر از Supabase Auth
+  // ۱. اولویت اول: خواندن توکن امن کاربر از Supabase Auth
   try {
     const supabase = await createClient();
     const {
@@ -33,44 +33,39 @@ export async function getSession(): Promise<SessionResult> {
       return { user, profileId: user.id };
     }
   } catch {
-    // Supabase auth service not reached / fallback
+    // خطای ارتباط با سرور احراز هویت سوپابیس — رفتن به کوکی‌های پشتیبان
   }
 
-  // 2. بررسی کوکی‌های احراز هویت Flowdeck
+  // ۲. بررسی کوکی‌های احراز هویت سشن
   const cookieStore = await cookies();
   const flowdeckEmail = cookieStore.get("flowdeck_user_email")?.value;
   const flowdeckRole = cookieStore.get("flowdeck_active_role")?.value;
   const flowdeckId = cookieStore.get("flowdeck_user_id")?.value;
   const flowdeckName = cookieStore.get("flowdeck_user_name")?.value;
 
-  if (flowdeckEmail || flowdeckRole || flowdeckId) {
-    const isArtinAdmin =
-      flowdeckEmail === "artinamiri185@gmail.com" || flowdeckRole === "admin";
-    const profileId =
-      flowdeckId ||
-      (isArtinAdmin
-        ? "00000000-0000-0000-0000-000000000001"
-        : "00000000-0000-0000-0000-000000000002");
+  if (flowdeckEmail || flowdeckId) {
+    const profileId = flowdeckId || "00000000-0000-0000-0000-000000000001";
+    const displayName = flowdeckName ? decodeURIComponent(flowdeckName) : (flowdeckEmail ? decodeURIComponent(flowdeckEmail).split("@")[0] : "کاربر Flowdeck");
 
-    const dummyUser: User = {
+    const sessionUser: User = {
       id: profileId,
       app_metadata: {},
       user_metadata: {
-        name: flowdeckName ? decodeURIComponent(flowdeckName) : (isArtinAdmin ? "آرتین امیری" : "کاربر سامانه"),
-        role: flowdeckRole || (isArtinAdmin ? "admin" : "member"),
+        name: displayName,
+        role: flowdeckRole || "admin",
       },
       aud: "authenticated",
-      email: flowdeckEmail ? decodeURIComponent(flowdeckEmail) : (isArtinAdmin ? "artinamiri185@gmail.com" : "user@flowdeck.dev"),
+      email: flowdeckEmail ? decodeURIComponent(flowdeckEmail) : "user@flowdeck.dev",
       created_at: new Date().toISOString(),
     };
 
-    return { user: dummyUser, profileId };
+    return { user: sessionUser, profileId };
   }
 
-  throw new AuthError("نشست معتبر نیست — ابتدا وارد شوید.", 401);
+  throw new AuthError("نشست معتبر نیست — لطفاً ابتدا وارد حساب کاربری خود شوید.", 401);
 }
 
-/** نشست اختیاری — اگر نبود null برمی‌گرداند (مثلاً برای guard کردن UI). */
+/** نشست اختیاری — اگر نبود null برمی‌گرداند. */
 export async function getOptionalSession(): Promise<SessionResult | null> {
   try {
     return await getSession();

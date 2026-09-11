@@ -2,30 +2,52 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { Eye, EyeOff, Mail } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, AlertCircle, Loader2, CheckCircle2, ArrowRight } from "lucide-react";
 import { GithubIcon } from "@/components/ui/github-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { createClient } from "@/lib/supabase/client";
 import { useUserRole } from "@/lib/role-context";
+import { syncUserProfile } from "@/app/actions/auth";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirectTo") || "/projects";
+  const urlError = searchParams.get("error");
+
   const supabase = createClient();
   const { setUserSession } = useUserRole();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [oauthLoading, setOauthLoading] = useState(false);
+  const [error, setError] = useState(urlError ? decodeURIComponent(urlError) : "");
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Forgot password state
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
+  const [forgotError, setForgotError] = useState("");
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      setError("لطفاً ایمیل و رمز عبور را وارد کنید.");
+
+    if (!email.trim() || !password) {
+      setError("لطفاً ایمیل و رمز عبور خود را وارد کنید.");
+      return;
+    }
+
+    // Basic email validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      setError("فرمت ایمیل وارد شده صحیح نیست.");
       return;
     }
 
@@ -33,58 +55,104 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const isAdminUser = email === "artinamiri185@gmail.com";
-      const userRole = isAdminUser ? "admin" : "member";
-      const userName = isAdminUser ? "آرتین امیری" : email.split("@")[0];
-
-      // 1. ذخیره فوری در Storage و کوکی‌های کلاینت
-      setUserSession({
-        email,
-        name: userName,
-        role: userRole,
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
       });
 
-      // 2. تلاش برای ورود در Supabase Auth
-      try {
-        const { data, error: authError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (data?.user) {
-          setUserSession({
-            id: data.user.id,
-            email: data.user.email || email,
-            name: data.user.user_metadata?.name || userName,
-            role: userRole,
-          });
+      if (authError) {
+        let msg = "خطا در ورود به حساب کاربری.";
+        if (authError.message.includes("Invalid login credentials")) {
+          msg = "ایمیل یا رمز عبور اشتباه است.";
+        } else if (authError.message.includes("Email not confirmed")) {
+          msg = "ایمیل شما هنوز تأیید نشده است. لطفاً صندوق ورودی ایمیل خود را بررسی کنید.";
+        } else if (authError.message.includes("Too many requests")) {
+          msg = "تلاش‌های ناموفق بیش از حد مجاز. لطفاً دقایقی دیگر تلاش کنید.";
+        } else {
+          msg = authError.message;
         }
-
-        if (authError) {
-          // اگر کاربر ادمین یا تست است، اجازه ورود داده شود
-          if (email.includes("flowdeck.dev") || isAdminUser) {
-            router.push("/projects");
-            router.refresh();
-            return;
-          }
-
-          setError(
-            authError.message.includes("Invalid login credentials")
-              ? "ایمیل یا رمز عبور اشتباه است."
-              : authError.message
-          );
-          setLoading(false);
-          return;
-        }
-      } catch {
-        // Fallback for offline/demo auth
+        setError(msg);
+        setLoading(false);
+        return;
       }
 
-      router.push("/projects");
-      router.refresh();
+      if (data?.user) {
+        const userMeta = data.user.user_metadata || {};
+        const userName = userMeta.name || userMeta.full_name || email.split("@")[0];
+
+        // ذخیره در سشن کلاینت
+        setUserSession({
+          id: data.user.id,
+          email: data.user.email || email.trim(),
+          name: userName,
+          role: (userMeta.role as "admin" | "member") || "admin",
+        });
+
+        // همگام‌سازی در دیتابیس
+        await syncUserProfile({
+          id: data.user.id,
+          email: data.user.email || email.trim(),
+          name: userName,
+          avatarUrl: userMeta.avatar_url,
+          githubLogin: userMeta.user_name,
+        });
+
+        router.push(redirectTo);
+        router.refresh();
+      }
     } catch {
-      setError("خطایی در اتصال رخ داد. لطفاً دوباره تلاش کنید.");
+      setError("خطایی در ارتباط با سرور رخ داد. لطفاً مجدداً تلاش نمایید.");
       setLoading(false);
+    }
+  };
+
+  const handleGithubOAuth = async () => {
+    setOauthLoading(true);
+    setError("");
+    try {
+      const callbackUrl = `${window.location.origin}/callback?redirectTo=${encodeURIComponent(redirectTo)}`;
+      const { error: oauthErr } = await supabase.auth.signInWithOAuth({
+        provider: "github",
+        options: {
+          redirectTo: callbackUrl,
+          scopes: "read:user user:email repo",
+        },
+      });
+
+      if (oauthErr) {
+        setError("خطا در اتصال به حساب GitHub: " + oauthErr.message);
+        setOauthLoading(false);
+      }
+    } catch {
+      setError("خطا در شروع فرایند ورود با GitHub.");
+      setOauthLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) {
+      setForgotError("لطفاً ایمیل خود را وارد نمایید.");
+      return;
+    }
+
+    setForgotLoading(true);
+    setForgotError("");
+
+    try {
+      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), {
+        redirectTo: `${window.location.origin}/callback?next=/projects/settings`,
+      });
+
+      if (resetErr) {
+        setForgotError(resetErr.message);
+      } else {
+        setForgotSuccess(true);
+      }
+    } catch {
+      setForgotError("خطا در ارسال ایمیل بازیابی رمز عبور.");
+    } finally {
+      setForgotLoading(false);
     }
   };
 
@@ -124,13 +192,16 @@ export default function LoginPage() {
         </div>
 
         {/* GitHub OAuth Button */}
-        <a
-          href="/api/github/oauth/start"
-          className="flex w-full items-center justify-center gap-2.5 rounded-[10px] border border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-[14px] font-medium text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors shadow-xs"
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleGithubOAuth}
+          disabled={oauthLoading || loading}
+          className="flex w-full items-center justify-center gap-2.5 rounded-[10px] border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-[14px] font-medium text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors shadow-xs"
         >
-          <GithubIcon size={18} />
+          {oauthLoading ? <Loader2 className="size-4 animate-spin" /> : <GithubIcon size={18} />}
           ورود با حساب GitHub
-        </a>
+        </Button>
 
         <div className="relative my-6 text-center text-[12px] text-[var(--text-muted)]">
           <div className="absolute inset-0 flex items-center">
@@ -142,13 +213,14 @@ export default function LoginPage() {
         </div>
 
         {error && (
-          <div className="mb-4 rounded-[8px] bg-red-500/10 border border-red-500/20 p-2.5 text-[13px] text-red-500 text-center">
-            {error}
+          <div className="mb-4 flex items-start gap-2 rounded-[8px] bg-red-500/10 border border-red-500/20 p-3 text-[13px] text-red-500">
+            <AlertCircle className="size-4 shrink-0 mt-0.5" />
+            <span>{error}</span>
           </div>
         )}
 
         {/* Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
               ایمیل سازمانی
@@ -159,12 +231,14 @@ export default function LoginPage() {
                 id="email"
                 name="email"
                 type="email"
+                dir="ltr"
                 autoComplete="username email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); if (error) setError(""); }}
-                placeholder="ایمیل خود را وارد کنید (مثال: name@company.com)"
-                className="pe-9 bg-[var(--background)]"
+                placeholder="name@company.com"
+                className="pe-9 text-start bg-[var(--background)]"
                 autoFocus
+                required
               />
             </div>
           </div>
@@ -174,9 +248,13 @@ export default function LoginPage() {
               <label htmlFor="password" className="block text-[13px] font-medium text-[var(--text-primary)]">
                 رمز عبور
               </label>
-              <a href="#" className="text-[12px] text-[var(--primary)] hover:underline">
+              <button
+                type="button"
+                onClick={() => { setShowForgotModal(true); setForgotSuccess(false); setForgotError(""); }}
+                className="text-[12px] text-[var(--primary)] hover:underline focus:outline-hidden"
+              >
                 فراموشی رمز؟
-              </a>
+              </button>
             </div>
             <div className="relative">
               <button
@@ -184,6 +262,7 @@ export default function LoginPage() {
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute end-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                 tabIndex={-1}
+                aria-label={showPassword ? "مخفی کردن رمز" : "نمایش رمز"}
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -191,11 +270,13 @@ export default function LoginPage() {
                 id="password"
                 name="password"
                 type={showPassword ? "text" : "password"}
+                dir="ltr"
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); if (error) setError(""); }}
-                placeholder="رمز عبور خود را وارد کنید…"
-                className="pe-9 bg-[var(--background)]"
+                placeholder="••••••••"
+                className="pe-9 text-start bg-[var(--background)]"
+                required
               />
             </div>
           </div>
@@ -208,13 +289,20 @@ export default function LoginPage() {
               defaultChecked
               className="size-4 rounded border-[var(--border)] accent-[var(--primary)]"
             />
-            <label htmlFor="remember" className="text-[13px] text-[var(--text-secondary)] cursor-pointer">
+            <label htmlFor="remember" className="text-[13px] text-[var(--text-secondary)] cursor-pointer select-none">
               مرا به خاطر بسپار
             </label>
           </div>
 
-          <Button type="submit" className="w-full mt-2" disabled={loading}>
-            {loading ? "در حال ورود…" : "ورود به Flowdeck"}
+          <Button type="submit" className="w-full mt-2" disabled={loading || oauthLoading}>
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="size-4 animate-spin" />
+                در حال احراز هویت…
+              </span>
+            ) : (
+              "ورود به Flowdeck"
+            )}
           </Button>
         </form>
 
@@ -225,6 +313,86 @@ export default function LoginPage() {
           </Link>
         </p>
       </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-[400px] rounded-[16px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-2 mb-4 text-[var(--text-primary)]">
+              <Lock className="size-5 text-[var(--primary)]" />
+              <h2 className="text-[16px] font-bold">بازیابی رمز عبور</h2>
+            </div>
+
+            {forgotSuccess ? (
+              <div className="space-y-4">
+                <div className="flex items-start gap-2 rounded-[8px] bg-emerald-500/10 border border-emerald-500/20 p-3 text-[13px] text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="size-4 shrink-0 mt-0.5" />
+                  <span>لینک بازیابی رمز عبور به ایمیل شما ارسال گردید. لطفاً ایمیل خود را بررسی نمایید.</span>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => setShowForgotModal(false)}
+                >
+                  بستن
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
+                  ایمیل حساب کاربری خود را وارد کنید تا لینک بازیابی کلمه عبور برای شما ارسال شود.
+                </p>
+
+                {forgotError && (
+                  <div className="flex items-start gap-2 rounded-[8px] bg-red-500/10 border border-red-500/20 p-2.5 text-[12px] text-red-500">
+                    <AlertCircle className="size-4 shrink-0 mt-0.5" />
+                    <span>{forgotError}</span>
+                  </div>
+                )}
+
+                <div>
+                  <Input
+                    type="email"
+                    dir="ltr"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    placeholder="name@company.com"
+                    className="bg-[var(--background)]"
+                    autoFocus
+                    required
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                  <Button
+                    type="submit"
+                    className="flex-1"
+                    disabled={forgotLoading}
+                  >
+                    {forgotLoading ? (
+                      <span className="flex items-center gap-2">
+                        <Loader2 className="size-4 animate-spin" />
+                        در حال ارسال…
+                      </span>
+                    ) : (
+                      "ارسال لینک بازیابی"
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowForgotModal(false)}
+                    disabled={forgotLoading}
+                  >
+                    انصراف
+                  </Button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }

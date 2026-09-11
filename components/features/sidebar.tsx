@@ -304,13 +304,16 @@ export function Sidebar() {
                 <span className="text-[10px] text-[var(--text-muted)]">{profile.roleTitle}</span>
               </div>
             </div>
-            <Link
-              href="/login"
-              onClick={() => logout()}
-              className="text-[11px] text-[var(--primary)] hover:underline"
+            <button
+              type="button"
+              onClick={async () => {
+                await logout();
+                window.location.href = "/login";
+              }}
+              className="text-[11px] text-[var(--primary)] hover:underline cursor-pointer"
             >
               خروج
-            </Link>
+            </button>
           </div>
         ) : (
           <div className="flex justify-center">

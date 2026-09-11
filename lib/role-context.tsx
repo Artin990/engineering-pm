@@ -1,8 +1,9 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
 
-export type UserRole = "admin" | "member";
+export type UserRole = "admin" | "member" | "owner" | "viewer";
 
 export interface UserProfile {
   id: string;
@@ -14,24 +15,22 @@ export interface UserProfile {
   github?: string;
 }
 
-export const ADMIN_PROFILE: UserProfile = {
+export const DEFAULT_ADMIN_PROFILE: UserProfile = {
   id: "00000000-0000-0000-0000-000000000001",
-  name: "آرتین امیری",
-  email: "artinamiri185@gmail.com",
+  name: "مدیر سیستم",
+  email: "admin@flowdeck.dev",
   role: "admin",
-  roleTitle: "مدیرعامل و ادمین ارشد",
-  avatar: "آ",
-  github: "artin-amiri",
+  roleTitle: "مدیر ارشد",
+  avatar: "م",
 };
 
-export const MEMBER_PROFILE: UserProfile = {
+export const DEFAULT_MEMBER_PROFILE: UserProfile = {
   id: "00000000-0000-0000-0000-000000000002",
-  name: "سارا احمدی",
-  email: "sara.ahmadi@flowdeck.dev",
+  name: "کاربر توسعه‌دهنده",
+  email: "member@flowdeck.dev",
   role: "member",
-  roleTitle: "توسعه‌دهنده / کاربر عادی",
-  avatar: "س",
-  github: "sara-ahmadi",
+  roleTitle: "توسعه‌دهنده مهندسی",
+  avatar: "ت",
 };
 
 interface RoleContextValue {
@@ -39,9 +38,10 @@ interface RoleContextValue {
   profile: UserProfile;
   setRole: (role: UserRole) => void;
   setUserSession: (user: Partial<UserProfile>) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   isAdmin: boolean;
   isMember: boolean;
+  isLoading: boolean;
 }
 
 const RoleContext = createContext<RoleContextValue | undefined>(undefined);
@@ -59,69 +59,132 @@ function deleteCookie(name: string) {
 
 export function RoleProvider({ children }: { children: React.ReactNode }) {
   const [role, setRoleState] = useState<UserRole>("admin");
-  const [customProfile, setCustomProfile] = useState<UserProfile | null>(null);
+  const [profile, setProfile] = useState<UserProfile>(DEFAULT_ADMIN_PROFILE);
+  const [isLoading, setIsLoading] = useState(true);
+  const supabase = createClient();
 
+  // همگام‌سازی سشن کاربر از Supabase و لوکال استوریج
   useEffect(() => {
-    // Load persisted session
-    try {
-      const savedRole = localStorage.getItem("flowdeck_active_role") as UserRole | null;
-      const savedSession = localStorage.getItem("flowdeck_user_session");
+    let mounted = true;
 
-      if (savedSession) {
-        const parsed = JSON.parse(savedSession) as UserProfile;
-        setCustomProfile(parsed);
-        if (parsed.role) {
-          setRoleState(parsed.role);
-          setCookie("flowdeck_active_role", parsed.role);
+    async function syncAuth() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (session?.user && mounted) {
+          const userMeta = session.user.user_metadata || {};
+          const userEmail = session.user.email || "";
+          const userName = userMeta.name || userMeta.full_name || userMeta.user_name || userEmail.split("@")[0] || "کاربر Flowdeck";
+          const userRole: UserRole = userMeta.role || "admin";
+
+          const userProf: UserProfile = {
+            id: session.user.id,
+            name: userName,
+            email: userEmail,
+            role: userRole,
+            roleTitle: userRole === "admin" || userRole === "owner" ? "مدیر ارشد مهندسی" : "توسعه‌دهنده",
+            avatar: userMeta.avatar_url || userName.charAt(0),
+            github: userMeta.user_name || userMeta.github_login,
+          };
+
+          setProfile(userProf);
+          setRoleState(userRole);
+
+          setCookie("flowdeck_active_role", userRole);
+          setCookie("flowdeck_user_email", userEmail);
+          setCookie("flowdeck_user_id", session.user.id);
+          setCookie("flowdeck_user_name", userName);
+          setIsLoading(false);
+          return;
+        }
+
+        // بررسی در صورت وجود ذخیره محلی قبلی
+        const savedSession = localStorage.getItem("flowdeck_user_session");
+        if (savedSession && mounted) {
+          const parsed = JSON.parse(savedSession) as UserProfile;
+          setProfile(parsed);
+          setRoleState(parsed.role || "admin");
+          setCookie("flowdeck_active_role", parsed.role || "admin");
           setCookie("flowdeck_user_email", parsed.email);
           setCookie("flowdeck_user_id", parsed.id);
+          setCookie("flowdeck_user_name", parsed.name);
         }
-      } else if (savedRole === "admin" || savedRole === "member") {
-        setRoleState(savedRole);
-        setCookie("flowdeck_active_role", savedRole);
-        const baseProf = savedRole === "admin" ? ADMIN_PROFILE : MEMBER_PROFILE;
-        setCookie("flowdeck_user_email", baseProf.email);
-        setCookie("flowdeck_user_id", baseProf.id);
+      } catch (err) {
+        console.warn("[RoleProvider] Auth sync note:", err);
+      } finally {
+        if (mounted) setIsLoading(false);
       }
-    } catch {
-      // Ignore parse errors
     }
-  }, []);
+
+    syncAuth();
+
+    // اشتراک در تغییرات وضعیت احراز هویت Supabase
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return;
+
+      if (session?.user) {
+        const userMeta = session.user.user_metadata || {};
+        const userEmail = session.user.email || "";
+        const userName = userMeta.name || userMeta.full_name || userMeta.user_name || userEmail.split("@")[0] || "کاربر Flowdeck";
+        const userRole: UserRole = userMeta.role || "admin";
+
+        const userProf: UserProfile = {
+          id: session.user.id,
+          name: userName,
+          email: userEmail,
+          role: userRole,
+          roleTitle: userRole === "admin" || userRole === "owner" ? "مدیر ارشد مهندسی" : "توسعه‌دهنده",
+          avatar: userMeta.avatar_url || userName.charAt(0),
+          github: userMeta.user_name,
+        };
+
+        setProfile(userProf);
+        setRoleState(userRole);
+        localStorage.setItem("flowdeck_user_session", JSON.stringify(userProf));
+        localStorage.setItem("flowdeck_active_role", userRole);
+        setCookie("flowdeck_active_role", userRole);
+        setCookie("flowdeck_user_email", userEmail);
+        setCookie("flowdeck_user_id", session.user.id);
+        setCookie("flowdeck_user_name", userName);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      authListener?.subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   const setRole = useCallback((newRole: UserRole) => {
     setRoleState(newRole);
     localStorage.setItem("flowdeck_active_role", newRole);
     setCookie("flowdeck_active_role", newRole);
 
-    const baseProf = newRole === "admin" ? ADMIN_PROFILE : MEMBER_PROFILE;
-    setCookie("flowdeck_user_email", baseProf.email);
-    setCookie("flowdeck_user_id", baseProf.id);
-
-    if (customProfile) {
+    setProfile((prev) => {
       const updated: UserProfile = {
-        ...customProfile,
+        ...prev,
         role: newRole,
-        roleTitle: newRole === "admin" ? "مدیرعامل و ادمین ارشد" : "توسعه‌دهنده / کاربر عادی",
+        roleTitle: newRole === "admin" || newRole === "owner" ? "مدیر ارشد مهندسی" : "توسعه‌دهنده",
       };
-      setCustomProfile(updated);
       localStorage.setItem("flowdeck_user_session", JSON.stringify(updated));
-    }
-  }, [customProfile]);
+      return updated;
+    });
+  }, []);
 
   const setUserSession = useCallback((user: Partial<UserProfile>) => {
-    const activeRole = user.role || (user.email === "artinamiri185@gmail.com" ? "admin" : "member");
+    const activeRole: UserRole = user.role || "admin";
     const newProfile: UserProfile = {
-      id: user.id || (activeRole === "admin" ? ADMIN_PROFILE.id : MEMBER_PROFILE.id),
-      name: user.name || (activeRole === "admin" ? ADMIN_PROFILE.name : "کاربر Flowdeck"),
-      email: user.email || (activeRole === "admin" ? ADMIN_PROFILE.email : "user@flowdeck.dev"),
+      id: user.id || DEFAULT_ADMIN_PROFILE.id,
+      name: user.name || "کاربر Flowdeck",
+      email: user.email || "user@flowdeck.dev",
       role: activeRole,
-      roleTitle: activeRole === "admin" ? "مدیرعامل و ادمین ارشد" : "توسعه‌دهنده / کاربر عادی",
-      avatar: user.avatar || user.name?.charAt(0) || (activeRole === "admin" ? "آ" : "ک"),
+      roleTitle: activeRole === "admin" || activeRole === "owner" ? "مدیر ارشد مهندسی" : "توسعه‌دهنده",
+      avatar: user.avatar || user.name?.charAt(0) || "ک",
       github: user.github,
     };
 
     setRoleState(activeRole);
-    setCustomProfile(newProfile);
+    setProfile(newProfile);
 
     localStorage.setItem("flowdeck_active_role", activeRole);
     localStorage.setItem("flowdeck_user_session", JSON.stringify(newProfile));
@@ -132,18 +195,21 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     setCookie("flowdeck_user_name", newProfile.name);
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // ادامه پاک‌سازی حتی در خطای شبکه
+    }
     localStorage.removeItem("flowdeck_active_role");
     localStorage.removeItem("flowdeck_user_session");
     deleteCookie("flowdeck_active_role");
     deleteCookie("flowdeck_user_email");
     deleteCookie("flowdeck_user_id");
     deleteCookie("flowdeck_user_name");
-    setCustomProfile(null);
+    setProfile(DEFAULT_ADMIN_PROFILE);
     setRoleState("admin");
-  }, []);
-
-  const profile = customProfile || (role === "admin" ? ADMIN_PROFILE : MEMBER_PROFILE);
+  }, [supabase]);
 
   return (
     <RoleContext.Provider
@@ -153,8 +219,9 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         setRole,
         setUserSession,
         logout,
-        isAdmin: role === "admin",
-        isMember: role === "member",
+        isAdmin: role === "admin" || role === "owner",
+        isMember: role === "member" || role === "viewer",
+        isLoading,
       }}
     >
       {children}
@@ -167,12 +234,13 @@ export function useUserRole() {
   if (!context) {
     return {
       role: "admin" as UserRole,
-      profile: ADMIN_PROFILE,
+      profile: DEFAULT_ADMIN_PROFILE,
       setRole: () => {},
       setUserSession: () => {},
-      logout: () => {},
+      logout: async () => {},
       isAdmin: true,
       isMember: false,
+      isLoading: false,
     };
   }
   return context;
