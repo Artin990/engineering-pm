@@ -62,7 +62,7 @@ export function Sidebar() {
 
   const navLinks = [
     { href: "/projects", label: "همه پروژه‌ها", icon: FolderKanban, exact: true },
-    { href: "/members", label: "اعضای کل سازمان", icon: Users, exact: true },
+    ...(isAdmin ? [{ href: "/members", label: "اعضای کل سازمان", icon: Users, exact: true }] : []),
     { href: "/chat", label: "اتاق گفتگوی زنده تیم", icon: MessageSquare, badge: "۱۰ دقیقه", exact: true },
   ];
 

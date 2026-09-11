@@ -129,12 +129,20 @@ select,
 textarea,
 table,
 th,
-td {
+td,
+span,
+p,
+div,
+h1, h2, h3, h4, h5, h6,
+label,
+code,
+pre,
+kbd {
   font-family: var(--font-peyda), "Peyda", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: "ss01" on, "cv01" on;
+  font-feature-settings: "ss01" on, "ss02" on, "cv01" on;
 }
 
 body {
@@ -145,6 +153,15 @@ body {
   font-weight: 500;
   line-height: 1.8;
   transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Ensure numbers in any container always use Peyda */
+.font-mono,
+.font-sans,
+[class*="font-mono"],
+[class*="font-sans"] {
+  font-family: var(--font-peyda), "Peyda", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-feature-settings: "ss01" on, "ss02" on, "cv01" on;
 }
 
 /* RTL Form Controls & Inputs */
@@ -208,6 +225,7 @@ textarea::-moz-placeholder {
 @theme {
   --font-sans: var(--font-peyda), "Peyda", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-peyda: var(--font-peyda), "Peyda", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-peyda), "Peyda", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
   --color-background: var(--background);
   --color-surface: var(--surface);

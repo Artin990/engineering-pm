@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useMemo } from "react";
 import {
   UserPlus,
@@ -272,6 +273,25 @@ export default function OrganizationMembersPage() {
       intern: members.filter((m) => m.role === "intern").length,
     };
   }, [members]);
+
+  if (!isAdmin) {
+    return (
+      <section className="max-w-md mx-auto py-16 text-center space-y-4">
+        <div className="size-14 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto border border-amber-500/20">
+          <Shield className="size-7" />
+        </div>
+        <h1 className="text-xl font-bold text-[var(--text-primary)]">
+          دسترسی محدود به مدیرعامل
+        </h1>
+        <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
+          مشاهده و مدیریت اعضای کل سازمان صرفاً در اختیار مدیرعامل است. شما می‌توانید از منوی پروژه‌ها به تسک‌ها و اعضای پروژه خود دسترسی داشته باشید.
+        </p>
+        <Button asChild className="mt-4 shadow-sm">
+          <Link href="/projects">بازگشت به پروژه‌ها</Link>
+        </Button>
+      </section>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto pb-16">
