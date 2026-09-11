@@ -81,8 +81,14 @@ export default function ProjectsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const fetchProjects = async () => {
-    setLoading(true);
+  const fetchProjects = async (isBackground = false) => {
+    // Only show skeleton on initial load if no projects are cached yet
+    if (!isBackground && projectsList.length === 0) {
+      const saved = typeof window !== "undefined" ? localStorage.getItem("flowdeck_projects_list") : null;
+      if (!saved) {
+        setLoading(true);
+      }
+    }
 
     // 1. First load from localStorage for instant offline/persisted data
     let localProjects: Project[] = [];
@@ -92,7 +98,9 @@ export default function ProjectsPage() {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
           localProjects = parsed;
-          setProjectsList(parsed);
+          if (projectsList.length === 0) {
+            setProjectsList(parsed);
+          }
         }
       }
     } catch {
@@ -104,7 +112,7 @@ export default function ProjectsPage() {
       const res = await fetch("/api/v1/projects");
       if (res.ok) {
         const json = await res.json();
-        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
+        if (json.data && Array.isArray(json.data)) {
           const mapped: Project[] = json.data.map((p: ApiProjectItem) => ({
             id: p.id,
             key: p.key,
@@ -136,12 +144,21 @@ export default function ProjectsPage() {
               merged.push(lp);
             }
           }
-          setProjectsList(merged);
-          try {
-            localStorage.setItem("flowdeck_projects_list", JSON.stringify(merged));
-          } catch {
-            // ignore
-          }
+
+          // Only update state if projects actually changed to prevent UI re-renders & flickering
+          setProjectsList((prev) => {
+            const prevSignature = JSON.stringify(prev.map((p) => ({ id: p.id, key: p.key, name: p.name, status: p.status, health: p.health })));
+            const nextSignature = JSON.stringify(merged.map((p) => ({ id: p.id, key: p.key, name: p.name, status: p.status, health: p.health })));
+            if (prevSignature === nextSignature) {
+              return prev;
+            }
+            try {
+              localStorage.setItem("flowdeck_projects_list", JSON.stringify(merged));
+            } catch {
+              // ignore
+            }
+            return merged;
+          });
         }
       }
     } catch {
@@ -152,11 +169,13 @@ export default function ProjectsPage() {
   };
 
   useEffect(() => {
-    fetchProjects();
+    // Initial fetch
+    fetchProjects(false);
 
+    // Silent background polling
     const interval = setInterval(() => {
-      fetchProjects();
-    }, 3500);
+      fetchProjects(true);
+    }, 4000);
 
     let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null;
     try {
@@ -164,7 +183,7 @@ export default function ProjectsPage() {
       channel = supabase
         .channel("radarcheck_projects_global")
         .on("broadcast", { event: "projects_list_changed" }, () => {
-          fetchProjects();
+          fetchProjects(true);
         })
         .subscribe();
     } catch {

@@ -41,6 +41,46 @@ export function Sidebar() {
   const { profile, logout, isAdmin } = useUserRole();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [chatUnreadCount, setChatUnreadCount] = useState<number>(0);
+  const [chatTotalCount, setChatTotalCount] = useState<number>(0);
+
+  // Sync and track Chat unread message count
+  useEffect(() => {
+    const updateChatCounts = async () => {
+      try {
+        const res = await fetch("/api/v1/chat");
+        if (res.ok) {
+          const json = await res.json();
+          const total = typeof json.totalCount === "number" ? json.totalCount : (Array.isArray(json.messages) ? json.messages.length : 0);
+          setChatTotalCount(total);
+
+          if (pathname === "/chat") {
+            setChatUnreadCount(0);
+            localStorage.setItem("radarcheck_chat_last_read_count", String(total));
+          } else {
+            const lastRead = Number(localStorage.getItem("radarcheck_chat_last_read_count") || "0");
+            const unread = Math.max(0, total - lastRead);
+            setChatUnreadCount(unread);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    updateChatCounts();
+    const interval = setInterval(updateChatCounts, 3500);
+
+    const onChatRead = () => {
+      setChatUnreadCount(0);
+    };
+    window.addEventListener("radarcheck_chat_read", onChatRead);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("radarcheck_chat_read", onChatRead);
+    };
+  }, [pathname]);
 
   useEffect(() => {
     const saved = localStorage.getItem("sidebar_collapsed");
@@ -60,10 +100,24 @@ export function Sidebar() {
     localStorage.setItem("sidebar_collapsed", String(next));
   };
 
+  const chatBadgeText =
+    chatUnreadCount > 0
+      ? `${chatUnreadCount} جدید`
+      : chatTotalCount > 0
+      ? `${chatTotalCount} پیام`
+      : "زنده";
+
   const navLinks = [
     { href: "/projects", label: "همه پروژه‌ها", icon: FolderKanban, exact: true },
     ...(isAdmin ? [{ href: "/members", label: "اعضای کل سازمان", icon: Users, exact: true }] : []),
-    { href: "/chat", label: "اتاق گفتگوی زنده تیم", icon: MessageSquare, badge: "۱۰ دقیقه", exact: true },
+    {
+      href: "/chat",
+      label: "اتاق گفتگوی زنده تیم",
+      icon: MessageSquare,
+      badge: chatBadgeText,
+      hasUnread: chatUnreadCount > 0,
+      exact: true,
+    },
   ];
 
   const projectLinks = params?.key
@@ -244,20 +298,31 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
-              title={!isMobile && collapsed ? item.label : undefined}
+              title={!isMobile && collapsed ? `${item.label}${item.badge ? ` (${item.badge})` : ""}` : undefined}
               onClick={() => isMobile && setMobileOpen(false)}
-              className={`flex items-center ${!isMobile && collapsed ? "justify-center" : "justify-between"} rounded-[10px] px-[12px] py-[8px] text-[13px] font-medium transition-colors ${
+              className={`flex items-center ${!isMobile && collapsed ? "justify-center relative" : "justify-between"} rounded-[10px] px-[12px] py-[8px] text-[13px] font-medium transition-colors ${
                 active
                   ? "bg-[var(--primary)] text-white shadow-sm"
                   : "text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]"
               }`}
             >
-              <span className="flex items-center gap-[8px]">
+              <span className="flex items-center gap-[8px] relative">
                 <Icon size={16} />
                 {(isMobile || !collapsed) && item.label}
+                {!isMobile && collapsed && item.hasUnread && (
+                  <span className="absolute -top-1 -right-1 size-2 rounded-full bg-emerald-500 ring-2 ring-[var(--surface)] animate-pulse" />
+                )}
               </span>
               {(isMobile || !collapsed) && item.badge && (
-                <span className="rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.2 text-[10px] font-mono">
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-mono transition-colors ${
+                    item.hasUnread
+                      ? "bg-emerald-500 text-white font-bold animate-pulse shadow-xs"
+                      : active
+                      ? "bg-white/20 text-white"
+                      : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                  }`}
+                >
                   {item.badge}
                 </span>
               )}
