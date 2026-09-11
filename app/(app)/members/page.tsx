@@ -67,20 +67,75 @@ export default function OrganizationMembersPage() {
     ? `${window.location.origin}/register?org=flowdeck`
     : `https://flowdeck.dev/register?org=flowdeck`;
 
-  // Load from localStorage
-  useEffect(() => {
+  // Load from API & localStorage
+  const fetchMembers = async () => {
+    let localList: Member[] = [];
     try {
       const saved = localStorage.getItem("flowdeck_org_members");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
+          localList = parsed;
           setMembers(parsed);
-          return;
         }
       }
     } catch {
       // ignore
     }
+
+    try {
+      const res = await fetch("/api/v1/members");
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data) && json.data.length > 0) {
+          const apiMembers: Member[] = json.data.map((p: {
+            id: string;
+            displayName: string;
+            email: string | null;
+            avatarUrl: string | null;
+            githubLogin: string | null;
+            createdAt?: string;
+          }) => {
+            const isAdminEmail =
+              p.email &&
+              ["amiriartin185@gmil.com", "amiriartin185@gmail.com", "artinamiri185@gmail.com"].includes(
+                p.email.toLowerCase()
+              );
+            return {
+              id: p.id,
+              displayName: p.displayName || p.email?.split("@")[0] || "کاربر جدید",
+              email: p.email || "",
+              avatarUrl: p.avatarUrl || null,
+              githubLogin: p.githubLogin || null,
+              role: isAdminEmail ? "admin" : "member",
+              status: "active",
+              joinedAt: p.createdAt ? new Date(p.createdAt).toLocaleDateString("fa-IR") : "به‌تازگی",
+            };
+          });
+
+          // Merge without duplicate emails/ids
+          const merged = [...apiMembers];
+          for (const lm of localList) {
+            if (!merged.some((m) => (m.email && lm.email && m.email.toLowerCase() === lm.email.toLowerCase()) || m.id === lm.id)) {
+              merged.push(lm);
+            }
+          }
+
+          setMembers(merged);
+          try {
+            localStorage.setItem("flowdeck_org_members", JSON.stringify(merged));
+          } catch {
+            // ignore
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    fetchMembers();
   }, []);
 
   const saveMembers = (updated: Member[]) => {
@@ -118,7 +173,7 @@ export default function OrganizationMembersPage() {
     setModalOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim()) return;
 
@@ -136,6 +191,21 @@ export default function OrganizationMembersPage() {
       );
       saveMembers(updated);
       setSuccessMsg(`مشخصات «${name}» با موفقیت ویرایش شد.`);
+
+      try {
+        await fetch("/api/v1/members", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: editingMember.id,
+            displayName: name.trim(),
+            email: email.trim(),
+            githubLogin: github.trim() || null,
+          }),
+        });
+      } catch {
+        // ignore
+      }
     } else {
       const newMember: Member = {
         id: `org-mem-${Date.now()}`,
@@ -149,6 +219,21 @@ export default function OrganizationMembersPage() {
       const updated = [newMember, ...members];
       saveMembers(updated);
       setSuccessMsg(`عضو جدید «${name}» به دایرکتوری سازمان افزوده شد.`);
+
+      try {
+        await fetch("/api/v1/members", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: newMember.id,
+            displayName: name.trim(),
+            email: email.trim(),
+            githubLogin: github.trim() || null,
+          }),
+        });
+      } catch {
+        // ignore
+      }
     }
 
     setTimeout(() => {

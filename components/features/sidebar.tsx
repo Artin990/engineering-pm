@@ -20,6 +20,9 @@ import {
   Shield,
   User,
   Users,
+  MessageSquare,
+  Menu,
+  X,
 } from "lucide-react";
 import { GithubIcon } from "@/components/ui/github-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -27,7 +30,7 @@ import { useUserRole } from "@/lib/role-context";
 import { getProjectByKey } from "@/components/features/__fixtures__/mock-data";
 
 /**
- * Sidebar اصلی اپلیکیشن RadarCheck — RTL (سمت راست) با قابلیت باز و بسته شدن و تفکیک نقش.
+ * Sidebar اصلی اپلیکیشن RadarCheck — RTL (سمت راست) با ریسپانسیو کامل و همبرگر منو در موبایل.
  */
 export function Sidebar() {
   const pathname = usePathname();
@@ -37,6 +40,7 @@ export function Sidebar() {
 
   const { profile, logout, isAdmin } = useUserRole();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("sidebar_collapsed");
@@ -45,26 +49,49 @@ export function Sidebar() {
     }
   }, []);
 
+  // Close mobile drawer on route changes
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
   const toggleCollapsed = () => {
     const next = !collapsed;
     setCollapsed(next);
     localStorage.setItem("sidebar_collapsed", String(next));
   };
 
-  return (
-    <aside
-      className={`sticky top-0 flex h-screen shrink-0 flex-col border-l border-[var(--border)] bg-[var(--surface)] text-start z-30 transition-all duration-300 ease-in-out ${
-        collapsed ? "w-[72px] p-[10px]" : "w-[260px] p-[16px]"
-      }`}
-    >
+  const navLinks = [
+    { href: "/projects", label: "همه پروژه‌ها", icon: FolderKanban, exact: true },
+    { href: "/members", label: "اعضای کل سازمان", icon: Users, exact: true },
+    { href: "/chat", label: "اتاق گفتگوی زنده تیم", icon: MessageSquare, badge: "۱۰ دقیقه", exact: true },
+  ];
+
+  const projectLinks = params?.key
+    ? [
+        { href: `/projects/${currentKey}`, label: "نمای کلی", icon: Layers3, exact: true },
+        { href: `/projects/${currentKey}/issues`, label: "ایشوها و بورد", icon: CheckSquare },
+        { href: `/projects/${currentKey}/cycles`, label: "سایکل‌ها", icon: Layers },
+        { href: `/projects/${currentKey}/roadmap`, label: "رودمپ", icon: Map },
+        { href: `/projects/${currentKey}/milestones`, label: "مایلستون‌ها", icon: Target },
+        { href: `/projects/${currentKey}/github`, label: "گیت‌هاب", icon: GithubIcon },
+        { href: `/projects/${currentKey}/members`, label: "اعضا و دسترسی‌ها", icon: Users },
+        { href: `/projects/${currentKey}/activity`, label: "فعالیت", icon: Activity },
+        { href: `/projects/${currentKey}/analytics`, label: "آنالیتیکس و ارزیابی", icon: BarChart3 },
+        { href: `/projects/${currentKey}/settings`, label: "تنظیمات پروژه", icon: Settings },
+      ]
+    : [];
+
+  const renderNavContent = (isMobile = false) => (
+    <>
       {/* App Header */}
-      <div className={`mb-[16px] flex items-center ${collapsed ? "flex-col gap-2" : "justify-between"}`}>
+      <div className={`mb-[16px] flex items-center ${!isMobile && collapsed ? "flex-col gap-2" : "justify-between"}`}>
         <Link
           href="/projects"
           className="flex items-center gap-[10px] text-[15px] font-bold text-[var(--text-primary)] transition-opacity hover:opacity-85"
           title="RadarCheck — سامانه مدیریت مهندسی"
+          onClick={() => isMobile && setMobileOpen(false)}
         >
-          {collapsed ? (
+          {!isMobile && collapsed ? (
             <div className="relative size-9 shrink-0 overflow-hidden rounded-[8px] bg-transparent p-1 shadow-xs border border-[var(--border)]">
               <Image
                 src="/Flow-Deck-Logo.png"
@@ -105,20 +132,31 @@ export function Sidebar() {
           )}
         </Link>
         <div className="flex items-center gap-1">
-          <button
-            onClick={toggleCollapsed}
-            type="button"
-            className="flex size-8 items-center justify-center rounded-[8px] text-[var(--text-muted)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)] transition-colors"
-            title={collapsed ? "باز کردن سایدبار" : "بستن سایدبار"}
-          >
-            {collapsed ? <PanelRightOpen size={16} /> : <PanelRightClose size={16} />}
-          </button>
-          {!collapsed && <ThemeToggle />}
+          {!isMobile && (
+            <button
+              onClick={toggleCollapsed}
+              type="button"
+              className="flex size-8 items-center justify-center rounded-[8px] text-[var(--text-muted)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)] transition-colors"
+              title={collapsed ? "باز کردن سایدبار" : "بستن سایدبار"}
+            >
+              {collapsed ? <PanelRightOpen size={16} /> : <PanelRightClose size={16} />}
+            </button>
+          )}
+          {isMobile && (
+            <button
+              onClick={() => setMobileOpen(false)}
+              type="button"
+              className="flex size-8 items-center justify-center rounded-[8px] text-[var(--text-muted)] hover:bg-[var(--surface-raised)] transition-colors"
+            >
+              <X size={18} />
+            </button>
+          )}
+          {(isMobile || !collapsed) && <ThemeToggle />}
         </div>
       </div>
 
       {/* Role Pill */}
-      {!collapsed ? (
+      {isMobile || !collapsed ? (
         <div className="mb-[12px] rounded-[8px] border border-[var(--border)] bg-[var(--surface-raised)] p-2">
           <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] mb-1.5">
             <span className="flex items-center gap-1">
@@ -132,7 +170,7 @@ export function Sidebar() {
                   : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
               }`}
             >
-              {isAdmin ? "مدیر کل" : "عضو عادی"}
+              {isAdmin ? "مدیرعامل" : "عضو عادی"}
             </span>
           </div>
           <div className="flex items-center justify-between">
@@ -156,9 +194,9 @@ export function Sidebar() {
         </div>
       )}
 
-      {/* Workspace / Project Quick Switcher */}
-      {params?.key ? (
-        !collapsed ? (
+      {/* Project Active Pill */}
+      {params?.key && (
+        isMobile || !collapsed ? (
           <div className="mb-[16px] rounded-[10px] border border-[var(--border)] bg-[var(--surface-raised)] p-[10px]">
             <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] mb-[4px]">
               <span>پروژه فعال</span>
@@ -168,6 +206,7 @@ export function Sidebar() {
             </div>
             <Link
               href={`/projects/${currentKey}`}
+              onClick={() => isMobile && setMobileOpen(false)}
               className="flex items-center justify-between rounded-[6px] text-[13px] font-semibold text-[var(--text-primary)] hover:text-[var(--primary)] transition-colors"
             >
               <span className="truncate">{currentProject?.name || `پروژه ${currentKey}`}</span>
@@ -187,70 +226,56 @@ export function Sidebar() {
             </Link>
           </div>
         )
-      ) : null}
+      )}
 
-      {/* Global Navigation */}
+      {/* Navigation Links */}
       <nav aria-label="ناوبری اصلی" className="flex-1 space-y-[4px] overflow-y-auto pr-[2px]">
-        {!collapsed && (
+        {(isMobile || !collapsed) && (
           <div className="text-[11px] font-semibold text-[var(--text-muted)] px-[12px] py-[4px]">
-            بخش‌ها
+            بخش‌های اصلی
           </div>
         )}
 
-        <Link
-          href="/projects"
-          aria-current={pathname === "/projects" ? "page" : undefined}
-          title="همه پروژه‌ها"
-          className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} rounded-[10px] px-[12px] py-[8px] text-[13px] font-medium transition-colors ${
-            pathname === "/projects"
-              ? "bg-[var(--primary)] text-white"
-              : "text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]"
-          }`}
-        >
-          <span className="flex items-center gap-[8px]">
-            <FolderKanban size={16} />
-            {!collapsed && "همه پروژه‌ها"}
-          </span>
-        </Link>
+        {navLinks.map((item) => {
+          const active = pathname === item.href;
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              title={!isMobile && collapsed ? item.label : undefined}
+              onClick={() => isMobile && setMobileOpen(false)}
+              className={`flex items-center ${!isMobile && collapsed ? "justify-center" : "justify-between"} rounded-[10px] px-[12px] py-[8px] text-[13px] font-medium transition-colors ${
+                active
+                  ? "bg-[var(--primary)] text-white shadow-sm"
+                  : "text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]"
+              }`}
+            >
+              <span className="flex items-center gap-[8px]">
+                <Icon size={16} />
+                {(isMobile || !collapsed) && item.label}
+              </span>
+              {(isMobile || !collapsed) && item.badge && (
+                <span className="rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.2 text-[10px] font-mono">
+                  {item.badge}
+                </span>
+              )}
+            </Link>
+          );
+        })}
 
-        <Link
-          href="/members"
-          aria-current={pathname === "/members" ? "page" : undefined}
-          title="اعضای کل سازمان"
-          className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} rounded-[10px] px-[12px] py-[8px] text-[13px] font-medium transition-colors ${
-            pathname === "/members"
-              ? "bg-[var(--primary)] text-white"
-              : "text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]"
-          }`}
-        >
-          <span className="flex items-center gap-[8px]">
-            <Users size={16} />
-            {!collapsed && "اعضای کل سازمان"}
-          </span>
-        </Link>
-
-        {/* Current Project Sub-links if inside a project */}
-        {params?.key && (
+        {/* Current Project Sub-links */}
+        {params?.key && projectLinks.length > 0 && (
           <div className="pt-[8px] pb-[4px]">
-            {!collapsed && (
+            {(isMobile || !collapsed) && (
               <div className="text-[11px] font-semibold text-[var(--text-muted)] px-[12px] py-[4px] flex items-center justify-between">
                 <span>منوی پروژه ({currentKey})</span>
               </div>
             )}
 
             <div className="space-y-[2px] mt-1">
-              {[
-                { href: `/projects/${currentKey}`, label: "نمای کلی", icon: Layers3, exact: true },
-                { href: `/projects/${currentKey}/issues`, label: "ایشوها و بورد", icon: CheckSquare },
-                { href: `/projects/${currentKey}/cycles`, label: "سایکل‌ها", icon: Layers },
-                { href: `/projects/${currentKey}/roadmap`, label: "رودمپ", icon: Map },
-                { href: `/projects/${currentKey}/milestones`, label: "مایلستون‌ها", icon: Target },
-                { href: `/projects/${currentKey}/github`, label: "گیت‌هاب", icon: GithubIcon },
-                { href: `/projects/${currentKey}/members`, label: "اعضا و دسترسی‌ها", icon: Users },
-                { href: `/projects/${currentKey}/activity`, label: "فعالیت", icon: Activity },
-                { href: `/projects/${currentKey}/analytics`, label: "آنالیتیکس و ارزیابی", icon: BarChart3 },
-                { href: `/projects/${currentKey}/settings`, label: "تنظیمات پروژه", icon: Settings },
-              ].map((item) => {
+              {projectLinks.map((item) => {
                 const active = item.exact
                   ? pathname === item.href
                   : pathname === item.href || pathname.startsWith(item.href + "/");
@@ -260,15 +285,16 @@ export function Sidebar() {
                     key={item.href}
                     href={item.href}
                     aria-current={active ? "page" : undefined}
-                    title={collapsed ? item.label : undefined}
-                    className={`flex items-center ${collapsed ? "justify-center" : "gap-[8px]"} rounded-[8px] px-[12px] py-[7px] text-[13px] font-medium transition-colors ${
+                    title={!isMobile && collapsed ? item.label : undefined}
+                    onClick={() => isMobile && setMobileOpen(false)}
+                    className={`flex items-center ${!isMobile && collapsed ? "justify-center" : "gap-[8px]"} rounded-[8px] px-[12px] py-[7px] text-[13px] font-medium transition-colors ${
                       active
                         ? "bg-[var(--primary)] text-white shadow-sm"
                         : "text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]"
                     }`}
                   >
                     <Icon size={16} />
-                    {!collapsed && <span>{item.label}</span>}
+                    {(isMobile || !collapsed) && <span>{item.label}</span>}
                   </Link>
                 );
               })}
@@ -277,12 +303,13 @@ export function Sidebar() {
         )}
       </nav>
 
-      {/* Footer */}
+      {/* Footer User Info */}
       <footer className="border-t border-[var(--border)] pt-[12px] text-[12px] space-y-[8px]">
-        {!collapsed ? (
+        {isMobile || !collapsed ? (
           <div className="flex items-center justify-between rounded-[8px] bg-[var(--surface-raised)] p-[8px]">
             <Link
               href="/settings"
+              onClick={() => isMobile && setMobileOpen(false)}
               className="flex items-center gap-[8px] min-w-0 hover:opacity-85 transition-opacity flex-1"
               title="مشاهده و ویرایش مشخصات حساب کاربری"
             >
@@ -301,6 +328,7 @@ export function Sidebar() {
             <div className="flex items-center gap-1.5 shrink-0 ms-1">
               <Link
                 href="/settings"
+                onClick={() => isMobile && setMobileOpen(false)}
                 title="تنظیمات پروفایل"
                 className="p-1.5 rounded text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--surface)] transition-colors"
               >
@@ -333,7 +361,7 @@ export function Sidebar() {
             </Link>
           </div>
         )}
-        {!collapsed && (
+        {(isMobile || !collapsed) && (
           <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] px-[4px]">
             <span>RadarCheck v1.0</span>
             <span className="inline-flex items-center gap-1">
@@ -343,7 +371,77 @@ export function Sidebar() {
           </div>
         )}
       </footer>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* 1. Mobile Top Bar with Hamburger Button (lg:hidden) */}
+      <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            className="flex size-9 items-center justify-center rounded-[8px] border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-primary)] hover:bg-[var(--surface)] transition-colors"
+            title="باز کردن منو"
+          >
+            <Menu size={20} />
+          </button>
+          <Link href="/projects" className="flex items-center gap-2">
+            <div className="relative h-6 w-24">
+              <Image
+                src="/Flow-Deck-Logo.png"
+                alt="FlowDeck"
+                fill
+                sizes="100px"
+                className="object-contain object-right dark:hidden"
+              />
+              <Image
+                src="/Flow-Deck-Logo-for-dark-mode.png"
+                alt="FlowDeck"
+                fill
+                sizes="100px"
+                className="object-contain object-right hidden dark:block"
+              />
+            </div>
+          </Link>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Link
+            href="/settings"
+            className="flex size-8 items-center justify-center rounded-full bg-[var(--primary)] text-white text-[11px] font-bold"
+          >
+            {profile.name?.charAt(0) || "ک"}
+          </Link>
+        </div>
+      </header>
+
+      {/* 2. Mobile Drawer (Slide-Over from Right) */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs lg:hidden transition-opacity"
+          onClick={() => setMobileOpen(false)}
+        >
+          <aside
+            className="w-[280px] h-full flex flex-col border-l border-[var(--border)] bg-[var(--surface)] p-[16px] text-start shadow-2xl animate-in slide-in-from-right duration-200"
+            onClick={(e) => e.stopPropagation()}
+            dir="rtl"
+          >
+            {renderNavContent(true)}
+          </aside>
+        </div>
+      )}
+
+      {/* 3. Desktop Sidebar (hidden on mobile, flex on lg) */}
+      <aside
+        className={`hidden lg:flex sticky top-0 h-screen shrink-0 flex-col border-l border-[var(--border)] bg-[var(--surface)] text-start z-30 transition-all duration-300 ease-in-out ${
+          collapsed ? "w-[72px] p-[10px]" : "w-[260px] p-[16px]"
+        }`}
+      >
+        {renderNavContent(false)}
+      </aside>
+    </>
   );
 }
-

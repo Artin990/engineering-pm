@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams } from "next/navigation";
 import {
   UserPlus,
@@ -54,6 +54,40 @@ export default function MembersPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [orgMembers, setOrgMembers] = useState<Member[]>([]);
+
+  // Fetch registered organization members
+  useEffect(() => {
+    async function loadOrgMembers() {
+      try {
+        const res = await fetch("/api/v1/members");
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data)) {
+            setOrgMembers(
+              json.data.map((p: {
+                id: string;
+                displayName: string;
+                email: string | null;
+                githubLogin: string | null;
+              }) => ({
+                id: p.id,
+                displayName: p.displayName || p.email?.split("@")[0] || "کاربر",
+                email: p.email || "",
+                githubLogin: p.githubLogin || null,
+                role: "member",
+                status: "active",
+                joinedAt: "امروز",
+              }))
+            );
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+    loadOrgMembers();
+  }, []);
 
   // Invite Form State
   const [inviteName, setInviteName] = useState("");
@@ -74,6 +108,15 @@ export default function MembersPage() {
     setTimeout(() => setInviteLinkCopied(false), 2000);
   };
 
+  const handleSelectOrgMember = (selectedId: string) => {
+    const found = orgMembers.find((om) => om.id === selectedId);
+    if (found) {
+      setInviteName(found.displayName);
+      setInviteEmail(found.email || "");
+      setInviteGithub(found.githubLogin || "");
+    }
+  };
+
   const handleCreateMember = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteName.trim() || !inviteEmail.trim()) return;
@@ -89,7 +132,7 @@ export default function MembersPage() {
     };
 
     addMember(newMem);
-    setInviteSuccessMsg(`عضو «${inviteName}» با موفقیت افزوده شد.`);
+    setInviteSuccessMsg(`عضو «${inviteName}» با موفقیت به پروژه افزوده شد.`);
     setInviteName("");
     setInviteEmail("");
     setInviteGithub("");
@@ -468,6 +511,27 @@ export default function MembersPage() {
               </div>
             ) : (
               <form onSubmit={handleCreateMember} className="space-y-4 text-xs sm:text-sm">
+                {orgMembers.length > 0 && (
+                  <div className="space-y-1.5 p-2.5 rounded-[8px] bg-primary/5 border border-primary/20">
+                    <label className="font-semibold text-foreground flex items-center gap-1.5">
+                      <UserPlus size={14} className="text-primary" />
+                      انتخاب سریع از اعضای ثبت‌نام شده در سازمان:
+                    </label>
+                    <Select onValueChange={handleSelectOrgMember}>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="یک کاربر از اعضای سازمان را انتخاب کنید..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {orgMembers.map((om) => (
+                          <SelectItem key={om.id} value={om.id}>
+                            {om.displayName} {om.email ? `(${om.email})` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 <div className="space-y-1.5">
                   <label className="font-semibold text-foreground">نام و نام‌خانوادگی</label>
                   <Input

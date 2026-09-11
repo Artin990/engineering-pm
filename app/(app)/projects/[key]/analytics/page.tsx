@@ -117,8 +117,11 @@ function buildIndividualProfile(member: Member, issues: Issue[]): IndividualProf
   const totalPoints = assigned.reduce((s, i) => s + (i.estimate || 1), 0);
   const donePoints = doneIssues.reduce((s, i) => s + (i.estimate || 1), 0);
 
-  const taskCompletionRate =
-    assigned.length > 0 ? Math.round((doneIssues.length / assigned.length) * 100) : 100;
+  const hasTasks = assigned.length > 0;
+
+  const taskCompletionRate = hasTasks
+    ? Math.round((doneIssues.length / assigned.length) * 100)
+    : 0;
 
   // On-time delivery rate based on due dates
   const issuesWithDue = assigned.filter((i) => i.dueDate);
@@ -127,77 +130,82 @@ function buildIndividualProfile(member: Member, issues: Issue[]): IndividualProf
     (i) => i.dueDate && i.dueDate < today && i.status !== "done" && i.status !== "cancelled"
   );
   
-  const onTimeDeliveryRate =
-    issuesWithDue.length > 0
+  const onTimeDeliveryRate = hasTasks
+    ? issuesWithDue.length > 0
       ? Math.max(0, Math.round(((issuesWithDue.length - overdueIssues.length) / issuesWithDue.length) * 100))
       : blockedIssues.length > 0
-      ? 80
-      : 96;
+      ? 75
+      : 100
+    : 100;
 
-  const reworkRate =
-    assigned.length > 0
-      ? Math.round(((inReviewIssues.length + blockedIssues.length) / assigned.length) * 100)
-      : 0;
+  const reworkRate = hasTasks
+    ? Math.round(((inReviewIssues.length + blockedIssues.length) / assigned.length) * 100)
+    : 0;
 
-  // Quality score formula
-  const qualityPenalty = blockedIssues.length * 7 + bugIssues.filter((b) => b.status !== "done").length * 5;
-  const qualityScore = Math.max(65, Math.min(100, 100 - qualityPenalty));
+  // Quality score formula: 100 base minus penalty for blockers and open bugs
+  const qualityPenalty = blockedIssues.length * 8 + bugIssues.filter((b) => b.status !== "done").length * 6;
+  const qualityScore = hasTasks ? Math.max(50, Math.min(100, 100 - qualityPenalty)) : 100;
 
   // Overall Score (0 - 10)
-  const scoreBase = (taskCompletionRate * 0.35) + (onTimeDeliveryRate * 0.3) + (qualityScore * 0.35);
-  const overallScore = Math.round((scoreBase / 10) * 10) / 10;
+  const scoreBase = hasTasks
+    ? (taskCompletionRate * 0.4) + (onTimeDeliveryRate * 0.3) + (qualityScore * 0.3)
+    : 0;
+  const overallScore = hasTasks ? Math.round((scoreBase / 10) * 10) / 10 : 0;
 
-  const estimatedHours = totalPoints > 0 ? totalPoints * 4 : 32;
-  const timeSpentHours = donePoints > 0 ? Math.round(donePoints * 3.8 + inProgressIssues.length * 2) : Math.round(estimatedHours * 0.65);
+  const estimatedHours = hasTasks ? totalPoints * 4 : 0;
+  const timeSpentHours = hasTasks
+    ? Math.round(donePoints * 3.8 + inProgressIssues.length * 2)
+    : 0;
 
   const burnoutRisk: "low" | "medium" | "high" =
     inProgressIssues.length >= 4 ? "high" : inProgressIssues.length >= 2 ? "medium" : "low";
 
-  const burnoutReason =
-    burnoutRisk === "high"
-      ? "تعداد تسک‌های همزمان در حال انجام بالا است و نیازمند توزیع مجدد بار کاری است."
-      : burnoutRisk === "medium"
-      ? "تراکم کاری در حد متوسط بوده و ریتم تحویل مناسب است."
-      : "توزیع متعادل زمان، تمرکز بالا و ریتم کاری کاملاً پایدار.";
+  const burnoutReason = !hasTasks
+    ? "کاربر جدید هنوز تسک فعالی ندارد."
+    : burnoutRisk === "high"
+    ? "تعداد تسک‌های همزمان در حال انجام بالا است و نیازمند توزیع مجدد بار کاری است."
+    : burnoutRisk === "medium"
+    ? "تراکم کاری در حد متوسط بوده و ریتم تحویل مناسب است."
+    : "توزیع متعادل زمان، تمرکز بالا و ریتم کاری کاملاً پایدار.";
 
-  // Dynamic Skills based on actual task categories & roles
+  // Dynamic Skills based on actual task categories
   const frontendTasks = assigned.filter((i) => /ui|css|front|view|page|modal|dialog|button/i.test(`${i.title} ${i.description || ""}`));
   const backendTasks = assigned.filter((i) => /api|db|sql|database|supabase|schema|auth|server/i.test(`${i.title} ${i.description || ""}`));
   const qaTasks = assigned.filter((i) => /test|bug|fix|lint|quality/i.test(`${i.title} ${i.description || ""}`));
 
-  const feLevel = Math.min(98, Math.max(70, 75 + (frontendTasks.length * 5)));
-  const beLevel = Math.min(96, Math.max(68, 72 + (backendTasks.length * 5)));
-  const qaLevel = Math.min(95, Math.max(72, 80 + (qaTasks.length * 4)));
-  const gitLevel = Math.min(99, Math.max(80, 85 + (doneIssues.length * 3)));
+  const feLevel = hasTasks ? Math.min(98, Math.max(60, 65 + (frontendTasks.length * 6))) : 50;
+  const beLevel = hasTasks ? Math.min(96, Math.max(60, 65 + (backendTasks.length * 6))) : 50;
+  const qaLevel = hasTasks ? Math.min(95, Math.max(60, 70 + (qaTasks.length * 5))) : 50;
+  const gitLevel = hasTasks ? Math.min(99, Math.max(70, 75 + (doneIssues.length * 4))) : 50;
 
   const skills: SkillRating[] = isIntern
     ? [
-        { name: "آشنایی با Git و فرآیند PR", category: "Core", level: gitLevel, growth: "+۱۵٪" },
-        { name: "طراحی کامپوننت و رابط کاربری", category: "Frontend", level: feLevel, growth: "+۲۰٪" },
-        { name: "درک نیازمندی‌های تسک و تخمین", category: "Process", level: Math.min(90, 70 + doneIssues.length * 4), growth: "+۱۰٪" },
-        { name: "تست و بررسی باگ‌ها", category: "QA", level: qaLevel, growth: "+۱۸٪" },
+        { name: "آشنایی با Git و فرآیند PR", category: "Core", level: gitLevel, growth: hasTasks ? "+۱۵٪" : "۰٪" },
+        { name: "طراحی کامپوننت و رابط کاربری", category: "Frontend", level: feLevel, growth: hasTasks ? "+۲۰٪" : "۰٪" },
+        { name: "درک نیازمندی‌های تسک و تخمین", category: "Process", level: hasTasks ? Math.min(90, 60 + doneIssues.length * 5) : 50, growth: hasTasks ? "+۱۰٪" : "۰٪" },
+        { name: "تست و بررسی باگ‌ها", category: "QA", level: qaLevel, growth: hasTasks ? "+۱۸٪" : "۰٪" },
       ]
     : [
-        { name: "معماری نرم‌افزار و کدنویسی", category: "Engineering", level: Math.max(88, beLevel), growth: "+۶٪" },
-        { name: "کیفیت کد و ریویو", category: "Quality", level: qualityScore, growth: "+۴٪" },
-        { name: "مدیریت تسک‌ها و تحویل به‌موقع", category: "Agile", level: onTimeDeliveryRate, growth: "+۵٪" },
-        { name: "یکپارچه‌سازی و گیت‌هاب", category: "DevOps", level: gitLevel, growth: "+۸٪" },
+        { name: "معماری نرم‌افزار و کدنویسی", category: "Engineering", level: beLevel, growth: hasTasks ? "+۶٪" : "۰٪" },
+        { name: "کیفیت کد و پایداری", category: "Quality", level: qualityScore, growth: hasTasks ? "+۴٪" : "۰٪" },
+        { name: "مدیریت تسک‌ها و تحویل به‌موقع", category: "Agile", level: hasTasks ? onTimeDeliveryRate : 50, growth: hasTasks ? "+۵٪" : "۰٪" },
+        { name: "یکپارچه‌سازی و ابزارهای توسعه", category: "DevOps", level: gitLevel, growth: hasTasks ? "+۸٪" : "۰٪" },
       ];
 
   // Dynamic OKRs derived from assigned issues
-  const okrs = assigned.slice(0, 3).map((iss) => ({
-    title: iss.title,
-    progress: iss.status === "done" ? 100 : iss.status === "in_progress" ? 65 : iss.status === "in_review" ? 85 : 20,
-    dueDate: iss.dueDate ? faDate(iss.dueDate) : "اسپرینت جاری",
-  }));
-
-  if (okrs.length === 0) {
-    okrs.push({
-      title: isIntern ? "تکمیل چک‌لیست شروع به‌کار و تسک‌های پایه" : "تحویل استوری پوینت‌های برنامه‌ریزی‌شده اسپرینت",
-      progress: taskCompletionRate,
-      dueDate: "اسپرینت جاری",
-    });
-  }
+  const okrs = hasTasks
+    ? assigned.slice(0, 3).map((iss) => ({
+        title: iss.title,
+        progress: iss.status === "done" ? 100 : iss.status === "in_progress" ? 65 : iss.status === "in_review" ? 85 : 20,
+        dueDate: iss.dueDate ? faDate(iss.dueDate) : "اسپرینت جاری",
+      }))
+    : [
+        {
+          title: "در انتظار تخصیص تسک‌های اولیه اسپرینت",
+          progress: 0,
+          dueDate: "اسپرینت جاری",
+        },
+      ];
 
   // Dynamic badges earned
   const badges = [];
@@ -209,7 +217,7 @@ function buildIndividualProfile(member: Member, issues: Issue[]): IndividualProf
       date: "اسپرینت جاری",
     });
   }
-  if (onTimeDeliveryRate >= 90) {
+  if (hasTasks && onTimeDeliveryRate >= 90) {
     badges.push({
       title: "تعهد به سررسید",
       icon: "🎯",
@@ -217,7 +225,7 @@ function buildIndividualProfile(member: Member, issues: Issue[]): IndividualProf
       date: "دوره جاری",
     });
   }
-  if (qualityScore >= 85) {
+  if (hasTasks && qualityScore >= 85) {
     badges.push({
       title: "کد با کیفیت",
       icon: "🛡️",
@@ -227,14 +235,14 @@ function buildIndividualProfile(member: Member, issues: Issue[]): IndividualProf
   }
   if (badges.length === 0) {
     badges.push({
-      title: "شروع اسپرینت",
-      icon: "⭐",
-      desc: "در حال اجرای وظایف محوله",
-      date: "دوره فعال",
+      title: "عضو جدید",
+      icon: "🌱",
+      desc: "به‌تازگی به تیم پروژه ملحق شده است",
+      date: "دوره جاری",
     });
   }
 
-  // Dynamic 28-day Activity heatmap based on issue dates
+  // Dynamic 28-day Activity heatmap based strictly on real issue dates
   const activityMap: number[] = Array(28).fill(0);
   const now = Date.now();
   const oneDay = 24 * 60 * 60 * 1000;
@@ -246,23 +254,30 @@ function buildIndividualProfile(member: Member, issues: Issue[]): IndividualProf
     }
   });
 
-  // Ensure non-zero visual activity representation
-  for (let i = 0; i < 28; i++) {
-    if (activityMap[i] === 0 && (i % 3 === 0 || i % 5 === 0)) {
-      activityMap[i] = (i % 4) + 1;
+  // Calculate real active streak days
+  let streak = 0;
+  if (hasTasks) {
+    for (let i = 27; i >= 0; i--) {
+      if (activityMap[i] > 0) {
+        streak++;
+      } else if (streak > 0) {
+        break;
+      }
     }
   }
 
   // AI-Generated Engineering Narrative Insight
   let aiInsight = "";
-  if (donePoints >= 8 && qualityScore >= 85) {
+  if (!hasTasks) {
+    aiInsight = `عضو «${member.displayName}» به‌تازگی به این پروژه اضافه شده و هنوز تسکی به وی تخصیص نیافته است. با تخصیص اولین ایشوها در تب بورد، شاخص‌های عملکردی و تحلیلی وی محاسبه و در این بخش نمایش داده خواهد شد.`;
+  } else if (donePoints >= 8 && qualityScore >= 85) {
     aiInsight = `عضو «${member.displayName}» با تحویل ${faNumber(donePoints)} استوری‌پوینت و کسب نمره کیفی ${faNumber(qualityScore)}٪، عملکردی فوق‌العاده و ریتم تحویل بسیار پایداری از خود نشان داده است. کدهای ارائه‌شده کمترین میزان بازگشت کار را داشته و تسک‌ها مطابق استانداردهای معماری پروژه بسته شده‌اند.`;
   } else if (blockedIssues.length > 0) {
     aiInsight = `عضو «${member.displayName}» در تسک‌های جاری دارای ${faNumber(blockedIssues.length)} مورد مسدودشده است که نیازمند هماهنگی سریع با سرپرست فنی برای رفع موانع خارجی است. نرخ تلاش و مشارکت مثبت ارزیابی می‌شود.`;
   } else if (doneIssues.length > 0) {
     aiInsight = `عضو «${member.displayName}» روند پیشرفت مطلوبی را در اسپرینت سپری می‌کند. پیشنهاد می‌شود برای حفظ شاخص تحویل به‌موقع، تسک‌های در حال بازبینی سریع‌تر نهایی گردند.`;
   } else {
-    aiInsight = `عضو «${member.displayName}» آماده شروع و پیاده‌سازی تسک‌های اسپرینت است. با توزیع متوازن استوری‌پوینت‌ها، بازدهی به حداکثر خواهد رسید.`;
+    aiInsight = `عضو «${member.displayName}» دارای ${faNumber(assigned.length)} تسک در حال اجراست. با تمرکز بر پیشبرد کارها، ارزیابی دقیق‌تری از سرعت تحویل حاصل خواهد شد.`;
   }
 
   return {
@@ -279,8 +294,8 @@ function buildIndividualProfile(member: Member, issues: Issue[]): IndividualProf
     type: isIntern ? "intern" : "employee",
     avatar: member.avatarUrl || member.displayName.trim().charAt(0) || "ک",
     mentorName: isIntern ? "مدیر فنی" : undefined,
-    onboardingProgress: isIntern ? 90 : 100,
-    learningCurveScore: isIntern ? 88 : 96,
+    onboardingProgress: isIntern ? (hasTasks ? 90 : 30) : 100,
+    learningCurveScore: isIntern ? (hasTasks ? 88 : 50) : 96,
     timeSpentHours,
     estimatedHours,
     onTimeDeliveryRate,
@@ -288,7 +303,7 @@ function buildIndividualProfile(member: Member, issues: Issue[]): IndividualProf
     reworkRate,
     qualityScore,
     overallScore,
-    activeStreakDays: assigned.length > 0 ? Math.min(assigned.length * 3 + 2, 21) : 5,
+    activeStreakDays: streak,
     burnoutRisk,
     burnoutReason,
     assignedIssuesCount: assigned.length,
@@ -302,7 +317,7 @@ function buildIndividualProfile(member: Member, issues: Issue[]): IndividualProf
     badges,
     activityMap,
     mentorFeedback: isIntern
-      ? `عضو «${member.displayName}» تعامل بسیار خوبی با تیم داشته و فرآیندهای گیت و ساختار کدنویسی را با موفقیت پیاده کرده است.`
+      ? `عضو «${member.displayName}» در مسیر یادگیری فرآیندهای تیم قرار دارد.`
       : undefined,
     aiEngineeringInsight: aiInsight,
     assignedIssues: assigned,
