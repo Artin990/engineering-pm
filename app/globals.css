@@ -228,3 +228,59 @@ textarea::-moz-placeholder {
 
   --shadow-md: var(--shadow-md);
 }
+
+/* ======================================================
+   Print & PDF Export Styling (A4 Portrait)
+   ====================================================== */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm 10mm 12mm;
+  }
+
+  body {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    font-size: 11pt !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Hide app navigation, sidebar, interactive controls during print */
+  aside,
+  header:not(.print-header),
+  nav,
+  button:not(.print-include),
+  .no-print,
+  [data-no-print="true"] {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .print-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  .print-page-break {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .print-avoid-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
+
+.print-only {
+  display: none;
+}
