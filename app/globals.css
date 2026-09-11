@@ -152,6 +152,18 @@ input, textarea {
   text-align: right;
 }
 
+input::placeholder,
+textarea::placeholder,
+input::-webkit-input-placeholder,
+textarea::-webkit-input-placeholder,
+input::-moz-placeholder,
+textarea::-moz-placeholder {
+  color: var(--text-muted);
+  opacity: 0.75;
+  text-align: right !important;
+  direction: rtl !important;
+}
+
 input[type="email"],
 input[type="password"],
 input[type="url"],
@@ -161,10 +173,22 @@ input[type="number"],
   text-align: left;
 }
 
-input::placeholder,
-textarea::placeholder {
-  color: var(--text-muted);
-  opacity: 0.7;
+/* Placeholder for LTR inputs when empty */
+input[type="email"]:placeholder-shown,
+input[type="password"]:placeholder-shown,
+input[type="url"]:placeholder-shown,
+input[type="number"]:placeholder-shown,
+.ltr-dir:placeholder-shown {
+  text-align: right;
+}
+
+input[type="email"]::placeholder,
+input[type="password"]::placeholder,
+input[type="url"]::placeholder,
+input[type="number"]::placeholder,
+.ltr-dir::placeholder {
+  direction: rtl !important;
+  text-align: right !important;
 }
 
 /* Custom modern scrollbars */

@@ -332,13 +332,21 @@ export default function MilestonesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
-                    تاریخ سررسید
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[13px] font-medium text-[var(--text-primary)]">
+                      تاریخ سررسید
+                    </label>
+                    {targetDate && (
+                      <span className="text-[12px] font-medium text-[var(--primary)]">
+                        تقویم شمسی: {faDate(targetDate)}
+                      </span>
+                    )}
+                  </div>
                   <Input
                     type="date"
                     value={targetDate}
                     onChange={(e) => setTargetDate(e.target.value)}
+                    className="bg-[var(--background)]"
                   />
                 </div>
               </div>

@@ -33,7 +33,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MOCK_MEMBERS, MOCK_PROJECTS } from "@/components/features/__fixtures__/mock-data";
-import { faNumber } from "@/lib/format";
+import { faNumber, faDate } from "@/lib/format";
 import { useUserRole } from "@/lib/role-context";
 
 export default function ProjectSettingsPage({
@@ -173,7 +173,14 @@ export default function ProjectSettingsPage({
               />
             </label>
             <label className="grid gap-[6px] text-[13px] font-medium">
-              تاریخ هدف (Target Date)
+              <div className="flex items-center justify-between">
+                <span>تاریخ هدف (سررسید پروژه)</span>
+                {targetDate && (
+                  <span className="text-[12px] font-normal text-[var(--primary)]">
+                    تقویم شمسی: {faDate(targetDate)}
+                  </span>
+                )}
+              </div>
               <Input
                 type="date"
                 value={targetDate}

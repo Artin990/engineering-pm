@@ -11,6 +11,7 @@ import {
   X,
   Layers,
   AlertCircle,
+  Calendar,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +38,7 @@ import {
   type Project,
   type ProjectStatus,
 } from "@/components/features/types";
-import { faNumber } from "@/lib/format";
+import { faNumber, faDate } from "@/lib/format";
 
 interface ApiProjectItem {
   id: string;
@@ -312,6 +313,12 @@ export default function ProjectsPage() {
                         {faNumber(project.counts.blocked)} بلاک
                       </Badge>
                     )}
+                    {project.targetDate && (
+                      <Badge variant="outline" className="text-[11px] gap-1 border-[var(--border)] text-[var(--text-muted)]">
+                        <Calendar className="size-3 text-[var(--primary)]" />
+                        {faDate(project.targetDate)}
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center justify-between border-t border-[var(--border)] pt-[12px] text-[12px] text-[var(--text-muted)]">
                     <span className="flex items-center gap-[4px]">
@@ -418,13 +425,21 @@ export default function ProjectsPage() {
               </div>
 
               <div>
-                <label className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
-                  تاریخ هدف (Target Date)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[13px] font-medium text-[var(--text-primary)]">
+                    تاریخ هدف (سررسید پروژه)
+                  </label>
+                  {targetDate && (
+                    <span className="text-[12px] font-medium text-[var(--primary)]">
+                      تقویم شمسی: {faDate(targetDate)}
+                    </span>
+                  )}
+                </div>
                 <Input
                   type="date"
                   value={targetDate}
                   onChange={(e) => setTargetDate(e.target.value)}
+                  className="bg-[var(--background)]"
                 />
               </div>
 

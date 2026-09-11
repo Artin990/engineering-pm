@@ -21,6 +21,7 @@ import {
   type IssueType,
 } from "@/components/features/types";
 import { MOCK_MEMBERS, MOCK_MILESTONES, MOCK_CYCLES } from "@/components/features/__fixtures__/mock-data";
+import { faDate } from "@/lib/format";
 
 interface CreateIssueDialogProps {
   open: boolean;
@@ -256,14 +257,21 @@ export function CreateIssueDialog({
             </div>
 
             <div>
-              <label className="block text-[12px] font-medium text-[var(--text-muted)] mb-1">
-                تاریخ سررسید
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[12px] font-medium text-[var(--text-muted)]">
+                  تاریخ سررسید
+                </label>
+                {dueDate && (
+                  <span className="text-[11px] font-medium text-[var(--primary)]">
+                    {faDate(dueDate)}
+                  </span>
+                )}
+              </div>
               <Input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full"
+                className="w-full bg-[var(--background)]"
               />
             </div>
           </div>
