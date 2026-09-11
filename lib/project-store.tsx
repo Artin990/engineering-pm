@@ -10,6 +10,7 @@ import type {
   ActivityEvent,
 } from "@/components/features/types";
 import { getProjectByKey } from "@/components/features/__fixtures__/mock-data";
+import { createClient } from "@/lib/supabase/client";
 
 interface ProjectStoreState {
   project: Project;
@@ -68,8 +69,35 @@ export function ProjectStoreProvider({
     };
   });
 
-  // Load from localStorage on mount or key change
+  // Push updates to server for instant cross-device and live peer sync
+  const pushToServer = useCallback(
+    async (nextState: Partial<ProjectStoreState> & { isDeleted?: boolean }) => {
+      try {
+        await fetch(`/api/v1/projects/${normalizedKey}/sync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(nextState),
+        });
+
+        const supabase = createClient();
+        const channel = supabase.channel(`radarcheck_project_${normalizedKey}`);
+        channel.send({
+          type: "broadcast",
+          event: "project_updated",
+          payload: { key: normalizedKey, timestamp: Date.now() },
+        });
+      } catch {
+        // ignore network error
+      }
+    },
+    [normalizedKey]
+  );
+
+  // Load from localStorage & sync live with Server and Supabase Realtime Channel
   useEffect(() => {
+    let mounted = true;
+
+    // 1. Initial load from localStorage
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
@@ -87,11 +115,82 @@ export function ProjectStoreProvider({
         }
       }
     } catch {
-      // Ignore parse errors
+      // ignore
     }
-  }, [storageKey]);
 
-  // Save to localStorage when state changes
+    // 2. Fetch live state from Server
+    async function syncFromServer() {
+      try {
+        const res = await fetch(`/api/v1/projects/${normalizedKey}/sync`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data && mounted) {
+            if (json.data.isDeleted) {
+              if (typeof window !== "undefined") {
+                window.location.href = `/projects?deleted=${encodeURIComponent(normalizedKey)}`;
+              }
+              return;
+            }
+
+            setState((prev) => {
+              const serverIssues = Array.isArray(json.data.issues) && json.data.issues.length > 0 ? json.data.issues : prev.issues;
+              const serverCycles = Array.isArray(json.data.cycles) && json.data.cycles.length > 0 ? json.data.cycles : prev.cycles;
+              const serverMilestones = Array.isArray(json.data.milestones) && json.data.milestones.length > 0 ? json.data.milestones : prev.milestones;
+              const serverMembers = Array.isArray(json.data.members) && json.data.members.length > 0 ? json.data.members : prev.members;
+              const serverActivities = Array.isArray(json.data.activities) && json.data.activities.length > 0 ? json.data.activities : prev.activities;
+              const serverProject = json.data.project && Object.keys(json.data.project).length > 0 ? { ...prev.project, ...json.data.project } : prev.project;
+
+              const merged = {
+                project: serverProject,
+                issues: serverIssues,
+                cycles: serverCycles,
+                milestones: serverMilestones,
+                members: serverMembers,
+                activities: serverActivities,
+              };
+
+              try {
+                localStorage.setItem(storageKey, JSON.stringify(merged));
+              } catch {
+                // ignore
+              }
+
+              return merged;
+            });
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    syncFromServer();
+    const pollInterval = setInterval(syncFromServer, 2500);
+
+    // 3. Supabase Realtime Channel
+    try {
+      const supabase = createClient();
+      const channel = supabase
+        .channel(`radarcheck_project_${normalizedKey}`)
+        .on("broadcast", { event: "project_updated" }, () => {
+          if (mounted) syncFromServer();
+        })
+        .subscribe();
+
+      return () => {
+        mounted = false;
+        clearInterval(pollInterval);
+        supabase.removeChannel(channel);
+      };
+    } catch {
+      return () => {
+        mounted = false;
+        clearInterval(pollInterval);
+      };
+    }
+  }, [normalizedKey, storageKey]);
+
+  // Save to localStorage & push live to server
   const saveState = useCallback(
     (newState: ProjectStoreState) => {
       setState(newState);
@@ -100,8 +199,9 @@ export function ProjectStoreProvider({
       } catch {
         // Storage quota or disabled
       }
+      pushToServer(newState);
     },
-    [storageKey]
+    [storageKey, pushToServer]
   );
 
   // Recalculate progress, cycles, milestones & counts
@@ -489,6 +589,29 @@ export function removeProjectFromLocalStorage(projectKey: string) {
           localStorage.setItem(k, JSON.stringify(filtered));
         }
       }
+    }
+
+    // Broadcast server-side & realtime deletion
+    fetch(`/api/v1/projects/${normKey}/sync`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isDeleted: true }),
+    }).catch(() => {});
+
+    try {
+      const supabase = createClient();
+      supabase.channel(`radarcheck_project_${normKey}`).send({
+        type: "broadcast",
+        event: "project_updated",
+        payload: { isDeleted: true },
+      });
+      supabase.channel("radarcheck_projects_global").send({
+        type: "broadcast",
+        event: "projects_list_changed",
+        payload: { deletedKey: normKey },
+      });
+    } catch {
+      // ignore
     }
   } catch (err) {
     console.warn("[removeProjectFromLocalStorage] Error:", err);

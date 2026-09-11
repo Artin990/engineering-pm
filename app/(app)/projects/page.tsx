@@ -45,6 +45,7 @@ import { faNumber, faDate } from "@/lib/format";
 import { useUserRole } from "@/lib/role-context";
 import { deleteProjectAction } from "@/app/actions/issues";
 import { removeProjectFromLocalStorage } from "@/lib/project-store";
+import { createClient } from "@/lib/supabase/client";
 
 interface ApiProjectItem {
   id: string;
@@ -152,6 +153,35 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     fetchProjects();
+
+    const interval = setInterval(() => {
+      fetchProjects();
+    }, 3500);
+
+    let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null;
+    try {
+      const supabase = createClient();
+      channel = supabase
+        .channel("radarcheck_projects_global")
+        .on("broadcast", { event: "projects_list_changed" }, () => {
+          fetchProjects();
+        })
+        .subscribe();
+    } catch {
+      // ignore
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (channel) {
+        try {
+          const supabase = createClient();
+          supabase.removeChannel(channel);
+        } catch {
+          // ignore
+        }
+      }
+    };
   }, []);
 
   const filteredProjects = useMemo(() => {
@@ -269,6 +299,17 @@ export default function ProjectsPage() {
       }
     } catch {
       // Offline or network error - already stored locally
+    }
+
+    try {
+      const supabase = createClient();
+      supabase.channel("radarcheck_projects_global").send({
+        type: "broadcast",
+        event: "projects_list_changed",
+        payload: { newProject },
+      });
+    } catch {
+      // ignore
     }
 
     setName("");
