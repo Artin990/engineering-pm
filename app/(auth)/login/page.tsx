@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { Eye, EyeOff, Mail, Lock, AlertCircle, Loader2, CheckCircle2, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
 import { GithubIcon } from "@/components/ui/github-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useUserRole } from "@/lib/role-context";
 import { syncUserProfile } from "@/app/actions/auth";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") || "/projects";
@@ -251,7 +251,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => { setShowForgotModal(true); setForgotSuccess(false); setForgotError(""); }}
-                className="text-[12px] text-[var(--primary)] hover:underline focus:outline-hidden"
+                className="text-[12px] text-[var(--primary)] hover:underline focus:outline-hidden cursor-pointer"
               >
                 فراموشی رمز؟
               </button>
@@ -394,5 +394,22 @@ export default function LoginPage() {
         </div>
       )}
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen w-full items-center justify-center p-4 bg-[var(--background)]">
+          <div className="flex items-center gap-2 text-[var(--text-muted)] text-[14px]">
+            <Loader2 className="size-5 animate-spin text-[var(--primary)]" />
+            <span>در حال بارگذاری صفحه ورود…</span>
+          </div>
+        </main>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }
