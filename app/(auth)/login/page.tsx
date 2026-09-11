@@ -115,7 +115,7 @@ function LoginForm() {
     setOauthLoading(true);
     setError("");
     try {
-      const callbackUrl = `${window.location.origin}/callback?redirectTo=${encodeURIComponent(redirectTo)}`;
+      const callbackUrl = `${window.location.origin}/callback`;
       const { error: oauthErr } = await supabase.auth.signInWithOAuth({
         provider: "github",
         options: {
