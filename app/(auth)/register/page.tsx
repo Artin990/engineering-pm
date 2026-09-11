@@ -75,14 +75,14 @@ export default function RegisterPage() {
       <div className="w-full max-w-[420px] rounded-[16px] border border-[var(--border)] bg-[var(--surface)] p-[32px] shadow-xl">
         {/* Logo & Header */}
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="flex size-12 items-center justify-center rounded-[12px] bg-gradient-to-br from-[var(--primary)] to-[var(--primary-hover)] text-white shadow-md font-mono text-[18px] font-bold mb-3">
-            EPM
+          <div className="flex size-12 items-center justify-center rounded-[12px] bg-gradient-to-br from-[var(--primary)] to-indigo-600 text-white shadow-md font-bold text-[18px] tracking-wider mb-3">
+            FD
           </div>
           <h1 className="text-[22px] font-bold text-[var(--text-primary)]">
-            ایجاد حساب کاربری
+            ایجاد حساب کاربری Flowdeck
           </h1>
           <p className="mt-1 text-[13px] text-[var(--text-muted)]">
-            پلتفرم یکپارچه مدیریت پروژه‌های مهندسی
+            سامانه یکپارچه مدیریت پروژه‌های مهندسی
           </p>
         </div>
 

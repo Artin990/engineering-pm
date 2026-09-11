@@ -13,6 +13,7 @@ import {
   Copy,
   CheckCheck,
   Shield,
+  Lock,
 } from "lucide-react";
 import {
   Card,
@@ -33,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { MOCK_MEMBERS, MOCK_PROJECTS } from "@/components/features/__fixtures__/mock-data";
 import { faNumber } from "@/lib/format";
+import { useUserRole } from "@/lib/role-context";
 
 export default function ProjectSettingsPage({
   params,
@@ -42,6 +44,8 @@ export default function ProjectSettingsPage({
   const { key } = use(params);
   const project =
     MOCK_PROJECTS.find((p) => p.key === key.toUpperCase()) ?? MOCK_PROJECTS[0];
+
+  const { isAdmin, profile } = useUserRole();
 
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description || "");
@@ -66,12 +70,14 @@ export default function ProjectSettingsPage({
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) return;
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
 
   const handleAddMember = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) return;
     if (!newMemberName.trim()) return;
 
     setMembers((prev) => [
@@ -89,19 +95,44 @@ export default function ProjectSettingsPage({
   };
 
   const handleRemoveMember = (id: string) => {
+    if (!isAdmin) return;
     setMembers((prev) => prev.filter((m) => m.id !== id));
   };
 
   return (
     <section aria-label="تنظیمات پروژه" className="space-y-[24px] max-w-4xl mx-auto">
-      <header>
-        <h1 className="text-[20px] font-bold text-[var(--text-primary)]">
-          تنظیمات پروژه — {project.key}
-        </h1>
-        <p className="text-[13px] text-[var(--text-muted)] mt-1">
-          مدیریت اطلاعات پایه، دسترسی اعضا و تنظیمات پیشرفته
-        </p>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-[20px] font-bold text-[var(--text-primary)]">
+            تنظیمات پروژه — {project.key}
+          </h1>
+          <p className="text-[13px] text-[var(--text-muted)] mt-1">
+            مدیریت اطلاعات پایه، دسترسی اعضا و تنظیمات پیشرفته
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge
+            variant={isAdmin ? "default" : "secondary"}
+            className="gap-1 py-1 px-2.5 text-[12px]"
+          >
+            {isAdmin ? <Shield size={14} className="text-amber-400" /> : <Lock size={14} />}
+            نقش فعال: {profile.roleTitle}
+          </Badge>
+        </div>
       </header>
+
+      {/* Role Restriction Banner for Normal Users */}
+      {!isAdmin && (
+        <div className="rounded-[12px] border border-blue-500/20 bg-blue-500/10 p-4 text-[13px] text-blue-600 dark:text-blue-400 flex items-start gap-3">
+          <Lock className="size-5 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-bold">دسترسی فقط خواندنی (نقش: کاربر عادی)</p>
+            <p className="text-[12px] text-[var(--text-muted)]">
+              شما به عنوان کاربر عادی به این پروژه دسترسی دارید. امکان ویرایش اطلاعات پایه، افزودن/حذف اعضا و حذف پروژه صرفاً برای <strong>مدیرعامل و ادمین ارشد</strong> امکان‌پذیر است. شما می‌توانید تسک‌های خود را در بخش ایشوها پیگیری و ثبت کنید.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Basic Info */}
       <Card>
@@ -118,7 +149,12 @@ export default function ProjectSettingsPage({
           <form onSubmit={handleSave} className="grid gap-[16px] max-w-lg">
             <label className="grid gap-[6px] text-[13px] font-medium">
               نام پروژه
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={!isAdmin}
+                className={!isAdmin ? "opacity-75 cursor-not-allowed bg-[var(--surface-raised)]" : ""}
+              />
             </label>
             <label className="grid gap-[6px] text-[13px] font-medium">
               کد پروژه (لاتین)
@@ -129,8 +165,11 @@ export default function ProjectSettingsPage({
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                disabled={!isAdmin}
                 rows={2}
-                className="w-full rounded-[10px] border border-[var(--border)] bg-[var(--background)] p-2.5 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] resize-none"
+                className={`w-full rounded-[10px] border border-[var(--border)] bg-[var(--background)] p-2.5 text-[13px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] resize-none ${
+                  !isAdmin ? "opacity-75 cursor-not-allowed bg-[var(--surface-raised)]" : ""
+                }`}
               />
             </label>
             <label className="grid gap-[6px] text-[13px] font-medium">
@@ -139,17 +178,21 @@ export default function ProjectSettingsPage({
                 type="date"
                 value={targetDate}
                 onChange={(e) => setTargetDate(e.target.value)}
+                disabled={!isAdmin}
+                className={!isAdmin ? "opacity-75 cursor-not-allowed bg-[var(--surface-raised)]" : ""}
               />
             </label>
-            <div className="flex items-center gap-3 pt-2">
-              <Button type="submit">ذخیره تغییرات</Button>
-              {saved && (
-                <span className="flex items-center gap-1.5 text-[13px] font-medium text-emerald-600 dark:text-emerald-400 animate-in fade-in">
-                  <Check size={16} />
-                  تغییرات با موفقیت ذخیره شد
-                </span>
-              )}
-            </div>
+            {isAdmin && (
+              <div className="flex items-center gap-3 pt-2">
+                <Button type="submit">ذخیره تغییرات</Button>
+                {saved && (
+                  <span className="flex items-center gap-1.5 text-[13px] font-medium text-emerald-600 dark:text-emerald-400 animate-in fade-in">
+                    <Check size={16} />
+                    تغییرات با موفقیت ذخیره شد
+                  </span>
+                )}
+              </div>
+            )}
           </form>
         </CardContent>
       </Card>
@@ -167,16 +210,18 @@ export default function ProjectSettingsPage({
                 افرادی که به این پروژه دسترسی دارند
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" onClick={() => setInviteModalOpen(true)} className="gap-1.5">
-                <LinkIcon size={14} />
-                تولید لینک دعوت
-              </Button>
-              <Button size="sm" onClick={() => setAddMemberOpen(true)} className="gap-1.5">
-                <UserPlus size={14} />
-                افزودن مستقیم
-              </Button>
-            </div>
+            {isAdmin && (
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={() => setInviteModalOpen(true)} className="gap-1.5">
+                  <LinkIcon size={14} />
+                  تولید لینک دعوت
+                </Button>
+                <Button size="sm" onClick={() => setAddMemberOpen(true)} className="gap-1.5">
+                  <UserPlus size={14} />
+                  افزودن مستقیم
+                </Button>
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent className="space-y-[10px]">
@@ -200,53 +245,57 @@ export default function ProjectSettingsPage({
               </span>
               <div className="flex items-center gap-2">
                 <Badge variant="secondary">عضو تیم</Badge>
-                <button
-                  type="button"
-                  onClick={() => handleRemoveMember(m.id)}
-                  className="rounded p-1 text-[var(--text-muted)] hover:text-red-500 transition-colors"
-                  title="حذف از پروژه"
-                >
-                  <Trash2 size={14} />
-                </button>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveMember(m.id)}
+                    className="rounded p-1 text-[var(--text-muted)] hover:text-red-500 transition-colors"
+                    title="حذف از پروژه"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </div>
             </div>
           ))}
         </CardContent>
       </Card>
 
-      {/* Danger Zone */}
-      <Card className="border-red-500/30 bg-red-500/5">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-[8px] text-[16px] text-red-500">
-            <AlertTriangle className="size-4" />
-            بخش حساس (Danger Zone)
-          </CardTitle>
-          <CardDescription>
-            عملیات غیرقابل برگشت روی این پروژه
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-[13px] font-semibold text-[var(--text-primary)]">
-              آرشیو یا حذف پروژه
-            </p>
-            <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
-              با حذف پروژه، تمام ایشوها، سایکل‌ها و مایلستون‌های مرتبط آرشیو می‌شوند.
-            </p>
-          </div>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => {
-              if (confirm(`آیا مطمئن هستید که می‌خواهید پروژه ${project.name} را حذف کنید؟`)) {
-                alert("پروژه با موفقیت آرشیو شد.");
-              }
-            }}
-          >
-            آرشیو پروژه
-          </Button>
-        </CardContent>
-      </Card>
+      {/* Danger Zone — Admin Only */}
+      {isAdmin && (
+        <Card className="border-red-500/30 bg-red-500/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-[8px] text-[16px] text-red-500">
+              <AlertTriangle className="size-4" />
+              بخش حساس (Danger Zone)
+            </CardTitle>
+            <CardDescription>
+              عملیات غیرقابل برگشت روی این پروژه
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-[13px] font-semibold text-[var(--text-primary)]">
+                آرشیو یا حذف پروژه
+              </p>
+              <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
+                با حذف پروژه، تمام ایشوها، سایکل‌ها و مایلستون‌های مرتبط آرشیو می‌شوند.
+              </p>
+            </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                if (confirm(`آیا مطمئن هستید که می‌خواهید پروژه ${project.name} را حذف کنید؟`)) {
+                  alert("پروژه با موفقیت آرشیو شد.");
+                }
+              }}
+            >
+              آرشیو پروژه
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Add Member Modal */}
       {addMemberOpen && (

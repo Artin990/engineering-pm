@@ -15,14 +15,17 @@ import {
   Target,
   PanelRightClose,
   PanelRightOpen,
+  Shield,
+  User,
 } from "lucide-react";
 import { GithubIcon } from "@/components/ui/github-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { faNumber } from "@/lib/format";
+import { useUserRole } from "@/lib/role-context";
 import { MOCK_PROJECTS } from "@/components/features/__fixtures__/mock-data";
 
 /**
- * Sidebar اصلی اپلیکیشن — RTL (سمت راست) با قابلیت باز و بسته شدن.
+ * Sidebar اصلی اپلیکیشن Flowdeck — RTL (سمت راست) با قابلیت باز و بسته شدن و تفکیک نقش.
  */
 export function Sidebar() {
   const pathname = usePathname();
@@ -30,6 +33,7 @@ export function Sidebar() {
   const currentKey = (params?.key || "PM").toUpperCase();
   const currentProject = MOCK_PROJECTS.find((p) => p.key === currentKey) || MOCK_PROJECTS[0];
 
+  const { role, profile, setRole, isAdmin } = useUserRole();
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -45,6 +49,11 @@ export function Sidebar() {
     localStorage.setItem("sidebar_collapsed", String(next));
   };
 
+  const toggleRole = () => {
+    const nextRole = role === "admin" ? "member" : "admin";
+    setRole(nextRole);
+  };
+
   return (
     <aside
       className={`sticky top-0 flex h-screen shrink-0 flex-col border-l border-[var(--border)] bg-[var(--surface)] text-start z-30 transition-all duration-300 ease-in-out ${
@@ -56,15 +65,15 @@ export function Sidebar() {
         <Link
           href="/projects"
           className="flex items-center gap-[10px] text-[15px] font-bold text-[var(--text-primary)] transition-opacity hover:opacity-80"
-          title="سامانه مدیریت مهندسی"
+          title="Flowdeck — سامانه مدیریت مهندسی"
         >
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-br from-[var(--primary)] to-[var(--primary-hover)] text-white shadow-sm font-mono text-[14px]">
-            EPM
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-br from-[var(--primary)] to-indigo-600 text-white shadow-sm font-bold text-[14px] tracking-wider">
+            FD
           </span>
           {!collapsed && (
             <div className="flex flex-col">
-              <span className="leading-tight">Engineering PM</span>
-              <span className="text-[11px] font-normal text-[var(--text-muted)]">سامانه مهندسی</span>
+              <span className="leading-tight font-black tracking-tight text-[16px]">Flowdeck</span>
+              <span className="text-[11px] font-normal text-[var(--text-muted)]">سامانه مهندسی و پروژه</span>
             </div>
           )}
         </Link>
@@ -80,6 +89,55 @@ export function Sidebar() {
           {!collapsed && <ThemeToggle />}
         </div>
       </div>
+
+      {/* Role Switcher Pill */}
+      {!collapsed ? (
+        <div className="mb-[12px] rounded-[8px] border border-[var(--border)] bg-[var(--surface-raised)] p-2">
+          <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] mb-1.5">
+            <span className="flex items-center gap-1">
+              {isAdmin ? <Shield size={12} className="text-amber-500" /> : <User size={12} className="text-blue-500" />}
+              نقش فعلی
+            </span>
+            <button
+              onClick={toggleRole}
+              type="button"
+              className="text-[10px] font-medium text-[var(--primary)] hover:underline flex items-center gap-0.5"
+              title="تغییر نقش تستی بین مدیرعامل/ادمین و کاربر عادی"
+            >
+              تغییر به {isAdmin ? "کاربر عادی" : "مدیرعامل"}
+            </button>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[12px] font-bold text-[var(--text-primary)]">
+              {profile.roleTitle}
+            </span>
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                isAdmin
+                  ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                  : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
+              }`}
+            >
+              {isAdmin ? "Admin / CEO" : "Member"}
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="mb-[12px] flex justify-center">
+          <button
+            onClick={toggleRole}
+            type="button"
+            className={`flex size-8 items-center justify-center rounded-[8px] transition-colors ${
+              isAdmin
+                ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
+                : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
+            }`}
+            title={`نقش فعلی: ${profile.roleTitle} (کلیک برای تغییر)`}
+          >
+            {isAdmin ? <Shield size={14} /> : <User size={14} />}
+          </button>
+        </div>
+      )}
 
       {/* Workspace / Project Quick Switcher */}
       {!collapsed ? (
@@ -162,7 +220,7 @@ export function Sidebar() {
               { href: `/projects/${currentProject.key}/milestones`, label: "مایلستون‌ها", icon: Target },
               { href: `/projects/${currentProject.key}/github`, label: "گیت‌هاب", icon: GithubIcon },
               { href: `/projects/${currentProject.key}/activity`, label: "فعالیت", icon: Activity },
-              { href: `/projects/${currentProject.key}/analytics`, label: "آنالیتیکس", icon: BarChart3 },
+              { href: `/projects/${currentProject.key}/analytics`, label: "آنالیتیکس و ارزیابی", icon: BarChart3 },
               { href: `/projects/${currentProject.key}/settings`, label: "تنظیمات", icon: Settings },
             ].map((item) => {
               const active = item.exact
@@ -195,12 +253,12 @@ export function Sidebar() {
         {!collapsed ? (
           <div className="flex items-center justify-between rounded-[8px] bg-[var(--surface-raised)] p-[8px]">
             <div className="flex items-center gap-[8px]">
-              <span className="flex size-7 items-center justify-center rounded-full bg-[var(--primary)] text-white text-[11px] font-bold">
-                آ
+              <span className={`flex size-7 items-center justify-center rounded-full text-white text-[11px] font-bold ${isAdmin ? "bg-[var(--primary)]" : "bg-blue-600"}`}>
+                {profile.avatar || profile.name.charAt(0)}
               </span>
               <div className="flex flex-col">
-                <span className="text-[12px] font-medium text-[var(--text-primary)]">آرتین امیری</span>
-                <span className="text-[10px] text-[var(--text-muted)]">ادمین سیستم</span>
+                <span className="text-[12px] font-medium text-[var(--text-primary)]">{profile.name}</span>
+                <span className="text-[10px] text-[var(--text-muted)]">{profile.roleTitle}</span>
               </div>
             </div>
             <Link href="/login" className="text-[11px] text-[var(--primary)] hover:underline">
@@ -209,17 +267,20 @@ export function Sidebar() {
           </div>
         ) : (
           <div className="flex justify-center">
-            <span className="flex size-8 items-center justify-center rounded-full bg-[var(--primary)] text-white text-[12px] font-bold" title="آرتین امیری (ادمین)">
-              آ
+            <span
+              className={`flex size-8 items-center justify-center rounded-full text-white text-[12px] font-bold ${isAdmin ? "bg-[var(--primary)]" : "bg-blue-600"}`}
+              title={`${profile.name} (${profile.roleTitle})`}
+            >
+              {profile.avatar || profile.name.charAt(0)}
             </span>
           </div>
         )}
         {!collapsed && (
           <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] px-[4px]">
-            <span>نسخه ۰.۱</span>
+            <span>Flowdeck v1.0</span>
             <span className="inline-flex items-center gap-1">
               <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              سیستم آنلاین
+              متصل به سوپابیس
             </span>
           </div>
         )}

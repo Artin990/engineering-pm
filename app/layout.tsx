@@ -4,9 +4,11 @@ import { ThemeProvider } from "next-themes";
 import { peyda } from "./fonts";
 import "./globals.css";
 
+import { RoleProvider } from "@/lib/role-context";
+
 export const metadata: Metadata = {
-  title: "سامانه مدیریت پروژه‌های مهندسی",
-  description: "مدیریت پروژه + مدیریت مهندسی + هوش گیت‌هاب",
+  title: "Flowdeck — سامانه مدیریت مهندسی و هوش پروژه",
+  description: "سامانه یکپارچه مدیریت پروژه، مدیریت مهندسی و هوش گیت‌هاب Flowdeck",
 };
 
 export default function RootLayout({
@@ -16,7 +18,7 @@ export default function RootLayout({
     <html lang="fa" dir="rtl" suppressHydrationWarning>
       <body className={`${peyda.variable} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {children}
+          <RoleProvider>{children}</RoleProvider>
         </ThemeProvider>
       </body>
     </html>
