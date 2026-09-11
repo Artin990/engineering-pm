@@ -34,7 +34,7 @@ export function Sidebar() {
   const currentKey = (params?.key || "PM").toUpperCase();
   const currentProject = getProjectByKey(currentKey);
 
-  const { role, profile, setRole, logout, isAdmin } = useUserRole();
+  const { profile, logout, isAdmin } = useUserRole();
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -48,11 +48,6 @@ export function Sidebar() {
     const next = !collapsed;
     setCollapsed(next);
     localStorage.setItem("sidebar_collapsed", String(next));
-  };
-
-  const toggleRole = () => {
-    const nextRole = role === "admin" ? "member" : "admin";
-    setRole(nextRole);
   };
 
   return (
@@ -121,26 +116,13 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Role Switcher Pill */}
+      {/* Role Pill */}
       {!collapsed ? (
         <div className="mb-[12px] rounded-[8px] border border-[var(--border)] bg-[var(--surface-raised)] p-2">
           <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] mb-1.5">
             <span className="flex items-center gap-1">
               {isAdmin ? <Shield size={12} className="text-amber-500" /> : <User size={12} className="text-blue-500" />}
-              نقش فعلی
-            </span>
-            <button
-              onClick={toggleRole}
-              type="button"
-              className="text-[10px] font-medium text-[var(--primary)] hover:underline flex items-center gap-0.5"
-              title="تغییر نقش تستی بین مدیرعامل/ادمین و کاربر عادی"
-            >
-              تغییر به {isAdmin ? "کاربر عادی" : "مدیرعامل"}
-            </button>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[12px] font-bold text-[var(--text-primary)]">
-              {profile.roleTitle}
+              سطح دسترسی
             </span>
             <span
               className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
@@ -149,24 +131,27 @@ export function Sidebar() {
                   : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
               }`}
             >
-              {isAdmin ? "Admin / CEO" : "Member"}
+              {isAdmin ? "مدیر کل" : "عضو عادی"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[12px] font-bold text-[var(--text-primary)]">
+              {profile.roleTitle}
             </span>
           </div>
         </div>
       ) : (
         <div className="mb-[12px] flex justify-center">
-          <button
-            onClick={toggleRole}
-            type="button"
-            className={`flex size-8 items-center justify-center rounded-[8px] transition-colors ${
+          <div
+            className={`flex size-8 items-center justify-center rounded-[8px] ${
               isAdmin
                 ? "bg-amber-500/10 text-amber-500 border border-amber-500/20"
                 : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
             }`}
-            title={`نقش فعلی: ${profile.roleTitle} (کلیک برای تغییر)`}
+            title={`سطح دسترسی: ${isAdmin ? "مدیر کل" : "عضو عادی"}`}
           >
             {isAdmin ? <Shield size={14} /> : <User size={14} />}
-          </button>
+          </div>
         </div>
       )}
 
