@@ -20,7 +20,7 @@ import {
   type IssueStatus,
   type IssueType,
 } from "@/components/features/types";
-import { MOCK_MEMBERS, MOCK_MILESTONES, MOCK_CYCLES } from "@/components/features/__fixtures__/mock-data";
+import { useProjectStore } from "@/lib/project-store";
 import { faDate } from "@/lib/format";
 
 interface CreateIssueDialogProps {
@@ -36,6 +36,7 @@ export function CreateIssueDialog({
   projectKey,
   onCreate,
 }: CreateIssueDialogProps) {
+  const { members, milestones, cycles } = useProjectStore();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<IssueType>("feature");
@@ -57,7 +58,7 @@ export function CreateIssueDialog({
       return;
     }
 
-    const assignedMember = MOCK_MEMBERS.find((m) => m.id === assigneeId) || null;
+    const assignedMember = members.find((m) => m.id === assigneeId) || null;
     const randId = `i-${Date.now()}`;
     const randNum = Math.floor(100 + Math.random() * 900);
 
@@ -229,7 +230,7 @@ export function CreateIssueDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">بدون مسئول</SelectItem>
-                  {MOCK_MEMBERS.map((m) => (
+                  {members.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
                       {m.displayName}
                     </SelectItem>
@@ -288,7 +289,7 @@ export function CreateIssueDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">بدون مایلستون</SelectItem>
-                  {MOCK_MILESTONES.map((ms) => (
+                  {milestones.map((ms) => (
                     <SelectItem key={ms.id} value={ms.id}>
                       {ms.title}
                     </SelectItem>
@@ -307,7 +308,7 @@ export function CreateIssueDialog({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">بدون سایکل</SelectItem>
-                  {MOCK_CYCLES.map((c) => (
+                  {cycles.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name} ({c.status === "active" ? "فعال" : "آینده"})
                     </SelectItem>

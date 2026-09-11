@@ -3,24 +3,17 @@
 import { useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import {
-  Users,
   UserPlus,
   Shield,
   User,
   GraduationCap,
-  Copy,
   Check,
   Search,
   MoreHorizontal,
   Trash2,
-  Mail,
   ExternalLink,
-  ShieldAlert,
-  Sparkles,
   Link as LinkIcon,
-  RefreshCw,
   CheckCircle2,
-  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,9 +21,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Select,
@@ -69,7 +59,6 @@ export default function MembersPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteGithub, setInviteGithub] = useState("");
   const [inviteRole, setInviteRole] = useState<"admin" | "member" | "intern">("member");
-  const [inviteCopied, setInviteCopied] = useState(false);
   const [inviteSuccessMsg, setInviteSuccessMsg] = useState("");
 
   // Quick invite link

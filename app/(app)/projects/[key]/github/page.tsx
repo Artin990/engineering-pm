@@ -1,22 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import {
-  GitBranch,
   GitPullRequest,
   GitCommit,
   Copy,
   Check,
   ExternalLink,
-  Users,
   Link as LinkIcon,
-  ShieldCheck,
   Sparkles,
-  RefreshCw,
-  Plus,
-  Mail,
-  UserCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,82 +34,35 @@ export default function GithubPage() {
   const { members, updateMember } = useProjectStore();
 
   const [copiedLink, setCopiedLink] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "members" | "prs" | "commits">("overview");
 
-  // Mock initial PRs and Commits
-  const [prs] = useState([
-    {
-      id: "pr1",
-      prNumber: 42,
-      title: "feat: بهینه‌سازی کوئری‌های داشبورد",
-      state: "open",
-      authorLogin: "artin-amiri",
-      url: "https://github.com/org/engineering-pm/pull/42",
-      repoName: "org/engineering-pm",
-      updatedAt: "۲ ساعت پیش",
-    },
-    {
-      id: "pr2",
-      prNumber: 41,
-      title: "feat: لایوت داشبورد مدیریت پروژه",
-      state: "open",
-      authorLogin: "sara-ahmadi",
-      url: "https://github.com/org/engineering-pm/pull/41",
-      repoName: "org/engineering-pm",
-      updatedAt: "دیروز",
-    },
-    {
-      id: "pr3",
-      prNumber: 40,
-      title: "fix: همگام‌سازی داده‌ها بعد از رفرش",
-      state: "merged",
-      authorLogin: "reza-dev",
-      url: "https://github.com/org/engineering-pm/pull/40",
-      repoName: "org/engineering-pm",
-      updatedAt: "۳ روز پیش",
-    },
-  ]);
+  // Dynamic PRs, Commits, and Suggestions from database
+  const [prs] = useState<{
+    id: string;
+    prNumber: number;
+    title: string;
+    author: string;
+    state: "open" | "merged" | "closed";
+    createdAt: string;
+    linkedIssueKey?: string;
+  }[]>([]);
 
-  const [commits] = useState([
-    {
-      id: "c1",
-      sha: "a3f8e2d",
-      message: "refactor: جدا کردن استیت‌های پروژه و افزودن Provider",
-      authorLogin: "artin-amiri",
-      branch: "main",
-      time: "۱۰ دقیقه پیش",
-    },
-    {
-      id: "c2",
-      sha: "b7c1d9a",
-      message: "fix: اصلاح ارورهای نال در صفحات تحلیل و تنظیمات",
-      authorLogin: "artin-amiri",
-      branch: "fix/analytics",
-      time: "۱ ساعت پیش",
-    },
-    {
-      id: "c3",
-      sha: "e4f2c8b",
-      message: "style: طراحی صفحه 404 و تنظیم دسترسی کاربران",
-      authorLogin: "sara-ahmadi",
-      branch: "feature/not-found",
-      time: "۳ ساعت پیش",
-    },
-  ]);
+  const [commits] = useState<{
+    sha: string;
+    message: string;
+    author: string;
+    date: string;
+  }[]>([]);
 
-  const [suggestions, setSuggestions] = useState([
-    {
-      id: "sug-1",
-      issueKey: `${projectKey}-104`,
-      issueTitle: "بهینه‌سازی کوئری‌های دیتابیس",
-      currentStatus: "in_progress",
-      suggestedStatus: "in_review",
-      prNumber: 42,
-    },
-  ]);
+  const [suggestions, setSuggestions] = useState<{
+    id: string;
+    title: string;
+    reason: string;
+    confidence: number;
+    type: string;
+  }[]>([]);
 
   const inviteLink = typeof window !== "undefined"
-    ? `${window.location.origin}/register?invite=${projectKey.toLowerCase()}`
+    ? `${window.location.origin}/register?invite=${projectKey.toLowerCase()}-gh`
     : `https://flowdeck.dev/register?invite=${projectKey.toLowerCase()}`;
 
   const copyInvite = () => {
@@ -125,7 +71,7 @@ export default function GithubPage() {
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  const handleSuggestionAction = (id: string, action: "accept" | "reject") => {
+  const handleSuggestionAction = (id: string, _action: "accept" | "reject") => {
     setSuggestions((prev) => prev.filter((s) => s.id !== id));
   };
 
@@ -348,29 +294,35 @@ export default function GithubPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="divide-y divide-border/60">
-            {prs.map((pr) => (
-              <div key={pr.id} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-3 text-xs">
-                <div className="min-w-0">
-                  <a
-                    href={pr.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="font-medium hover:underline block truncate text-foreground text-sm"
-                  >
-                    #{pr.prNumber} — {pr.title}
-                  </a>
-                  <p className="text-muted-foreground text-[11px] mt-0.5">
-                    {pr.repoName} · توسط @{pr.authorLogin} · {pr.updatedAt}
-                  </p>
-                </div>
-                <Badge
-                  variant={pr.state === "merged" ? "secondary" : "default"}
-                  className="text-[10px] shrink-0"
-                >
-                  {pr.state === "merged" ? "مرج‌شده" : "باز"}
-                </Badge>
+            {prs.length === 0 ? (
+              <div className="py-8 text-center text-xs text-muted-foreground">
+                هنوز هیچ Pull Request همگام‌سازی‌شده‌ای برای این مخزن ثبت نشده است.
               </div>
-            ))}
+            ) : (
+              prs.map((pr) => (
+                <div key={pr.id} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-3 text-xs">
+                  <div className="min-w-0">
+                    <a
+                      href={pr.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium hover:underline block truncate text-foreground text-sm"
+                    >
+                      #{pr.prNumber} — {pr.title}
+                    </a>
+                    <p className="text-muted-foreground text-[11px] mt-0.5">
+                      {pr.repoName} · توسط @{pr.authorLogin} · {pr.updatedAt}
+                    </p>
+                  </div>
+                  <Badge
+                    variant={pr.state === "merged" ? "secondary" : "default"}
+                    className="text-[10px] shrink-0"
+                  >
+                    {pr.state === "merged" ? "مرج‌شده" : "باز"}
+                  </Badge>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
 
@@ -383,17 +335,23 @@ export default function GithubPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="divide-y divide-border/60">
-            {commits.map((c) => (
-              <div key={c.id} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-3 text-xs">
-                <div className="min-w-0">
-                  <span className="font-mono text-[11px] text-primary font-bold">{c.sha}</span>
-                  <span className="ms-2 font-medium text-foreground">{c.message}</span>
-                  <p className="text-muted-foreground text-[11px] mt-0.5">
-                    شاخه {c.branch} · توسط @{c.authorLogin} · {c.time}
-                  </p>
-                </div>
+            {commits.length === 0 ? (
+              <div className="py-8 text-center text-xs text-muted-foreground">
+                هنوز کامیتی در این پروژه ثبت نشده است.
               </div>
-            ))}
+            ) : (
+              commits.map((c) => (
+                <div key={c.id} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-3 text-xs">
+                  <div className="min-w-0">
+                    <span className="font-mono text-[11px] text-primary font-bold">{c.sha}</span>
+                    <span className="ms-2 font-medium text-foreground">{c.message}</span>
+                    <p className="text-muted-foreground text-[11px] mt-0.5">
+                      شاخه {c.branch} · توسط @{c.authorLogin} · {c.time}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
           </CardContent>
         </Card>
       </div>

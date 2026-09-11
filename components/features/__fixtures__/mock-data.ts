@@ -88,11 +88,7 @@ export function getProjectByKey(key: string): Project | undefined {
     },
     openPrs: 0,
     mergedPrs: 0,
-    owner: {
-      id: "admin-1",
-      displayName: "آرتین امیری",
-      avatarUrl: null,
-    },
+    owner: null,
     teamName: "تیم مهندسی",
   };
 }

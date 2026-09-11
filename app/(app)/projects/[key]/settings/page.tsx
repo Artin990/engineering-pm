@@ -238,39 +238,45 @@ export default function ProjectSettingsPage({
           </div>
         </CardHeader>
         <CardContent className="space-y-[10px]">
-          {members.map((m) => (
-            <div
-              key={m.id}
-              className="flex items-center justify-between rounded-[10px] border border-[var(--border)] p-[12px] bg-[var(--background)]"
-            >
-              <span className="flex items-center gap-[10px] text-[14px] font-medium">
-                <span className="flex size-8 items-center justify-center rounded-full bg-[var(--primary)] text-[12px] font-semibold text-white">
-                  {m.displayName.charAt(0)}
+          {members.length === 0 ? (
+            <p className="text-[13px] text-[var(--text-muted)] py-4 text-center">
+              هنوز عضوی به این پروژه افزوده نشده است. از دکمه‌های بالا برای دعوت یا افزودن اعضا استفاده کنید.
+            </p>
+          ) : (
+            members.map((m) => (
+              <div
+                key={m.id}
+                className="flex items-center justify-between rounded-[10px] border border-[var(--border)] p-[12px] bg-[var(--background)]"
+              >
+                <span className="flex items-center gap-[10px] text-[14px] font-medium">
+                  <span className="flex size-8 items-center justify-center rounded-full bg-[var(--primary)] text-[12px] font-semibold text-white">
+                    {m.displayName.charAt(0)}
+                  </span>
+                  <div>
+                    <div className="font-semibold text-[13px]">{m.displayName}</div>
+                    {m.githubLogin && (
+                      <span dir="ltr" className="text-[11px] text-[var(--text-muted)] block">
+                        @{m.githubLogin}
+                      </span>
+                    )}
+                  </div>
                 </span>
-                <div>
-                  <div className="font-semibold text-[13px]">{m.displayName}</div>
-                  {m.githubLogin && (
-                    <span dir="ltr" className="text-[11px] text-[var(--text-muted)] block">
-                      @{m.githubLogin}
-                    </span>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">عضو تیم</Badge>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveMember(m.id)}
+                      className="rounded p-1 text-[var(--text-muted)] hover:text-red-500 transition-colors"
+                      title="حذف از پروژه"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   )}
                 </div>
-              </span>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary">عضو تیم</Badge>
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveMember(m.id)}
-                    className="rounded p-1 text-[var(--text-muted)] hover:text-red-500 transition-colors"
-                    title="حذف از پروژه"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                )}
               </div>
-            </div>
-          ))}
+            ))
+          )}
         </CardContent>
       </Card>
 

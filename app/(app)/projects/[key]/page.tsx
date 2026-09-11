@@ -213,46 +213,52 @@ function MilestoneProgress({
           <CardDescription>درصد تکمیل ایشوهای هر مایلستون</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-[16px]">
-          {milestones.map((m) => {
-            const scoped = issues.filter((i) => i.milestoneId === m.id);
-            const total = scoped.length;
-            const done = scoped.filter((i) => i.status === "done").length;
-            const pct = total > 0 ? done / total : 0;
-            return (
-              <div key={m.id} className="flex flex-col gap-[6px]">
-                <div className="flex items-center justify-between gap-[8px]">
-                  <span className="flex items-center gap-[8px] text-[14px] font-medium">
-                    {m.title}
-                    <Badge
-                      variant={m.status === "completed" ? "success" : m.status === "active" ? "warning" : "secondary"}
-                      className="text-[12px]"
-                    >
-                      {MILESTONE_STATUS_LABEL[m.status]}
-                    </Badge>
-                  </span>
-                  <span className="text-[13px] text-[var(--text-muted)]" dir="ltr">
-                    {faPercent(pct)} · {faNumber(done)}/{faNumber(total)}
-                  </span>
+          {milestones.length === 0 ? (
+            <p className="text-[13px] text-[var(--text-muted)] py-4 text-center">
+              مایلستونی برای این پروژه تعریف نشده است.
+            </p>
+          ) : (
+            milestones.map((m) => {
+              const scoped = issues.filter((i) => i.milestoneId === m.id);
+              const total = scoped.length;
+              const done = scoped.filter((i) => i.status === "done").length;
+              const pct = total > 0 ? done / total : 0;
+              return (
+                <div key={m.id} className="flex flex-col gap-[6px]">
+                  <div className="flex items-center justify-between gap-[8px]">
+                    <span className="flex items-center gap-[8px] text-[14px] font-medium">
+                      {m.title}
+                      <Badge
+                        variant={m.status === "completed" ? "success" : m.status === "active" ? "warning" : "secondary"}
+                        className="text-[12px]"
+                      >
+                        {MILESTONE_STATUS_LABEL[m.status]}
+                      </Badge>
+                    </span>
+                    <span className="text-[13px] text-[var(--text-muted)]" dir="ltr">
+                      {faPercent(pct)} · {faNumber(done)}/{faNumber(total)}
+                    </span>
+                  </div>
+                  <div className="h-[6px] w-full overflow-hidden rounded-full bg-[var(--surface-raised)]">
+                    <div
+                      className="h-full rounded-full bg-[var(--primary)] transition-[width_0.4s_ease-in-out]"
+                      style={{ width: `${Math.round(pct * 100)}%` }}
+                      role="progressbar"
+                      aria-valuenow={Math.round(pct * 100)}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={`${m.title}: ${faPercent(pct)}`}
+                    />
+                  </div>
+                  {m.targetDate ? (
+                    <span className="text-[12px] text-[var(--text-muted)]">
+                      مهلت: {faDate(m.targetDate)}
+                    </span>
+                  ) : null}
                 </div>
-                <div className="h-[6px] w-full overflow-hidden rounded-full bg-[var(--surface-raised)]">
-                  <div
-                    className="h-full rounded-full bg-[var(--primary)] transition-[width_0.4s_ease-in-out]"
-                    style={{ width: `${Math.round(pct * 100)}%` }}
-                    role="progressbar"
-                    aria-valuenow={Math.round(pct * 100)}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-label={`${m.title}: ${faPercent(pct)}`}
-                  />
-                </div>
-                {m.targetDate ? (
-                  <span className="text-[12px] text-[var(--text-muted)]">
-                    مهلت: {faDate(m.targetDate)}
-                  </span>
-                ) : null}
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </CardContent>
       </Card>
     </section>
@@ -421,34 +427,40 @@ function TeamPanel({
           <CardDescription>حجم کاری هر عضو (تعداد ایشوهای تخصیص‌یافته)</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 gap-[12px] sm:grid-cols-2">
-          {members.map((m) => {
-            const count = issues.filter((i) => i.assignee?.id === m.id).length;
-            const pct = count / maxCount;
-            return (
-              <div key={m.id} className="flex items-center gap-[12px]">
-                <span
-                  aria-hidden
-                  className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-[13px] font-medium text-white"
-                >
-                  {m.displayName.trim().charAt(0)}
-                </span>
-                <div className="flex min-w-0 flex-1 flex-col gap-[4px]">
-                  <div className="flex items-center justify-between gap-[8px]">
-                    <span className="truncate text-[13px] font-medium">{m.displayName}</span>
-                    <span className="text-[12px] text-[var(--text-muted)]">
-                      {faNumber(count)} ایشو
-                    </span>
-                  </div>
-                  <div className="h-[4px] w-full overflow-hidden rounded-full bg-[var(--surface-raised)]">
-                    <div
-                      className="h-full rounded-full bg-[var(--primary)]"
-                      style={{ width: `${Math.round(pct * 100)}%` }}
-                    />
+          {members.length === 0 ? (
+            <p className="col-span-2 text-[13px] text-[var(--text-muted)] py-4 text-center">
+              هنوز عضوی به این پروژه افزوده نشده است.
+            </p>
+          ) : (
+            members.map((m) => {
+              const count = issues.filter((i) => i.assignee?.id === m.id).length;
+              const pct = count / maxCount;
+              return (
+                <div key={m.id} className="flex items-center gap-[12px]">
+                  <span
+                    aria-hidden
+                    className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-[13px] font-medium text-white"
+                  >
+                    {m.displayName.trim().charAt(0)}
+                  </span>
+                  <div className="flex min-w-0 flex-1 flex-col gap-[4px]">
+                    <div className="flex items-center justify-between gap-[8px]">
+                      <span className="truncate text-[13px] font-medium">{m.displayName}</span>
+                      <span className="text-[12px] text-[var(--text-muted)]">
+                        {faNumber(count)} ایشو
+                      </span>
+                    </div>
+                    <div className="h-[4px] w-full overflow-hidden rounded-full bg-[var(--surface-raised)]">
+                      <div
+                        className="h-full rounded-full bg-[var(--primary)]"
+                        style={{ width: `${Math.round(pct * 100)}%` }}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </CardContent>
       </Card>
     </section>
@@ -488,20 +500,26 @@ function GitHubPanel({ prs, commits }: { prs: PullRequest[]; commits: Commit[] }
           </div>
         </CardHeader>
         <CardContent>
-          <ul className="flex flex-col gap-[8px]">
-            {commits.slice(0, 5).map((c) => (
-              <li key={c.id} className="flex items-center gap-[8px] text-[13px]">
-                <GitCommitHorizontal size={14} className="shrink-0 text-[var(--text-muted)]" aria-hidden />
-                <span className="font-mono text-[12px] text-[var(--text-muted)]" dir="ltr">
-                  {c.sha.slice(0, 7)}
-                </span>
-                <span className="min-w-0 flex-1 truncate">{c.message}</span>
-                <span className="shrink-0 text-[12px] text-[var(--text-muted)]">
-                  {faRelativeTime(c.committedAt)}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {commits.length === 0 ? (
+            <p className="text-[13px] text-[var(--text-muted)] py-4 text-center">
+              کامیتی برای نمایش وجود ندارد.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-[8px]">
+              {commits.slice(0, 5).map((c) => (
+                <li key={c.id} className="flex items-center gap-[8px] text-[13px]">
+                  <GitCommitHorizontal size={14} className="shrink-0 text-[var(--text-muted)]" aria-hidden />
+                  <span className="font-mono text-[12px] text-[var(--text-muted)]" dir="ltr">
+                    {c.sha.slice(0, 7)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{c.message}</span>
+                  <span className="shrink-0 text-[12px] text-[var(--text-muted)]">
+                    {faRelativeTime(c.committedAt)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </section>
@@ -521,36 +539,42 @@ function TimelinePanel({ events }: { events: ActivityEvent[] }) {
           <CardDescription>ترکیب رویدادهای داخلی و گیت‌هاب</CardDescription>
         </CardHeader>
         <CardContent>
-          <ul className="flex flex-col gap-[10px]">
-            {events.map((e) => (
-              <li key={e.id} className="flex items-start gap-[10px]">
-                <span
-                  aria-hidden
-                  className={`mt-[2px] flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full ${
-                    e.kind === "github"
-                      ? "bg-[rgba(100,116,139,0.15)] text-[var(--text-muted)]"
-                      : "bg-[rgba(37,99,235,0.12)] text-[var(--primary)]"
-                  }`}
-                  title={e.kind === "github" ? "گیت‌هاب" : "داخلی"}
-                >
-                  {e.kind === "github" ? (
-                    <FolderGit2 size={13} />
-                  ) : (
-                    <Circle size={8} fill="currentColor" />
-                  )}
-                </span>
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <span className="text-[13px]">
-                    <span className="font-medium">{e.actor?.displayName ?? e.actorLogin}</span>{" "}
-                    <span className="text-[var(--text-muted)]">{e.title}</span>
+          {events.length === 0 ? (
+            <p className="text-[13px] text-[var(--text-muted)] py-4 text-center">
+              فعالیت جدیدی ثبت نشده است.
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-[10px]">
+              {events.map((e) => (
+                <li key={e.id} className="flex items-start gap-[10px]">
+                  <span
+                    aria-hidden
+                    className={`mt-[2px] flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-full ${
+                      e.kind === "github"
+                        ? "bg-[rgba(100,116,139,0.15)] text-[var(--text-muted)]"
+                        : "bg-[rgba(37,99,235,0.12)] text-[var(--primary)]"
+                    }`}
+                    title={e.kind === "github" ? "گیت‌هاب" : "داخلی"}
+                  >
+                    {e.kind === "github" ? (
+                      <FolderGit2 size={13} />
+                    ) : (
+                      <Circle size={8} fill="currentColor" />
+                    )}
                   </span>
-                  <span className="text-[12px] text-[var(--text-muted)]">
-                    {faRelativeTime(e.createdAt)}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <span className="text-[13px]">
+                      <span className="font-medium">{e.actor?.displayName ?? e.actorLogin}</span>{" "}
+                      <span className="text-[var(--text-muted)]">{e.title}</span>
+                    </span>
+                    <span className="text-[12px] text-[var(--text-muted)]">
+                      {faRelativeTime(e.createdAt)}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </section>
@@ -593,28 +617,34 @@ function RisksPanel({ risks }: { risks: Risk[] }) {
           <CardDescription>مواردی که به توجه فوری نیاز دارند</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-[10px]">
-          {risks.map((r) => {
-            const Icon = riskKindIcon[r.kind];
-            return (
-              <div
-                key={r.id}
-                className="flex items-start gap-[12px] rounded-[10px] border border-[var(--border)] p-[12px]"
-              >
-                <span className="mt-[2px] text-[var(--text-muted)]">
-                  <Icon size={16} aria-hidden />
-                </span>
-                <div className="flex min-w-0 flex-1 flex-col gap-[2px]">
-                  <div className="flex items-center gap-[8px]">
-                    <span className="text-[14px] font-medium">{r.title}</span>
-                    <Badge variant={severityVariant[r.severity]} className="text-[11px]">
-                      {severityLabel[r.severity]}
-                    </Badge>
+          {risks.length === 0 ? (
+            <p className="text-[13px] text-[var(--text-muted)] py-4 text-center">
+              ریسک فعالی برای این پروژه شناسایی نشده است.
+            </p>
+          ) : (
+            risks.map((r) => {
+              const Icon = riskKindIcon[r.kind];
+              return (
+                <div
+                  key={r.id}
+                  className="flex items-start gap-[12px] rounded-[10px] border border-[var(--border)] p-[12px]"
+                >
+                  <span className="mt-[2px] text-[var(--text-muted)]">
+                    <Icon size={16} aria-hidden />
+                  </span>
+                  <div className="flex min-w-0 flex-1 flex-col gap-[2px]">
+                    <div className="flex items-center gap-[8px]">
+                      <span className="text-[14px] font-medium">{r.title}</span>
+                      <Badge variant={severityVariant[r.severity]} className="text-[11px]">
+                        {severityLabel[r.severity]}
+                      </Badge>
+                    </div>
+                    <span className="text-[13px] text-[var(--text-muted)]">{r.detail}</span>
                   </div>
-                  <span className="text-[13px] text-[var(--text-muted)]">{r.detail}</span>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </CardContent>
       </Card>
     </section>

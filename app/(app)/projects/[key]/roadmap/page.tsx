@@ -1,7 +1,7 @@
 "use client";
 
 import { use } from "react";
-import { CalendarDays, CircleDot, GitBranch, Target, Map } from "lucide-react";
+import { CalendarDays, GitBranch, Map } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -9,8 +9,6 @@ import { faDate, faNumber, faPercent } from "@/lib/format";
 import { useProjectStore } from "@/lib/project-store";
 import {
   CYCLE_STATUS_LABEL,
-  ISSUE_STATUS_LABEL,
-  ISSUE_STATUS_ORDER,
   MILESTONE_STATUS_LABEL,
 } from "@/components/features/types";
 

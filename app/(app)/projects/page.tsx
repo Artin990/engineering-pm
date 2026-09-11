@@ -204,6 +204,8 @@ export default function ProjectsPage() {
     setProjectsList(updatedList);
     try {
       localStorage.setItem("flowdeck_projects_list", JSON.stringify(updatedList));
+      const orgMembersSaved = localStorage.getItem("flowdeck_org_members");
+      const defaultProjectMembers = orgMembersSaved ? JSON.parse(orgMembersSaved) : [];
       localStorage.setItem(
         `flowdeck_project_store_${cleanKey}`,
         JSON.stringify({
@@ -211,10 +213,7 @@ export default function ProjectsPage() {
           issues: [],
           cycles: [],
           milestones: [],
-          members: [
-            { id: "artin-1", displayName: "آرتین امیری", githubLogin: "artin-amiri", email: "artinamiri185@gmail.com", role: "admin", status: "active", joinedAt: "امروز" },
-            { id: "sara-1", displayName: "سارا احمدی", githubLogin: "sara-ahmadi", email: "sara.ahmadi@flowdeck.dev", role: "member", status: "active", joinedAt: "امروز" },
-          ],
+          members: Array.isArray(defaultProjectMembers) ? defaultProjectMembers : [],
         })
       );
     } catch {

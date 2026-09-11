@@ -41,17 +41,7 @@ interface ProjectStoreContextValue {
 
 const ProjectStoreContext = createContext<ProjectStoreContextValue | undefined>(undefined);
 
-const DEFAULT_MEMBERS: Member[] = [
-  {
-    id: "artin-1",
-    displayName: "آرتین امیری",
-    githubLogin: "artin-amiri",
-    email: "artinamiri185@gmail.com",
-    role: "admin",
-    status: "active",
-    joinedAt: "۱۴۰۳/۰۱/۱۵",
-  },
-];
+const DEFAULT_MEMBERS: Member[] = [];
 
 export function ProjectStoreProvider({
   projectKey,
@@ -86,7 +76,7 @@ export function ProjectStoreProvider({
             issues: Array.isArray(parsed.issues) ? parsed.issues : prev.issues,
             cycles: Array.isArray(parsed.cycles) ? parsed.cycles : prev.cycles,
             milestones: Array.isArray(parsed.milestones) ? parsed.milestones : prev.milestones,
-            members: Array.isArray(parsed.members) && parsed.members.length > 0 ? parsed.members : DEFAULT_MEMBERS,
+            members: Array.isArray(parsed.members) ? parsed.members : [],
           }));
         }
       }

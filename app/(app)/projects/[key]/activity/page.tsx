@@ -50,29 +50,35 @@ export default async function ProjectActivityPage({
           <CardTitle>تایم‌لاین</CardTitle>
         </CardHeader>
         <CardContent>
-          <ol className="relative space-y-[16px] border-r border-[var(--border)] pr-[16px]">
-            {MOCK_ACTIVITIES.map((a) => (
-              <li key={a.id} className="relative">
-                <span className="absolute -right-[24px] top-[4px] flex size-6 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)]">
-                  {VERB_ICON[a.verb] ?? <CircleDot className="size-4" />}
-                </span>
-                <div className="flex flex-wrap items-center gap-[8px]">
-                  <span className="text-[14px] font-semibold">
-                    {a.actor?.displayName || a.actorLogin || "سیستم"}
+          {MOCK_ACTIVITIES.length === 0 ? (
+            <div className="py-8 text-center text-[13px] text-[var(--text-muted)]">
+              هنوز فعالیتی در این پروژه ثبت نشده است. با ایجاد یا ویرایش ایشوها، رویدادها در این بخش ظاهر می‌شوند.
+            </div>
+          ) : (
+            <ol className="relative space-y-[16px] border-r border-[var(--border)] pr-[16px]">
+              {MOCK_ACTIVITIES.map((a) => (
+                <li key={a.id} className="relative">
+                  <span className="absolute -right-[24px] top-[4px] flex size-6 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)]">
+                    {VERB_ICON[a.verb] ?? <CircleDot className="size-4" />}
                   </span>
-                  <Badge variant={a.kind === "github" ? "default" : "secondary"}>
-                    {a.kind === "github" ? "گیت‌هاب" : "داخلی"}
-                  </Badge>
-                  <span className="text-[14px] text-[var(--text-secondary)]">
-                    {a.title}
-                  </span>
-                </div>
-                <p className="mt-[5px] text-[12px] text-[var(--text-muted)]">
-                  {faDate(a.createdAt)}
-                </p>
-              </li>
-            ))}
-          </ol>
+                  <div className="flex flex-wrap items-center gap-[8px]">
+                    <span className="text-[14px] font-semibold">
+                      {a.actor?.displayName || a.actorLogin || "سیستم"}
+                    </span>
+                    <Badge variant={a.kind === "github" ? "default" : "secondary"}>
+                      {a.kind === "github" ? "گیت‌هاب" : "داخلی"}
+                    </Badge>
+                    <span className="text-[14px] text-[var(--text-secondary)]">
+                      {a.title}
+                    </span>
+                  </div>
+                  <p className="mt-[5px] text-[12px] text-[var(--text-muted)]">
+                    {faDate(a.createdAt)}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          )}
         </CardContent>
       </Card>
     </section>

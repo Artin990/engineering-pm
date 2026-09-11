@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from "react";
 import {
-  Users,
   UserPlus,
   Shield,
   User,
@@ -14,7 +13,6 @@ import {
   Link as LinkIcon,
   Check,
   CheckCircle2,
-  Sparkles,
   Building2,
   Edit2,
 } from "lucide-react";
@@ -24,9 +22,6 @@ import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Select,
@@ -48,17 +43,7 @@ import { useUserRole } from "@/lib/role-context";
 import { type Member } from "@/components/features/types";
 import { faNumber } from "@/lib/format";
 
-const INITIAL_ORG_MEMBERS: Member[] = [
-  {
-    id: "artin-1",
-    displayName: "آرتین امیری",
-    githubLogin: "artin-amiri",
-    email: "artinamiri185@gmail.com",
-    role: "admin",
-    status: "active",
-    joinedAt: "۱۴۰۳/۰۱/۱۵",
-  },
-];
+const INITIAL_ORG_MEMBERS: Member[] = [];
 
 export default function OrganizationMembersPage() {
   const { isAdmin } = useUserRole();
@@ -87,12 +72,11 @@ export default function OrganizationMembersPage() {
       const saved = localStorage.getItem("flowdeck_org_members");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           setMembers(parsed);
           return;
         }
       }
-      localStorage.setItem("flowdeck_org_members", JSON.stringify(INITIAL_ORG_MEMBERS));
     } catch {
       // ignore
     }
