@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { syncUserProfile } from "@/app/actions/auth";
-import { isUserAdminEmail } from "@/lib/role-context";
+import { isUserAdminEmail } from "@/lib/auth/admin-check";
 
 export const dynamic = "force-dynamic";
 

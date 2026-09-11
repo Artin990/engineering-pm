@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -15,7 +14,6 @@ import {
   X,
   Check,
   CornerDownLeft,
-  MoreVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +46,20 @@ const COMMON_EMOJIS = ["👍", "❤️", "🚀", "😂", "🔥", "👀", "👏",
 
 export default function ChatPage() {
   const { profile, isAdmin } = useUserRole();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("radarcheck_cached_chat_messages");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return [];
+  });
   const [inputMessage, setInputMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -75,8 +86,8 @@ export default function ChatPage() {
         const json = await res.json();
         if (Array.isArray(json.messages)) {
           setMessages(json.messages);
-          // Mark all read in localStorage for sidebar badge
           try {
+            localStorage.setItem("radarcheck_cached_chat_messages", JSON.stringify(json.messages));
             localStorage.setItem("radarcheck_chat_last_read_count", String(json.messages.length));
             localStorage.setItem("radarcheck_chat_last_read_timestamp", String(Date.now()));
             window.dispatchEvent(new Event("radarcheck_chat_read"));

@@ -105,43 +105,49 @@ export async function syncUserProfile(input: SyncUserProfileInput) {
     // ۳. اگر کاربر عادی است و با کد دعوت ثبت‌نام کرده است:
     if (input.inviteCode && input.inviteCode.trim()) {
       const cleanCode = input.inviteCode.trim().toUpperCase();
-      let [targetWs] = await db
+      const [targetWs] = await db
         .select()
         .from(workspaces)
         .where(
           or(
             ilike(workspaces.inviteCode, cleanCode),
-            sql`UPPER(${workspaces.inviteCode}) = ${cleanCode}`,
-            cleanCode === "RADAR-185" ? ilike(workspaces.name, "%RadarCheck%") : sql`false`,
-            cleanCode.startsWith("RADAR-") ? ilike(workspaces.name, "%RadarCheck%") : sql`false`
+            sql`UPPER(${workspaces.inviteCode}) = ${cleanCode}`
           )
         )
         .limit(1);
 
-      if (!targetWs) {
-        const [mainWs] = await db
-          .select()
-          .from(workspaces)
-          .where(ilike(workspaces.name, "%RadarCheck%"))
-          .limit(1);
-        targetWs = mainWs;
-      }
-
       if (targetWs) {
-        // ثبت در لیست اعضای سازمان مدیرعامل
-        await db
-          .insert(workspaceMembers)
-          .values({
-            workspaceId: targetWs.id,
-            userId: input.id,
-            role: "member",
-          })
-          .onConflictDoUpdate({
-            target: [workspaceMembers.workspaceId, workspaceMembers.userId],
-            set: { role: "member", updatedAt: new Date() },
-          });
+        // بررسی اکید اعتبار ۱۰ دقیقه‌ای (۶۰۰ ثانیه)
+        const lastUpdate = targetWs.updatedAt ? new Date(targetWs.updatedAt).getTime() : 0;
+        const elapsedSec = Math.floor((Date.now() - lastUpdate) / 1000);
 
-        return { ok: true, error: null };
+        if (elapsedSec < 600) {
+          // ثبت در لیست اعضای سازمان مدیرعامل
+          await db
+            .insert(workspaceMembers)
+            .values({
+              workspaceId: targetWs.id,
+              userId: input.id,
+              role: "member",
+            })
+            .onConflictDoUpdate({
+              target: [workspaceMembers.workspaceId, workspaceMembers.userId],
+              set: { role: "member", updatedAt: new Date() },
+            });
+
+          return { ok: true, error: null };
+        } else {
+          // کد بیش از ۱۰ دقیقه گذشته و منقضی شده است
+          return {
+            ok: false,
+            error: "کد زیرمجموعه‌گیری وارد شده منقضی شده است (اعتبار کد ۱۰ دقیقه است). لطفاً کد جدید را از مدیرعامل دریافت نمایید.",
+          };
+        }
+      } else {
+        return {
+          ok: false,
+          error: "کد زیرمجموعه‌گیری وارد شده نامعتبر است.",
+        };
       }
     }
 

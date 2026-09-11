@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { chatMessages } from "@/lib/db/schema";
+import { chatMessages, profiles } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth/session";
 import { isUserAdminEmail } from "@/lib/auth/admin-check";
 
@@ -124,9 +124,37 @@ export async function POST(request: NextRequest) {
       userEmail.split("@")[0] ||
       "کاربر تیم";
 
+    // بررسی و تضمین وجود پروفایل فرستنده برای پیشگیری از خطای Foreign Key
+    let validSenderId: string | null = null;
+    if (session?.profileId) {
+      try {
+        const [prof] = await db
+          .select({ id: profiles.id })
+          .from(profiles)
+          .where(eq(profiles.id, session.profileId))
+          .limit(1);
+
+        if (prof) {
+          validSenderId = prof.id;
+        } else {
+          await db
+            .insert(profiles)
+            .values({
+              id: session.profileId,
+              displayName: userName,
+              email: userEmail || null,
+            })
+            .onConflictDoNothing();
+          validSenderId = session.profileId;
+        }
+      } catch {
+        validSenderId = null;
+      }
+    }
+
     const newMsg: ChatMessageItem = {
       id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      senderId: session?.profileId || null,
+      senderId: validSenderId,
       senderName: userName,
       senderEmail: userEmail || null,
       senderRole: isAdmin ? "admin" : "member",
@@ -136,10 +164,10 @@ export async function POST(request: NextRequest) {
       reactions: {},
     };
 
-    // ۱. درج دائمی در پایگاه داده PostgreSQL
+    // ۱. درج مطمئن در پایگاه داده PostgreSQL
     try {
       await db.insert(chatMessages).values({
-        senderId: session?.profileId || null,
+        senderId: validSenderId,
         senderName: userName,
         senderEmail: userEmail || null,
         senderRole: isAdmin ? "admin" : "member",
@@ -149,7 +177,7 @@ export async function POST(request: NextRequest) {
         isEdited: false,
       });
 
-      // واکشی پیام‌های به‌روز
+      // واکشی مجدد پیام‌های معتبر از DB
       const rows = await db
         .select()
         .from(chatMessages)
@@ -310,7 +338,6 @@ export async function DELETE(request: NextRequest) {
     try {
       await db.delete(chatMessages);
       await db.insert(chatMessages).values({
-        senderId: session?.profileId || null,
         senderName: session?.user?.user_metadata?.name || "مدیرعامل",
         senderEmail: userEmail || null,
         senderRole: "admin",

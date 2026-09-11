@@ -1,9 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { eq, and, isNull, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { projects, issues, cycles, milestones, projectMembers } from "@/lib/db/schema";
-import { getProjectByKey } from "@/lib/db/queries/project";
-import { getSession } from "@/lib/auth/session";
+import { projects, issues, cycles, milestones, projectMembers, profiles } from "@/lib/db/schema";
 
 // Server In-Memory Cache for ultra-fast real-time synchronization between clients
 const serverProjectStateCache = new Map<string, {
@@ -58,12 +56,35 @@ export async function GET(
           .from(milestones)
           .where(and(eq(milestones.projectId, proj.id), isNull(milestones.deletedAt)));
 
+        const projMembers = await db
+          .select({
+            id: projectMembers.id,
+            userId: projectMembers.userId,
+            role: projectMembers.role,
+            displayName: profiles.displayName,
+            email: profiles.email,
+            githubLogin: profiles.githubLogin,
+          })
+          .from(projectMembers)
+          .leftJoin(profiles, eq(projectMembers.userId, profiles.id))
+          .where(eq(projectMembers.projectId, proj.id));
+
+        const mappedMembers = projMembers.map((pm) => ({
+          id: pm.userId || pm.id,
+          displayName: pm.displayName || pm.email?.split("@")[0] || "عضو تیم",
+          email: pm.email || "",
+          githubLogin: pm.githubLogin || null,
+          role: pm.role || "member",
+          status: "active",
+          joinedAt: "امروز",
+        }));
+
         const initialState = {
           project: proj,
           issues: projIssues,
           cycles: projCycles,
           milestones: projMilestones,
-          members: [],
+          members: mappedMembers,
           activities: [],
           isDeleted: false,
           lastUpdated: Date.now(),
@@ -121,6 +142,59 @@ export async function POST(
     };
 
     serverProjectStateCache.set(normKey, updatedState);
+
+    // Persist members to DB table `project_members` if project exists in DB
+    if (Array.isArray(body.members) && body.members.length > 0) {
+      try {
+        const [proj] = await db
+          .select({ id: projects.id })
+          .from(projects)
+          .where(and(eq(projects.key, normKey), isNull(projects.deletedAt)))
+          .limit(1);
+
+        if (proj) {
+          for (const m of body.members) {
+            if (!m) continue;
+            try {
+              let targetUserId: string | null = null;
+              if (m.id && typeof m.id === "string" && !m.id.startsWith("mem-")) {
+                targetUserId = m.id;
+              } else if (m.email) {
+                const [prof] = await db
+                  .select({ id: profiles.id })
+                  .from(profiles)
+                  .where(eq(profiles.email, m.email))
+                  .limit(1);
+                if (prof) targetUserId = prof.id;
+              }
+
+              if (targetUserId) {
+                const rawRole = String(m.role || "contributor").toLowerCase();
+                const dbRole =
+                  rawRole === "admin" || rawRole === "lead"
+                    ? ("lead" as const)
+                    : rawRole === "intern" || rawRole === "viewer"
+                    ? ("viewer" as const)
+                    : ("contributor" as const);
+
+                await db
+                  .insert(projectMembers)
+                  .values({
+                    projectId: proj.id,
+                    userId: targetUserId,
+                    role: dbRole,
+                  })
+                  .onConflictDoNothing();
+              }
+            } catch {
+              // Ignore single member insert note
+            }
+          }
+        }
+      } catch {
+        // Ignore DB update note
+      }
+    }
 
     return NextResponse.json({
       success: true,

@@ -90,6 +90,7 @@ export default function MembersPage() {
   }, []);
 
   // Invite Form State
+  const [selectedOrgMemberId, setSelectedOrgMemberId] = useState<string | null>(null);
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteGithub, setInviteGithub] = useState("");
@@ -109,6 +110,7 @@ export default function MembersPage() {
   };
 
   const handleSelectOrgMember = (selectedId: string) => {
+    setSelectedOrgMemberId(selectedId);
     const found = orgMembers.find((om) => om.id === selectedId);
     if (found) {
       setInviteName(found.displayName);
@@ -121,8 +123,13 @@ export default function MembersPage() {
     e.preventDefault();
     if (!inviteName.trim() || !inviteEmail.trim()) return;
 
+    const matchedOrg = orgMembers.find(
+      (om) => om.email?.toLowerCase() === inviteEmail.trim().toLowerCase()
+    );
+    const memberId = selectedOrgMemberId || matchedOrg?.id || `mem-${Date.now()}`;
+
     const newMem: Member = {
-      id: `mem-${Date.now()}`,
+      id: memberId,
       displayName: inviteName.trim(),
       email: inviteEmail.trim(),
       githubLogin: inviteGithub.trim() || null,
@@ -136,6 +143,7 @@ export default function MembersPage() {
     setInviteName("");
     setInviteEmail("");
     setInviteGithub("");
+    setSelectedOrgMemberId(null);
     setTimeout(() => {
       setInviteSuccessMsg("");
       setInviteModalOpen(false);

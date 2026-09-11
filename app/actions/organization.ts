@@ -276,43 +276,38 @@ export async function joinOrganizationByCode(
       return { ok: false, error: "کد زیرمجموعه‌گیری نمی‌تواند خالی باشد." };
     }
 
-    // ۱. یافتن ورک‌اسپیس با کد دعوت
-    let [targetWs] = await db
+    // ۱. یافتن ورک‌اسپیس با تطابق دقیق کد دعوت فعال
+    const [targetWs] = await db
       .select({
         id: workspaces.id,
         name: workspaces.name,
         ownerId: workspaces.ownerId,
         inviteCode: workspaces.inviteCode,
+        updatedAt: workspaces.updatedAt,
       })
       .from(workspaces)
       .where(
         or(
           ilike(workspaces.inviteCode, cleanCode),
-          sql`UPPER(${workspaces.inviteCode}) = ${cleanCode}`,
-          cleanCode === "RADAR-185" ? ilike(workspaces.name, "%RadarCheck%") : sql`false`,
-          cleanCode.startsWith("RADAR-") ? ilike(workspaces.name, "%RadarCheck%") : sql`false`
+          sql`UPPER(${workspaces.inviteCode}) = ${cleanCode}`
         )
       )
       .limit(1);
 
     if (!targetWs) {
-      const [mainWs] = await db
-        .select({
-          id: workspaces.id,
-          name: workspaces.name,
-          ownerId: workspaces.ownerId,
-          inviteCode: workspaces.inviteCode,
-        })
-        .from(workspaces)
-        .where(ilike(workspaces.name, "%RadarCheck%"))
-        .limit(1);
-      targetWs = mainWs;
-    }
-
-    if (!targetWs) {
       return {
         ok: false,
-        error: `کد زیرمجموعه‌گیری «${cleanCode}» نامعتبر است یا منقضی شده است.`,
+        error: `کد زیرمجموعه‌گیری «${cleanCode}» نامعتبر است.`,
+      };
+    }
+
+    // بررسی اکید گذشت ۱۰ دقیقه (۶۰۰ ثانیه)
+    const lastUpdate = targetWs.updatedAt ? new Date(targetWs.updatedAt).getTime() : 0;
+    const elapsedSec = Math.floor((Date.now() - lastUpdate) / 1000);
+    if (elapsedSec >= 600) {
+      return {
+        ok: false,
+        error: "کد زیرمجموعه‌گیری وارد شده منقضی شده است (اعتبار کد ۱۰ دقیقه است). لطفاً کد جدید را از کارفرما دریافت کنید.",
       };
     }
 
