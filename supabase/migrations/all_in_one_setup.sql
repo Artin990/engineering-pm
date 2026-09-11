@@ -704,4 +704,43 @@ BEGIN
   END LOOP;
 END $$;
 
+-- ============================================================
+-- 10. User Deletion & Self-Account Removal
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.delete_user_account(target_user_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+DECLARE
+  v_caller_id uuid := auth.uid();
+  v_is_caller_admin boolean := false;
+  v_caller_email text;
+BEGIN
+  IF v_caller_id IS NULL THEN
+    RAISE EXCEPTION 'کاربر احراز هویت نشده است.';
+  END IF;
+
+  SELECT email INTO v_caller_email FROM auth.users WHERE id = v_caller_id;
+  IF LOWER(COALESCE(v_caller_email, '')) IN ('amiriartin185@gmil.com', 'amiriartin185@gmail.com', 'artinamiri185@gmail.com') THEN
+    v_is_caller_admin := true;
+  END IF;
+
+  IF v_caller_id <> target_user_id AND NOT v_is_caller_admin THEN
+    RAISE EXCEPTION 'شما اجازه حذف حساب سایر کاربران را ندارید.';
+  END IF;
+
+  DELETE FROM public.project_members WHERE user_id = target_user_id;
+  DELETE FROM public.workspace_members WHERE user_id = target_user_id;
+  DELETE FROM public.team_members WHERE user_id = target_user_id;
+  DELETE FROM public.notifications WHERE user_id = target_user_id;
+  DELETE FROM public.profiles WHERE id = target_user_id;
+  DELETE FROM auth.users WHERE id = target_user_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.delete_user_account(uuid) TO authenticated;
+
 

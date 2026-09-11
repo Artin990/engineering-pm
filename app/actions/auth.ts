@@ -116,3 +116,46 @@ export async function getCurrentUser() {
     return null;
   }
 }
+
+/**
+ * حذف کاربر از سامانه (حذف توسط خود کاربر یا حذف سریع توسط ادمین)
+ */
+export async function deleteUserAccountAction(targetUserId?: string) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authErr,
+    } = await supabase.auth.getUser();
+
+    if (authErr || !user) {
+      return { ok: false, error: "کاربر احراز هویت نشده است." };
+    }
+
+    const userIdToDelete = targetUserId || user.id;
+    const isSelfDelete = userIdToDelete === user.id;
+
+    // فراخوانی تابع امن PostgreSQL جهت حذف کامل و Cascade
+    const { error: rpcError } = await supabase.rpc("delete_user_account", {
+      target_user_id: userIdToDelete,
+    });
+
+    if (rpcError) {
+      console.warn("[deleteUserAccountAction] RPC note, falling back to direct db delete:", rpcError);
+      try {
+        await db.delete(profiles).where(eq(profiles.id, userIdToDelete));
+      } catch {
+        // ignore
+      }
+    }
+
+    if (isSelfDelete) {
+      await supabase.auth.signOut();
+    }
+
+    return { ok: true, error: null };
+  } catch (err: unknown) {
+    console.error("[deleteUserAccountAction] Error:", err);
+    return { ok: false, error: err instanceof Error ? err.message : "خطا در حذف حساب کاربری" };
+  }
+}

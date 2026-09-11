@@ -42,6 +42,7 @@ import { GithubIcon } from "@/components/ui/github-icon";
 import { useUserRole } from "@/lib/role-context";
 import { type Member } from "@/components/features/types";
 import { faNumber } from "@/lib/format";
+import { deleteUserAccountAction } from "@/app/actions/auth";
 
 const INITIAL_ORG_MEMBERS: Member[] = [];
 
@@ -156,10 +157,14 @@ export default function OrganizationMembersPage() {
     }, 1200);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm("آیا از حذف این کاربر از دایرکتوری سازمان اطمینان دارید؟")) {
-      const updated = members.filter((m) => m.id !== id);
-      saveMembers(updated);
+  const handleDelete = async (id: string) => {
+    // دیلیت سریع توسط ادمین
+    const updated = members.filter((m) => m.id !== id);
+    saveMembers(updated);
+    try {
+      await deleteUserAccountAction(id);
+    } catch (err) {
+      console.warn("[Members] user delete notice:", err);
     }
   };
 

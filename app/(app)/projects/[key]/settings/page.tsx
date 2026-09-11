@@ -36,6 +36,7 @@ import { getProjectByKey } from "@/components/features/__fixtures__/mock-data";
 import { faNumber, faDate } from "@/lib/format";
 import { useUserRole } from "@/lib/role-context";
 import { useProjectStore } from "@/lib/project-store";
+import { deleteUserAccountAction } from "@/app/actions/auth";
 
 export default function ProjectSettingsPage({
   params,
@@ -49,7 +50,7 @@ export default function ProjectSettingsPage({
   const { project: storeProject, updateProject, members, addMember, deleteMember } = useProjectStore();
   const project = storeProject || fallbackProject;
 
-  const { isAdmin, profile } = useUserRole();
+  const { isAdmin, profile, logout } = useUserRole();
 
   const [name, setName] = useState(project?.name || fallbackProject.name);
   const [description, setDescription] = useState(project?.description || "");
@@ -58,6 +59,12 @@ export default function ProjectSettingsPage({
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberGithub, setNewMemberGithub] = useState("");
+
+  // Self Account Deletion State
+  const [deleteAccountModalOpen, setDeleteAccountModalOpen] = useState(false);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   // Invite Link State
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
@@ -314,6 +321,135 @@ export default function ProjectSettingsPage({
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {/* Account Deletion Danger Zone for Regular User */}
+      <Card className="border-red-500/30 bg-red-500/5">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-[8px] text-[16px] text-red-500">
+            <AlertTriangle className="size-4" />
+            حساب کاربری و حذف دائمی اکانت
+          </CardTitle>
+          <CardDescription>
+            مدیریت حضور شما در سامانه و حذف کامل داده‌های کاربری
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-[13px] font-semibold text-[var(--text-primary)]">
+              حذف دائمی حساب کاربری ({profile.name})
+            </p>
+            <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
+              با حذف اکانت، تمام اطلاعات پروفایل، دسترسی‌ها و نشست‌های فعال شما از پایگاه داده حذف خواهند شد.
+            </p>
+          </div>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => {
+              setDeleteError("");
+              setDeleteConfirmationText("");
+              setDeleteAccountModalOpen(true);
+            }}
+          >
+            حذف حساب کاربری من
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Delete Account Confirmation Modal */}
+      {deleteAccountModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4"
+          onClick={() => !isDeletingAccount && setDeleteAccountModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-[480px] rounded-[12px] border border-red-500/40 bg-[var(--surface)] p-[24px] shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+            dir="rtl"
+          >
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <div className="flex items-center gap-2 text-red-500">
+                <AlertTriangle className="size-5" />
+                <h2 className="text-[17px] font-bold">
+                  تأییدیه حذف دائمی حساب کاربری
+                </h2>
+              </div>
+              <button
+                type="button"
+                disabled={isDeletingAccount}
+                onClick={() => setDeleteAccountModalOpen(false)}
+                className="rounded-[8px] p-1 text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="rounded-[8px] bg-red-500/10 border border-red-500/20 p-3 text-[13px] text-red-600 dark:text-red-400 space-y-1">
+              <p className="font-bold">⚠️ هشدار: این عملیات غیرقابل بازگشت است!</p>
+              <p className="text-[12px]">
+                پروفایل، عضویت در پروژه‌ها، تسک‌ها و حساب کاربری ایمیل <strong>{profile.email}</strong> برای همیشه از سرور و پایگاه‌داده حذف می‌شود.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-[13px] font-medium text-[var(--text-primary)]">
+                جهت تأیید، عبارت <code className="bg-[var(--surface-raised)] px-1.5 py-0.5 rounded text-red-500 font-bold">DELETE</code> یا <code className="bg-[var(--surface-raised)] px-1.5 py-0.5 rounded text-red-500 font-bold">حذف</code> را تایپ کنید:
+              </label>
+              <Input
+                value={deleteConfirmationText}
+                onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                placeholder="DELETE"
+                disabled={isDeletingAccount}
+                className="font-mono text-start"
+                dir="ltr"
+              />
+            </div>
+
+            {deleteError && (
+              <p className="text-[12px] text-red-500">{deleteError}</p>
+            )}
+
+            <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isDeletingAccount}
+                onClick={() => setDeleteAccountModalOpen(false)}
+              >
+                انصراف
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={
+                  isDeletingAccount ||
+                  (deleteConfirmationText.trim().toUpperCase() !== "DELETE" &&
+                    deleteConfirmationText.trim() !== "حذف")
+                }
+                onClick={async () => {
+                  setIsDeletingAccount(true);
+                  setDeleteError("");
+                  try {
+                    const res = await deleteUserAccountAction();
+                    if (res.ok) {
+                      await logout();
+                      window.location.href = "/login?deleted=true";
+                    } else {
+                      setDeleteError(res.error || "خطا در حذف حساب کاربری");
+                      setIsDeletingAccount(false);
+                    }
+                  } catch (err: any) {
+                    setDeleteError(err?.message || "خطای سیستمی در حذف اکانت");
+                    setIsDeletingAccount(false);
+                  }
+                }}
+              >
+                {isDeletingAccount ? "در حال حذف حساب..." : "تأیید و حذف دائمی اکانت"}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Add Member Modal */}
