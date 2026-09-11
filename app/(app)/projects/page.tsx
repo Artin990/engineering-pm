@@ -446,8 +446,7 @@ export default function ProjectsPage() {
                     value={key}
                     onChange={(e) => { setKey(e.target.value); if (error) setError(""); }}
                     placeholder="مثال: PAY"
-                    dir="ltr"
-                    className="font-mono uppercase"
+                    className="font-mono uppercase text-start"
                     maxLength={6}
                   />
                 </div>

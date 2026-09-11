@@ -189,8 +189,7 @@ export default function RegisterPage() {
                     autoComplete="username email"
                     value={email}
                     onChange={(e) => { setEmail(e.target.value); if (error) setError(""); }}
-                    placeholder="name@company.com"
-                    dir="ltr"
+                    placeholder="ایمیل خود را وارد کنید (name@company.com)"
                     className="pe-9 bg-[var(--background)]"
                   />
                 </div>
@@ -216,8 +215,7 @@ export default function RegisterPage() {
                     autoComplete="new-password"
                     value={password}
                     onChange={(e) => { setPassword(e.target.value); if (error) setError(""); }}
-                    placeholder="••••••••"
-                    dir="ltr"
+                    placeholder="یک رمز عبور قوی انتخاب کنید…"
                     className="pe-9 bg-[var(--background)]"
                   />
                 </div>

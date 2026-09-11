@@ -489,9 +489,8 @@ export default function MembersPage() {
                     type="email"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="pouria@company.com"
+                    placeholder="ایمیل کاری را وارد کنید (pouria@company.com)"
                     className="bg-background"
-                    dir="ltr"
                   />
                 </div>
 
@@ -502,9 +501,8 @@ export default function MembersPage() {
                     <Input
                       value={inviteGithub}
                       onChange={(e) => setInviteGithub(e.target.value)}
-                      placeholder="github-username"
+                      placeholder="نام کاربری گیت‌هاب (مثال: octocat)"
                       className="bg-background pe-9"
-                      dir="ltr"
                     />
                   </div>
                 </div>

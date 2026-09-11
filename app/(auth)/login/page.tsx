@@ -191,8 +191,7 @@ export default function LoginPage() {
                 autoComplete="username email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); if (error) setError(""); }}
-                placeholder="name@company.com"
-                dir="ltr"
+                placeholder="ایمیل خود را وارد کنید (مثال: name@company.com)"
                 className="pe-9 bg-[var(--background)]"
                 autoFocus
               />
@@ -224,8 +223,7 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); if (error) setError(""); }}
-                placeholder="••••••••"
-                dir="ltr"
+                placeholder="رمز عبور خود را وارد کنید…"
                 className="pe-9 bg-[var(--background)]"
               />
             </div>
