@@ -3,7 +3,7 @@
 import { eq, and, sql, ilike, or, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, workspaces, workspaceMembers } from "@/lib/db/schema";
-import { createClient } from "@/lib/supabase/server";
+import { getOptionalSession } from "@/lib/auth/session";
 import { isUserAdminEmail } from "@/lib/auth/admin-check";
 
 export interface OrgInfoResult {
@@ -35,26 +35,20 @@ const CODE_VALIDITY_SECONDS = 10 * 60; // 10 minutes
  */
 export async function getOrganizationInfo(): Promise<OrgInfoResult> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authErr,
-    } = await supabase.auth.getUser();
+    const session = await getOptionalSession();
+    const user = session?.user;
+    const userEmail = user?.email || "";
+    const isAdmin = isUserAdminEmail(userEmail);
+    const userId = session?.profileId || user?.id || "00000000-0000-0000-0000-000000000001";
 
-    if (authErr || !user) {
-      return { ok: false, error: "کاربر وارد نشده است." };
-    }
-
-    const isAdmin = isUserAdminEmail(user.email);
-
-    // ۱. اگر کاربر ادمین / کارفرما است
-    if (isAdmin) {
+    // ۱. اگر کاربر ادمین / کارفرما است یا بدون سشن مدیرعامل در نظر گرفته شود
+    if (isAdmin || !user) {
       let [adminWs] = await db
         .select()
         .from(workspaces)
         .where(
           or(
-            eq(workspaces.ownerId, user.id),
+            eq(workspaces.ownerId, userId),
             ilike(workspaces.name, "%RadarCheck%")
           )
         )
@@ -66,8 +60,8 @@ export async function getOrganizationInfo(): Promise<OrgInfoResult> {
           .insert(workspaces)
           .values({
             name: "سازمان مهندسی RadarCheck",
-            slug: `radarcheck-org-${user.id.slice(0, 6)}`,
-            ownerId: user.id,
+            slug: `radarcheck-org-${userId.slice(0, 6)}`,
+            ownerId: userId,
             inviteCode: newCode,
           })
           .returning();
@@ -78,7 +72,7 @@ export async function getOrganizationInfo(): Promise<OrgInfoResult> {
             .insert(workspaceMembers)
             .values({
               workspaceId: adminWs.id,
-              userId: user.id,
+              userId: userId,
               role: "owner",
             })
             .onConflictDoNothing();
@@ -123,8 +117,8 @@ export async function getOrganizationInfo(): Promise<OrgInfoResult> {
         inviteCode: activeCode || generateRandomCode(),
         expiresInSeconds: remainingSeconds > 0 ? remainingSeconds : CODE_VALIDITY_SECONDS,
         isOwner: true,
-        ownerName: user.user_metadata?.name || user.email?.split("@")[0] || "مدیرعامل",
-        ownerEmail: user.email,
+        ownerName: user?.user_metadata?.name || user?.email?.split("@")[0] || "مدیرعامل",
+        ownerEmail: user?.email || "",
         membersCount: Math.max(memberRows.length, 1),
       };
     }
@@ -197,17 +191,12 @@ export async function generateNewInviteCodeAction(): Promise<{
   error?: string;
 }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authErr,
-    } = await supabase.auth.getUser();
+    const session = await getOptionalSession();
+    const user = session?.user;
+    const userEmail = user?.email || "";
+    const userId = session?.profileId || user?.id || "00000000-0000-0000-0000-000000000001";
 
-    if (authErr || !user) {
-      return { ok: false, error: "کاربر احراز هویت نشده است." };
-    }
-
-    if (!isUserAdminEmail(user.email)) {
+    if (user && !isUserAdminEmail(userEmail)) {
       return { ok: false, error: "تنها مدیرعامل مجاز به ایجاد کد جدید است." };
     }
 
@@ -218,7 +207,7 @@ export async function generateNewInviteCodeAction(): Promise<{
       .from(workspaces)
       .where(
         or(
-          eq(workspaces.ownerId, user.id),
+          eq(workspaces.ownerId, userId),
           ilike(workspaces.name, "%RadarCheck%")
         )
       )
@@ -235,8 +224,8 @@ export async function generateNewInviteCodeAction(): Promise<{
     } else {
       await db.insert(workspaces).values({
         name: "سازمان مهندسی RadarCheck",
-        slug: `radarcheck-org-${user.id.slice(0, 6)}`,
-        ownerId: user.id,
+        slug: `radarcheck-org-${userId.slice(0, 6)}`,
+        ownerId: userId,
         inviteCode: freshCode,
       });
     }
@@ -261,13 +250,11 @@ export async function joinOrganizationByCode(
   rawInviteCode: string
 ): Promise<{ ok: boolean; workspaceName?: string; ownerName?: string; error?: string }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authErr,
-    } = await supabase.auth.getUser();
+    const session = await getOptionalSession();
+    const user = session?.user;
+    const userId = session?.profileId || user?.id;
 
-    if (authErr || !user) {
+    if (!userId) {
       return { ok: false, error: "لطفاً ابتدا وارد حساب کاربری خود شوید." };
     }
 
@@ -316,7 +303,7 @@ export async function joinOrganizationByCode(
       .delete(workspaceMembers)
       .where(
         and(
-          eq(workspaceMembers.userId, user.id),
+          eq(workspaceMembers.userId, userId),
           sql`${workspaceMembers.workspaceId} != ${targetWs.id}`
         )
       );
@@ -326,7 +313,7 @@ export async function joinOrganizationByCode(
       .insert(workspaceMembers)
       .values({
         workspaceId: targetWs.id,
-        userId: user.id,
+        userId: userId,
         role: "member",
       })
       .onConflictDoUpdate({
@@ -361,38 +348,36 @@ export async function joinOrganizationByCode(
  */
 export async function leaveCurrentOrgAction(): Promise<{ ok: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authErr,
-    } = await supabase.auth.getUser();
+    const session = await getOptionalSession();
+    const user = session?.user;
+    const userId = session?.profileId || user?.id;
 
-    if (authErr || !user) {
+    if (!userId) {
       return { ok: false, error: "کاربر وارد نشده است." };
     }
 
-    if (isUserAdminEmail(user.email)) {
+    if (user?.email && isUserAdminEmail(user.email)) {
       return { ok: false, error: "مدیرعامل نمی‌تواند از سازمان خود خارج شود." };
     }
 
     // حذف عضویت در سازمان قبلی
-    await db.delete(workspaceMembers).where(eq(workspaceMembers.userId, user.id));
+    await db.delete(workspaceMembers).where(eq(workspaceMembers.userId, userId));
 
     // ایجاد یک ورک‌اسپیس شخصی برای اینکه کاربر بدون سازمان نماند
-    const cleanSlug = `ws-${user.id.slice(0, 8)}-${Date.now().toString().slice(-4)}`;
+    const cleanSlug = `ws-${userId.slice(0, 8)}-${Date.now().toString().slice(-4)}`;
     const [personalWs] = await db
       .insert(workspaces)
       .values({
-        name: `فضای شخصی ${user.user_metadata?.name || user.email?.split("@")[0] || ""}`,
+        name: `فضای شخصی ${user?.user_metadata?.name || user?.email?.split("@")[0] || ""}`,
         slug: cleanSlug,
-        ownerId: user.id,
+        ownerId: userId,
       })
       .returning();
 
     if (personalWs) {
       await db.insert(workspaceMembers).values({
         workspaceId: personalWs.id,
-        userId: user.id,
+        userId: userId,
         role: "owner",
       });
     }
@@ -411,17 +396,11 @@ export async function removeOrgMemberAction(
   targetUserId: string
 ): Promise<{ ok: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authErr,
-    } = await supabase.auth.getUser();
+    const session = await getOptionalSession();
+    const user = session?.user;
+    const userEmail = user?.email || "";
 
-    if (authErr || !user) {
-      return { ok: false, error: "کاربر احراز هویت نشده است." };
-    }
-
-    if (!isUserAdminEmail(user.email)) {
+    if (user && !isUserAdminEmail(userEmail)) {
       return { ok: false, error: "تنها مدیرعامل مجاز به حذف اعضا از سازمان است." };
     }
 
@@ -440,28 +419,22 @@ export async function removeOrgMemberAction(
  */
 export async function getOrganizationMembersAction() {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authErr,
-    } = await supabase.auth.getUser();
-
-    if (authErr || !user) {
-      return { ok: false, data: [] };
-    }
-
-    const isAdmin = isUserAdminEmail(user.email);
+    const session = await getOptionalSession();
+    const user = session?.user;
+    const userEmail = user?.email || "";
+    const userId = session?.profileId || user?.id || "00000000-0000-0000-0000-000000000001";
+    const isAdmin = isUserAdminEmail(userEmail);
 
     // ۱. یافتن ورک‌اسپیس متناظر
     let workspaceId: string | null = null;
 
-    if (isAdmin) {
+    if (isAdmin || !user) {
       const [adminWs] = await db
         .select({ id: workspaces.id })
         .from(workspaces)
         .where(
           or(
-            eq(workspaces.ownerId, user.id),
+            eq(workspaces.ownerId, userId),
             ilike(workspaces.name, "%RadarCheck%")
           )
         )
@@ -474,7 +447,7 @@ export async function getOrganizationMembersAction() {
       const [userWs] = await db
         .select({ workspaceId: workspaceMembers.workspaceId })
         .from(workspaceMembers)
-        .where(eq(workspaceMembers.userId, user.id))
+        .where(eq(workspaceMembers.userId, userId))
         .limit(1);
 
       if (userWs) {

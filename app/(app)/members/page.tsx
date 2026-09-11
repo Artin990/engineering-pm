@@ -78,11 +78,11 @@ export default function OrganizationMembersPage() {
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
-  const activeInviteCode = orgInfo?.inviteCode || "RADAR-185";
+  const activeInviteCode = orgInfo?.inviteCode || "";
   const inviteLink =
-    typeof window !== "undefined"
+    typeof window !== "undefined" && activeInviteCode
       ? `${window.location.origin}/register?code=${activeInviteCode}`
-      : `https://radarcheck.dev/register?code=${activeInviteCode}`;
+      : "";
 
   // Load from API & localStorage
   const fetchMembers = async () => {
@@ -438,7 +438,11 @@ export default function OrganizationMembersPage() {
                   کد فعال
                 </span>
                 <span className="text-base sm:text-lg font-mono font-bold text-[var(--primary)] tracking-wider">
-                  {activeInviteCode}
+                  {activeInviteCode || (
+                    <span className="text-xs text-[var(--text-muted)] font-sans font-normal animate-pulse">
+                      در حال دریافت کد...
+                    </span>
+                  )}
                 </span>
               </div>
               <div className="flex items-center gap-1">
@@ -446,6 +450,7 @@ export default function OrganizationMembersPage() {
                   size="sm"
                   variant="outline"
                   onClick={handleCopyCode}
+                  disabled={!activeInviteCode}
                   className="h-8 gap-1 text-xs border-[var(--border)] bg-[var(--background)]"
                   title="کپی کد"
                 >
@@ -472,6 +477,7 @@ export default function OrganizationMembersPage() {
             {/* Link Button */}
             <Button
               onClick={handleCopyInvite}
+              disabled={!activeInviteCode}
               className="gap-2 text-xs sm:text-sm h-11 px-4 shadow-sm"
             >
               {copiedLink ? (
