@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useParams } from "next/navigation";
 import {
   FolderKanban,
@@ -64,16 +65,31 @@ export function Sidebar() {
       <div className={`mb-[16px] flex items-center ${collapsed ? "flex-col gap-2" : "justify-between"}`}>
         <Link
           href="/projects"
-          className="flex items-center gap-[10px] text-[15px] font-bold text-[var(--text-primary)] transition-opacity hover:opacity-80"
-          title="Flowdeck — سامانه مدیریت مهندسی"
+          className="flex items-center gap-[10px] text-[15px] font-bold text-[var(--text-primary)] transition-opacity hover:opacity-85"
+          title="FlowDeck — سامانه مدیریت مهندسی"
         >
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-gradient-to-br from-[var(--primary)] to-indigo-600 text-white shadow-sm font-bold text-[14px] tracking-wider">
-            FD
-          </span>
-          {!collapsed && (
-            <div className="flex flex-col">
-              <span className="leading-tight font-black tracking-tight text-[16px]">Flowdeck</span>
-              <span className="text-[11px] font-normal text-[var(--text-muted)]">سامانه مهندسی و پروژه</span>
+          {collapsed ? (
+            <div className="relative size-9 shrink-0 overflow-hidden rounded-[8px] bg-white p-1 shadow-xs border border-[var(--border)]">
+              <Image
+                src="/Flow-Deck-Logo.png"
+                alt="FlowDeck"
+                fill
+                sizes="36px"
+                className="object-contain object-left"
+              />
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="relative h-8 w-32 shrink-0">
+                <Image
+                  src="/Flow-Deck-Logo.png"
+                  alt="FlowDeck Logo"
+                  fill
+                  sizes="130px"
+                  className="object-contain object-right"
+                  priority
+                />
+              </div>
             </div>
           )}
         </Link>

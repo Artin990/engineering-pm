@@ -9,6 +9,11 @@ import { RoleProvider } from "@/lib/role-context";
 export const metadata: Metadata = {
   title: "Flowdeck — سامانه مدیریت مهندسی و هوش پروژه",
   description: "سامانه یکپارچه مدیریت پروژه، مدیریت مهندسی و هوش گیت‌هاب Flowdeck",
+  icons: {
+    icon: "/Flow-Deck-Logo.png",
+    shortcut: "/Flow-Deck-Logo.png",
+    apple: "/Flow-Deck-Logo.png",
+  },
 };
 
 export default function RootLayout({

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Eye, EyeOff, Mail, Shield, User } from "lucide-react";
 import { GithubIcon } from "@/components/ui/github-icon";
 import { Button } from "@/components/ui/button";
@@ -89,14 +90,21 @@ export default function LoginPage() {
       <div className="w-full max-w-[440px] rounded-[16px] border border-[var(--border)] bg-[var(--surface)] p-[32px] shadow-xl">
         {/* Logo & Header */}
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="flex size-12 items-center justify-center rounded-[12px] bg-gradient-to-br from-[var(--primary)] to-indigo-600 text-white shadow-md font-bold text-[18px] tracking-wider mb-3">
-            FD
+          <div className="relative h-12 w-48 mb-2">
+            <Image
+              src="/Flow-Deck-Logo.png"
+              alt="FlowDeck"
+              fill
+              sizes="200px"
+              className="object-contain"
+              priority
+            />
           </div>
-          <h1 className="text-[22px] font-bold text-[var(--text-primary)]">
-            ورود به Flowdeck
+          <h1 className="text-[20px] font-bold text-[var(--text-primary)]">
+            ورود به سامانه
           </h1>
           <p className="mt-1 text-[13px] text-[var(--text-muted)]">
-            سامانه مدیریت مهندسی و هوش پروژه
+            مدیریت پروژه + مدیریت مهندسی + هوش گیت‌هاب
           </p>
         </div>
 
