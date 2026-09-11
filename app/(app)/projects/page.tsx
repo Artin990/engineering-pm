@@ -12,6 +12,7 @@ import {
   Layers,
   AlertCircle,
   Calendar,
+  Trash2,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +43,8 @@ import {
 } from "@/components/features/types";
 import { faNumber, faDate } from "@/lib/format";
 import { useUserRole } from "@/lib/role-context";
+import { deleteProjectAction } from "@/app/actions/issues";
+import { removeProjectFromLocalStorage } from "@/lib/project-store";
 
 interface ApiProjectItem {
   id: string;
@@ -60,6 +63,12 @@ export default function ProjectsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [createOpen, setCreateOpen] = useState(false);
+
+  // Project Deletion State
+  const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   // New project form state
   const [name, setName] = useState("");
@@ -365,7 +374,25 @@ export default function ProjectsPage() {
                         {project.description || "بدون توضیحات ثبت‌شده"}
                       </CardDescription>
                     </div>
-                    <ProgressRing value={project.progress} size={54} strokeWidth={5} />
+                    <div className="flex items-center gap-2 shrink-0">
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          title="حذف پروژه (مخصوص مدیرعامل)"
+                          className="p-1.5 rounded-[6px] text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDeleteError("");
+                            setDeleteConfirmText("");
+                            setProjectToDelete(project);
+                          }}
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      )}
+                      <ProgressRing value={project.progress} size={54} strokeWidth={5} />
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-[12px]">
@@ -546,7 +573,118 @@ export default function ProjectsPage() {
           </div>
         </div>
       )}
+
+      {/* Delete Project Modal for Admin */}
+      {projectToDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4"
+          onClick={() => !isDeleting && setProjectToDelete(null)}
+        >
+          <div
+            className="w-full max-w-[480px] rounded-[12px] border border-red-500/40 bg-[var(--surface)] p-[24px] shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+            dir="rtl"
+          >
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <div className="flex items-center gap-2 text-red-500">
+                <AlertCircle className="size-5" />
+                <h2 className="text-[17px] font-bold">
+                  حذف دائمی پروژه {projectToDelete.name}
+                </h2>
+              </div>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setProjectToDelete(null)}
+                className="rounded-[8px] p-1 text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="rounded-[8px] bg-red-500/10 border border-red-500/20 p-3.5 text-[13px] text-red-600 dark:text-red-400 space-y-1.5">
+              <p className="font-bold">⚠️ هشدار مدیریتی: این عملیات غیرقابل بازگشت است!</p>
+              <p className="text-[12px] leading-relaxed">
+                با حذف این پروژه، کلیه تسک‌ها، ایشوها، چرخه‌ها و داده‌های آماری مربوط به کلید <strong>{projectToDelete.key}</strong> برای همیشه از پایگاه‌داده حذف خواهند شد.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-[13px] font-medium text-[var(--text-primary)]">
+                جهت تأیید، کلید <code className="bg-[var(--surface-raised)] px-2 py-0.5 rounded text-red-500 font-mono font-bold">{projectToDelete.key}</code> یا عبارت <code className="bg-[var(--surface-raised)] px-2 py-0.5 rounded text-red-500 font-bold">حذف</code> را وارد نمایید:
+              </label>
+              <Input
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={projectToDelete.key}
+                disabled={isDeleting}
+                className="font-mono text-start"
+                dir="ltr"
+                autoFocus
+              />
+            </div>
+
+            {deleteError && (
+              <p className="text-[12px] text-red-500 bg-red-500/10 p-2 rounded border border-red-500/20">
+                {deleteError}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isDeleting}
+                onClick={() => setProjectToDelete(null)}
+              >
+                انصراف
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={
+                  isDeleting ||
+                  (deleteConfirmText.trim().toUpperCase() !== projectToDelete.key.toUpperCase() &&
+                    deleteConfirmText.trim() !== "حذف" &&
+                    deleteConfirmText.trim().toUpperCase() !== "DELETE")
+                }
+                onClick={async () => {
+                  setIsDeleting(true);
+                  setDeleteError("");
+                  try {
+                    const res = await deleteProjectAction(projectToDelete.key);
+                    if (res.ok) {
+                      removeProjectFromLocalStorage(projectToDelete.key);
+                      setProjectsList((prev) =>
+                        prev.filter(
+                          (p) =>
+                            p.key !== projectToDelete.key &&
+                            p.id !== projectToDelete.id
+                        )
+                      );
+                      setProjectToDelete(null);
+                    } else {
+                      setDeleteError(res.error || "خطا در حذف پروژه");
+                      setIsDeleting(false);
+                    }
+                  } catch (err: unknown) {
+                    const msg =
+                      err instanceof Error
+                        ? err.message
+                        : "خطای سیستمی در حذف پروژه";
+                    setDeleteError(msg);
+                    setIsDeleting(false);
+                  }
+                }}
+              >
+                {isDeleting ? "در حال حذف..." : "تأیید و حذف دائمی پروژه"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
+
 

@@ -91,6 +91,28 @@ export async function archiveProject(projectId: string) {
   return archived ?? null;
 }
 
+export async function deleteProjectPermanently(projectIdOrKey: string) {
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectIdOrKey);
+
+  const [project] = isUuid
+    ? await db.select().from(projects).where(eq(projects.id, projectIdOrKey)).limit(1)
+    : await db.select().from(projects).where(eq(projects.key, projectIdOrKey.toUpperCase())).limit(1);
+
+  if (!project) return null;
+
+  const projectId = project.id;
+
+  try {
+    // Delete cascading references
+    await db.delete(projectMembers).where(eq(projectMembers.projectId, projectId));
+    await db.delete(projects).where(eq(projects.id, projectId));
+  } catch (err) {
+    console.error("[deleteProjectPermanently] Error:", err);
+  }
+
+  return project;
+}
+
 // ---------- Project Members ----------
 
 export async function listProjectMembers(projectId: string) {

@@ -132,6 +132,57 @@ export async function archiveProjectAction(input: unknown): Promise<ActionResult
   }
 }
 
+const ADMIN_EMAILS_LIST = [
+  "amiriartin185@gmil.com",
+  "amiriartin185@gmail.com",
+  "artinamiri185@gmail.com",
+];
+
+export async function deleteProjectAction(projectKeyOrId: string): Promise<ActionResult<{ success: boolean; key?: string }>> {
+  try {
+    const { createClient } = await import("@/lib/supabase/server");
+    const supabase = await createClient();
+    const { data: { user }, error: authErr } = await supabase.auth.getUser();
+
+    if (authErr || !user) {
+      return { ok: false, error: "کاربر احراز هویت نشده است." };
+    }
+
+    const userEmail = user.email?.trim().toLowerCase() || "";
+    const isAdmin = ADMIN_EMAILS_LIST.some((adm) => adm.toLowerCase() === userEmail);
+
+    if (!isAdmin) {
+      return { ok: false, error: "دسترسی غیرمجاز: تنها مدیرعامل و ادمین ارشد مجاز به حذف کامل پروژه هستند." };
+    }
+
+    const cleanTarget = (projectKeyOrId || "").trim();
+    if (!cleanTarget) {
+      return { ok: false, error: "شناسه یا کلید پروژه نامعتبر است." };
+    }
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanTarget);
+
+    // First attempt: Supabase RPC
+    const { error: rpcErr } = await supabase.rpc("delete_project_by_key_or_id", {
+      p_project_key: isUuid ? null : cleanTarget.toUpperCase(),
+      p_project_id: isUuid ? cleanTarget : null,
+    });
+
+    if (rpcErr) {
+      console.warn("[deleteProjectAction] RPC notice, falling back to Drizzle delete:", rpcErr);
+    }
+
+    // Fallback/Direct cleanup in Drizzle
+    const { deleteProjectPermanently } = await import("@/lib/db/queries");
+    await deleteProjectPermanently(cleanTarget);
+
+    revalidatePath("/projects");
+    return { ok: true, data: { success: true, key: cleanTarget } };
+  } catch (err) {
+    return toActionError(err);
+  }
+}
+
 // ============ Issues ============
 
 export async function createIssueAction(input: unknown): Promise<ActionResult<{ id: string; key: string }>> {

@@ -148,3 +148,36 @@ export async function POST(request: NextRequest) {
     return errJson(err);
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getSession();
+    const adminEmails = [
+      "amiriartin185@gmil.com",
+      "amiriartin185@gmail.com",
+      "artinamiri185@gmail.com",
+    ];
+
+    const userEmail = session.user.email?.toLowerCase() || "";
+    if (!adminEmails.includes(userEmail)) {
+      return NextResponse.json(
+        { error: "دسترسی غیرمجاز: تنها مدیرعامل و ادمین ارشد مجاز به حذف پروژه هستند." },
+        { status: 403 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const target = searchParams.get("key") || searchParams.get("id");
+
+    if (!target) {
+      return NextResponse.json({ error: "شناسه یا کلید پروژه مشخص نشده است." }, { status: 400 });
+    }
+
+    const { deleteProjectPermanently } = await import("@/lib/db/queries/project");
+    await deleteProjectPermanently(target);
+
+    return NextResponse.json({ ok: true, deleted: target });
+  } catch (err) {
+    return errJson(err);
+  }
+}

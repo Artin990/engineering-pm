@@ -469,3 +469,28 @@ export function useProjectStore() {
   }
   return context;
 }
+
+export function removeProjectFromLocalStorage(projectKey: string) {
+  if (typeof window === "undefined") return;
+  const normKey = (projectKey || "").toUpperCase();
+  try {
+    localStorage.removeItem(`flowdeck_project_store_${normKey}`);
+    localStorage.removeItem(`radarcheck_project_store_${normKey}`);
+
+    const keys = ["flowdeck_projects_list", "radarcheck_projects_list"];
+    for (const k of keys) {
+      const saved = localStorage.getItem(k);
+      if (saved) {
+        const list: Project[] = JSON.parse(saved);
+        if (Array.isArray(list)) {
+          const filtered = list.filter(
+            (p) => p.key?.toUpperCase() !== normKey && p.id !== projectKey
+          );
+          localStorage.setItem(k, JSON.stringify(filtered));
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[removeProjectFromLocalStorage] Error:", err);
+  }
+}

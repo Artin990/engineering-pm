@@ -35,8 +35,9 @@ import {
 import { getProjectByKey } from "@/components/features/__fixtures__/mock-data";
 import { faNumber, faDate } from "@/lib/format";
 import { useUserRole } from "@/lib/role-context";
-import { useProjectStore } from "@/lib/project-store";
+import { useProjectStore, removeProjectFromLocalStorage } from "@/lib/project-store";
 import { deleteUserAccountAction } from "@/app/actions/auth";
+import { deleteProjectAction } from "@/app/actions/issues";
 
 export default function ProjectSettingsPage({
   params,
@@ -59,6 +60,12 @@ export default function ProjectSettingsPage({
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberGithub, setNewMemberGithub] = useState("");
+
+  // Project Deletion State (Admin / CEO Only)
+  const [deleteProjectModalOpen, setDeleteProjectModalOpen] = useState(false);
+  const [deleteProjectConfirmText, setDeleteProjectConfirmText] = useState("");
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
+  const [deleteProjectError, setDeleteProjectError] = useState("");
 
   // Self Account Deletion State
   const [deleteAccountModalOpen, setDeleteAccountModalOpen] = useState(false);
@@ -287,37 +294,39 @@ export default function ProjectSettingsPage({
         </CardContent>
       </Card>
 
-      {/* Danger Zone — Admin Only */}
+      {/* Danger Zone — Admin / CEO Only */}
       {isAdmin && (
         <Card className="border-red-500/30 bg-red-500/5">
           <CardHeader>
             <CardTitle className="flex items-center gap-[8px] text-[16px] text-red-500">
               <AlertTriangle className="size-4" />
-              بخش حساس (Danger Zone)
+              ناحیه بحرانی مدیریت پروژه (مخصوص مدیرعامل)
             </CardTitle>
             <CardDescription>
-              عملیات غیرقابل برگشت روی این پروژه
+              عملیات حساس و غیرقابل بازگشت روی پروژه {project.name}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-[13px] font-semibold text-[var(--text-primary)]">
-                آرشیو یا حذف پروژه
+                حذف دائمی این پروژه ({project.name} — {project.key})
               </p>
               <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
-                با حذف پروژه، تمام ایشوها، سایکل‌ها و مایلستون‌های مرتبط آرشیو می‌شوند.
+                با حذف پروژه، کلیه ایشوها، تسک‌ها، چرخه‌ها (Cycles)، مایلستون‌ها، فایل‌ها و آمار آن برای همیشه از پایگاه‌داده حذف خواهند شد.
               </p>
             </div>
             <Button
               variant="destructive"
               size="sm"
+              className="gap-1.5 shadow-sm"
               onClick={() => {
-                if (confirm(`آیا مطمئن هستید که می‌خواهید پروژه ${project.name} را حذف کنید؟`)) {
-                  alert("پروژه با موفقیت آرشیو شد.");
-                }
+                setDeleteProjectError("");
+                setDeleteProjectConfirmText("");
+                setDeleteProjectModalOpen(true);
               }}
             >
-              آرشیو پروژه
+              <Trash2 className="size-4" />
+              حذف دائمی این پروژه
             </Button>
           </CardContent>
         </Card>
@@ -356,6 +365,106 @@ export default function ProjectSettingsPage({
           </Button>
         </CardContent>
       </Card>
+
+      {/* Delete Project Confirmation Modal (Admin Only) */}
+      {deleteProjectModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4"
+          onClick={() => !isDeletingProject && setDeleteProjectModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-[490px] rounded-[12px] border border-red-500/40 bg-[var(--surface)] p-[24px] shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+            dir="rtl"
+          >
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <div className="flex items-center gap-2 text-red-500">
+                <AlertTriangle className="size-5" />
+                <h2 className="text-[17px] font-bold">
+                  تأیید حذف دائمی پروژه {project.name}
+                </h2>
+              </div>
+              <button
+                type="button"
+                disabled={isDeletingProject}
+                onClick={() => setDeleteProjectModalOpen(false)}
+                className="rounded-[8px] p-1 text-[var(--text-muted)] hover:bg-[var(--surface-raised)]"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="rounded-[8px] bg-red-500/10 border border-red-500/20 p-3.5 text-[13px] text-red-600 dark:text-red-400 space-y-1.5">
+              <p className="font-bold">⚠️ هشدار مدیریتی: این عملیات غیرقابل برگشت است!</p>
+              <p className="text-[12px] leading-relaxed">
+                شما در حال حذف کامل پروژه <strong>{project.name}</strong> با کلید <strong>{project.key}</strong> هستید. تمام داده‌های مرتبط از پایگاه‌داده و پنل اعضا برای همیشه پاک خواهند شد.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-[13px] font-medium text-[var(--text-primary)]">
+                جهت تأیید، کلید پروژه <code className="bg-[var(--surface-raised)] px-2 py-0.5 rounded text-red-500 font-mono font-bold">{project.key}</code> یا عبارت <code className="bg-[var(--surface-raised)] px-2 py-0.5 rounded text-red-500 font-bold">حذف</code> را وارد نمایید:
+              </label>
+              <Input
+                value={deleteProjectConfirmText}
+                onChange={(e) => setDeleteProjectConfirmText(e.target.value)}
+                placeholder={project.key}
+                disabled={isDeletingProject}
+                className="font-mono text-start"
+                dir="ltr"
+                autoFocus
+              />
+            </div>
+
+            {deleteProjectError && (
+              <p className="text-[12px] text-red-500 bg-red-500/10 p-2 rounded border border-red-500/20">
+                {deleteProjectError}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-2 border-t border-[var(--border)] pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isDeletingProject}
+                onClick={() => setDeleteProjectModalOpen(false)}
+              >
+                انصراف
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={
+                  isDeletingProject ||
+                  (deleteProjectConfirmText.trim().toUpperCase() !== project.key.toUpperCase() &&
+                    deleteProjectConfirmText.trim() !== "حذف" &&
+                    deleteProjectConfirmText.trim().toUpperCase() !== "DELETE")
+                }
+                onClick={async () => {
+                  setIsDeletingProject(true);
+                  setDeleteProjectError("");
+                  try {
+                    const res = await deleteProjectAction(project.key);
+                    if (res.ok) {
+                      removeProjectFromLocalStorage(project.key);
+                      window.location.href = "/projects?deleted=" + encodeURIComponent(project.key);
+                    } else {
+                      setDeleteProjectError(res.error || "خطا در حذف پروژه از سرور");
+                      setIsDeletingProject(false);
+                    }
+                  } catch (err: unknown) {
+                    const message = err instanceof Error ? err.message : "خطای سیستمی در حذف پروژه";
+                    setDeleteProjectError(message);
+                    setIsDeletingProject(false);
+                  }
+                }}
+              >
+                {isDeletingProject ? "در حال حذف کامل پروژه..." : "تأیید و حذف دائمی پروژه"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Account Confirmation Modal */}
       {deleteAccountModalOpen && (
