@@ -42,10 +42,15 @@ interface ProjectStoreContextValue {
 const ProjectStoreContext = createContext<ProjectStoreContextValue | undefined>(undefined);
 
 const DEFAULT_MEMBERS: Member[] = [
-  { id: "artin-1", displayName: "آرتین امیری", githubLogin: "artin-amiri", email: "artinamiri185@gmail.com", role: "admin", status: "active", joinedAt: "1403/01/15" },
-  { id: "sara-1", displayName: "سارا احمدی", githubLogin: "sara-ahmadi", email: "sara.ahmadi@flowdeck.dev", role: "member", status: "active", joinedAt: "1403/03/10" },
-  { id: "reza-intern", displayName: "رضا محمدی (کارآموز)", githubLogin: "reza-dev", email: "reza.mohammadi@flowdeck.dev", role: "intern", status: "active", joinedAt: "1403/05/01" },
-  { id: "mina-intern", displayName: "مینا کریمی (کارآموز)", githubLogin: "mina-qa", email: "mina.karimi@flowdeck.dev", role: "intern", status: "active", joinedAt: "1403/05/12" },
+  {
+    id: "artin-1",
+    displayName: "آرتین امیری",
+    githubLogin: "artin-amiri",
+    email: "artinamiri185@gmail.com",
+    role: "admin",
+    status: "active",
+    joinedAt: "۱۴۰۳/۰۱/۱۵",
+  },
 ];
 
 export function ProjectStoreProvider({

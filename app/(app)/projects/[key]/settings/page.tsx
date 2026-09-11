@@ -32,9 +32,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MOCK_MEMBERS, MOCK_PROJECTS } from "@/components/features/__fixtures__/mock-data";
+import { getProjectByKey } from "@/components/features/__fixtures__/mock-data";
 import { faNumber, faDate } from "@/lib/format";
 import { useUserRole } from "@/lib/role-context";
+import { useProjectStore } from "@/lib/project-store";
 
 export default function ProjectSettingsPage({
   params,
@@ -42,16 +43,18 @@ export default function ProjectSettingsPage({
   params: Promise<{ key: string }>;
 }) {
   const { key } = use(params);
-  const project =
-    MOCK_PROJECTS.find((p) => p.key === key.toUpperCase()) ?? MOCK_PROJECTS[0];
+  const normalizedKey = (key || "PM").toUpperCase();
+  const fallbackProject = getProjectByKey(normalizedKey)!;
+
+  const { project: storeProject, updateProject, members, addMember, deleteMember } = useProjectStore();
+  const project = storeProject || fallbackProject;
 
   const { isAdmin, profile } = useUserRole();
 
-  const [name, setName] = useState(project.name);
-  const [description, setDescription] = useState(project.description || "");
-  const [targetDate, setTargetDate] = useState(project.targetDate || "");
+  const [name, setName] = useState(project?.name || fallbackProject.name);
+  const [description, setDescription] = useState(project?.description || "");
+  const [targetDate, setTargetDate] = useState(project?.targetDate || "");
   const [saved, setSaved] = useState(false);
-  const [members, setMembers] = useState(MOCK_MEMBERS);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberGithub, setNewMemberGithub] = useState("");
@@ -60,7 +63,9 @@ export default function ProjectSettingsPage({
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteRole, setInviteRole] = useState("contributor");
   const [copied, setCopied] = useState(false);
-  const inviteLink = `https://engineering-pm.vercel.app/invite?project=${project.key.toLowerCase()}&role=${inviteRole}`;
+  const inviteLink = typeof window !== "undefined"
+    ? `${window.location.origin}/register?invite=${project.key.toLowerCase()}&role=${inviteRole}`
+    : `https://flowdeck.dev/invite?project=${project.key.toLowerCase()}&role=${inviteRole}`;
 
   const handleCopyInvite = () => {
     navigator.clipboard.writeText(inviteLink);
@@ -71,6 +76,7 @@ export default function ProjectSettingsPage({
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) return;
+    updateProject({ name: name.trim(), description: description.trim(), targetDate: targetDate || null });
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   };
@@ -80,15 +86,15 @@ export default function ProjectSettingsPage({
     if (!isAdmin) return;
     if (!newMemberName.trim()) return;
 
-    setMembers((prev) => [
-      ...prev,
-      {
-        id: `m-${Date.now()}`,
-        displayName: newMemberName.trim(),
-        avatarUrl: null,
-        githubLogin: newMemberGithub.trim() || undefined,
-      },
-    ]);
+    addMember({
+      id: `m-${Date.now()}`,
+      displayName: newMemberName.trim(),
+      avatarUrl: null,
+      githubLogin: newMemberGithub.trim() || undefined,
+      role: "member",
+      status: "active",
+      joinedAt: "امروز",
+    });
     setNewMemberName("");
     setNewMemberGithub("");
     setAddMemberOpen(false);
@@ -96,7 +102,7 @@ export default function ProjectSettingsPage({
 
   const handleRemoveMember = (id: string) => {
     if (!isAdmin) return;
-    setMembers((prev) => prev.filter((m) => m.id !== id));
+    deleteMember(id);
   };
 
   return (

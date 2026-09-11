@@ -227,6 +227,22 @@ export function Sidebar() {
           </span>
         </Link>
 
+        <Link
+          href="/members"
+          aria-current={pathname === "/members" ? "page" : undefined}
+          title="اعضای کل سازمان"
+          className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} rounded-[10px] px-[12px] py-[8px] text-[13px] font-medium transition-colors ${
+            pathname === "/members"
+              ? "bg-[var(--primary)] text-white"
+              : "text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]"
+          }`}
+        >
+          <span className="flex items-center gap-[8px]">
+            <Users size={16} />
+            {!collapsed && "اعضای کل سازمان"}
+          </span>
+        </Link>
+
         {/* Current Project Sub-links if inside a project */}
         {params?.key && (
           <div className="pt-[8px] pb-[4px]">

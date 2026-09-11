@@ -4,13 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Eye, EyeOff, Mail, Shield, User } from "lucide-react";
+import { Eye, EyeOff, Mail } from "lucide-react";
 import { GithubIcon } from "@/components/ui/github-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { createClient } from "@/lib/supabase/client";
-import { useUserRole, ADMIN_PROFILE, MEMBER_PROFILE } from "@/lib/role-context";
+import { useUserRole } from "@/lib/role-context";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,18 +21,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const handleQuickRole = (roleType: "admin" | "member") => {
-    if (roleType === "admin") {
-      setEmail("artinamiri185@gmail.com");
-      setPassword("Artin@8894");
-      setUserSession(ADMIN_PROFILE);
-    } else {
-      setEmail("sara.ahmadi@flowdeck.dev");
-      setPassword("Member@123456");
-      setUserSession(MEMBER_PROFILE);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,31 +121,6 @@ export default function LoginPage() {
           <p className="mt-1 text-[13px] text-[var(--text-muted)]">
             مدیریت پروژه + مدیریت مهندسی + هوش گیت‌هاب
           </p>
-        </div>
-
-        {/* Quick Role Selection Buttons */}
-        <div className="mb-5 rounded-[12px] border border-[var(--border)] bg-[var(--surface-raised)] p-3">
-          <p className="text-[12px] font-medium text-[var(--text-secondary)] mb-2 text-center">
-            انتخاب نوع دسترسی پنل:
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => handleQuickRole("admin")}
-              className="flex items-center justify-center gap-1.5 rounded-[8px] border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[12px] font-bold text-amber-500 hover:bg-amber-500/20 transition-colors"
-            >
-              <Shield size={14} />
-              پنل مدیرعامل / ادمین
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickRole("member")}
-              className="flex items-center justify-center gap-1.5 rounded-[8px] border border-blue-500/30 bg-blue-500/10 px-2 py-1.5 text-[12px] font-bold text-blue-500 hover:bg-blue-500/20 transition-colors"
-            >
-              <User size={14} />
-              پنل کاربر عادی
-            </button>
-          </div>
         </div>
 
         {/* GitHub OAuth Button */}
