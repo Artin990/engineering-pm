@@ -33,7 +33,7 @@ export function Sidebar() {
   const currentKey = (params?.key || "PM").toUpperCase();
   const currentProject = MOCK_PROJECTS.find((p) => p.key === currentKey) || MOCK_PROJECTS[0];
 
-  const { role, profile, setRole, isAdmin } = useUserRole();
+  const { role, profile, setRole, logout, isAdmin } = useUserRole();
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -271,7 +271,11 @@ export function Sidebar() {
                 <span className="text-[10px] text-[var(--text-muted)]">{profile.roleTitle}</span>
               </div>
             </div>
-            <Link href="/login" className="text-[11px] text-[var(--primary)] hover:underline">
+            <Link
+              href="/login"
+              onClick={() => logout()}
+              className="text-[11px] text-[var(--primary)] hover:underline"
+            >
               خروج
             </Link>
           </div>

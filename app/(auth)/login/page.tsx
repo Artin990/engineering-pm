@@ -10,12 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { createClient } from "@/lib/supabase/client";
-import { useUserRole } from "@/lib/role-context";
+import { useUserRole, ADMIN_PROFILE, MEMBER_PROFILE } from "@/lib/role-context";
 
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
-  const { setRole } = useUserRole();
+  const { setUserSession } = useUserRole();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -26,11 +26,11 @@ export default function LoginPage() {
     if (roleType === "admin") {
       setEmail("artinamiri185@gmail.com");
       setPassword("Artin@8894");
-      setRole("admin");
+      setUserSession(ADMIN_PROFILE);
     } else {
       setEmail("sara.ahmadi@flowdeck.dev");
       setPassword("Member@123456");
-      setRole("member");
+      setUserSession(MEMBER_PROFILE);
     }
   };
 
@@ -45,32 +45,51 @@ export default function LoginPage() {
     setError("");
 
     try {
-      if (email === "artinamiri185@gmail.com") {
-        setRole("admin");
-      } else {
-        setRole("member");
-      }
+      const isAdminUser = email === "artinamiri185@gmail.com";
+      const userRole = isAdminUser ? "admin" : "member";
+      const userName = isAdminUser ? "آرتین امیری" : email.split("@")[0];
 
-      const { error: authError } = await supabase.auth.signInWithPassword({
+      // 1. ذخیره فوری در Storage و کوکی‌های کلاینت
+      setUserSession({
         email,
-        password,
+        name: userName,
+        role: userRole,
       });
 
-      if (authError) {
-        // If it's a demo or test user, allow proceed to app
-        if (email.includes("flowdeck.dev") || email === "artinamiri185@gmail.com") {
-          router.push("/projects");
-          router.refresh();
-          return;
+      // 2. تلاش برای ورود در Supabase Auth
+      try {
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (data?.user) {
+          setUserSession({
+            id: data.user.id,
+            email: data.user.email || email,
+            name: data.user.user_metadata?.name || userName,
+            role: userRole,
+          });
         }
 
-        setError(
-          authError.message.includes("Invalid login credentials")
-            ? "ایمیل یا رمز عبور اشتباه است."
-            : authError.message
-        );
-        setLoading(false);
-        return;
+        if (authError) {
+          // اگر کاربر ادمین یا تست است، اجازه ورود داده شود
+          if (email.includes("flowdeck.dev") || isAdminUser) {
+            router.push("/projects");
+            router.refresh();
+            return;
+          }
+
+          setError(
+            authError.message.includes("Invalid login credentials")
+              ? "ایمیل یا رمز عبور اشتباه است."
+              : authError.message
+          );
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // Fallback for offline/demo auth
       }
 
       router.push("/projects");
@@ -160,13 +179,16 @@ export default function LoginPage() {
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
+            <label htmlFor="email" className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
               ایمیل سازمانی
             </label>
             <div className="relative">
               <Mail className="absolute end-3 top-1/2 -translate-y-1/2 size-4 text-[var(--text-muted)] pointer-events-none" />
               <Input
+                id="email"
+                name="email"
                 type="email"
+                autoComplete="username email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); if (error) setError(""); }}
                 placeholder="name@company.com"
@@ -179,7 +201,7 @@ export default function LoginPage() {
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-[13px] font-medium text-[var(--text-primary)]">
+              <label htmlFor="password" className="block text-[13px] font-medium text-[var(--text-primary)]">
                 رمز عبور
               </label>
               <a href="#" className="text-[12px] text-[var(--primary)] hover:underline">
@@ -191,11 +213,15 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute end-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                tabIndex={-1}
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
               <Input
+                id="password"
+                name="password"
                 type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); if (error) setError(""); }}
                 placeholder="••••••••"
@@ -209,6 +235,8 @@ export default function LoginPage() {
             <input
               type="checkbox"
               id="remember"
+              name="remember"
+              defaultChecked
               className="size-4 rounded border-[var(--border)] accent-[var(--primary)]"
             />
             <label htmlFor="remember" className="text-[13px] text-[var(--text-secondary)] cursor-pointer">
@@ -231,4 +259,3 @@ export default function LoginPage() {
     </main>
   );
 }
-
