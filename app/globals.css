@@ -65,7 +65,7 @@
 }
 
 html {
-  font-family: Peyda, "Peyda Web", var(--font-peyda), Vazirmatn, Shabnam, Tahoma, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-peyda), "Peyda", "Peyda Web", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import { GithubIcon } from "@/components/ui/github-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { faNumber } from "@/lib/format";
 import { useUserRole } from "@/lib/role-context";
 import { MOCK_PROJECTS } from "@/components/features/__fixtures__/mock-data";
 
@@ -156,35 +155,37 @@ export function Sidebar() {
       )}
 
       {/* Workspace / Project Quick Switcher */}
-      {!collapsed ? (
-        <div className="mb-[16px] rounded-[10px] border border-[var(--border)] bg-[var(--surface-raised)] p-[10px]">
-          <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] mb-[4px]">
-            <span>پروژه فعال</span>
-            <span className="font-mono text-[10px] uppercase bg-[var(--surface)] px-1.5 py-0.5 rounded border border-[var(--border)]">
-              {currentProject.key}
-            </span>
+      {params?.key ? (
+        !collapsed ? (
+          <div className="mb-[16px] rounded-[10px] border border-[var(--border)] bg-[var(--surface-raised)] p-[10px]">
+            <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] mb-[4px]">
+              <span>پروژه فعال</span>
+              <span className="font-mono text-[10px] uppercase bg-[var(--surface)] px-1.5 py-0.5 rounded border border-[var(--border)]">
+                {currentKey}
+              </span>
+            </div>
+            <Link
+              href={`/projects/${currentKey}`}
+              className="flex items-center justify-between rounded-[6px] text-[13px] font-semibold text-[var(--text-primary)] hover:text-[var(--primary)] transition-colors"
+            >
+              <span className="truncate">{currentProject?.name || `پروژه ${currentKey}`}</span>
+              <span className="text-[11px] text-[var(--text-muted)]">
+                {Math.round((currentProject?.progress || 0) * 100)}%
+              </span>
+            </Link>
           </div>
-          <Link
-            href={`/projects/${currentProject.key}`}
-            className="flex items-center justify-between rounded-[6px] text-[13px] font-semibold text-[var(--text-primary)] hover:text-[var(--primary)] transition-colors"
-          >
-            <span className="truncate">{currentProject.name}</span>
-            <span className="text-[11px] text-[var(--text-muted)]">
-              {Math.round(currentProject.progress * 100)}%
-            </span>
-          </Link>
-        </div>
-      ) : (
-        <div className="mb-[16px] flex justify-center">
-          <Link
-            href={`/projects/${currentProject.key}`}
-            title={`پروژه: ${currentProject.name}`}
-            className="flex size-9 items-center justify-center rounded-[8px] bg-[var(--surface-raised)] font-mono text-[11px] font-bold text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white transition-colors"
-          >
-            {currentProject.key.slice(0, 2)}
-          </Link>
-        </div>
-      )}
+        ) : (
+          <div className="mb-[16px] flex justify-center">
+            <Link
+              href={`/projects/${currentKey}`}
+              title={`پروژه: ${currentKey}`}
+              className="flex size-9 items-center justify-center rounded-[8px] bg-[var(--surface-raised)] font-mono text-[11px] font-bold text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white transition-colors"
+            >
+              {currentKey.slice(0, 2)}
+            </Link>
+          </div>
+        )
+      ) : null}
 
       {/* Global Navigation */}
       <nav aria-label="ناوبری اصلی" className="flex-1 space-y-[4px] overflow-y-auto pr-[2px]">
@@ -208,60 +209,53 @@ export function Sidebar() {
             <FolderKanban size={16} />
             {!collapsed && "همه پروژه‌ها"}
           </span>
-          {!collapsed && (
-            <span
-              className={`rounded-full px-[6px] py-[1px] text-[11px] ${
-                pathname === "/projects" ? "bg-white/20 text-white" : "bg-[var(--surface-raised)] text-[var(--text-muted)]"
-              }`}
-            >
-              {faNumber(MOCK_PROJECTS.length)}
-            </span>
-          )}
         </Link>
 
         {/* Current Project Sub-links if inside a project */}
-        <div className="pt-[8px] pb-[4px]">
-          {!collapsed && (
-            <div className="text-[11px] font-semibold text-[var(--text-muted)] px-[12px] py-[4px] flex items-center justify-between">
-              <span>منوی پروژه ({currentProject.key})</span>
-            </div>
-          )}
+        {params?.key && (
+          <div className="pt-[8px] pb-[4px]">
+            {!collapsed && (
+              <div className="text-[11px] font-semibold text-[var(--text-muted)] px-[12px] py-[4px] flex items-center justify-between">
+                <span>منوی پروژه ({currentKey})</span>
+              </div>
+            )}
 
-          <div className="space-y-[2px] mt-1">
-            {[
-              { href: `/projects/${currentProject.key}`, label: "نمای کلی", icon: Layers3, exact: true },
-              { href: `/projects/${currentProject.key}/issues`, label: "ایشوها و بورد", icon: CheckSquare },
-              { href: `/projects/${currentProject.key}/cycles`, label: "سایکل‌ها", icon: Layers },
-              { href: `/projects/${currentProject.key}/roadmap`, label: "رودمپ", icon: Map },
-              { href: `/projects/${currentProject.key}/milestones`, label: "مایلستون‌ها", icon: Target },
-              { href: `/projects/${currentProject.key}/github`, label: "گیت‌هاب", icon: GithubIcon },
-              { href: `/projects/${currentProject.key}/activity`, label: "فعالیت", icon: Activity },
-              { href: `/projects/${currentProject.key}/analytics`, label: "آنالیتیکس و ارزیابی", icon: BarChart3 },
-              { href: `/projects/${currentProject.key}/settings`, label: "تنظیمات", icon: Settings },
-            ].map((item) => {
-              const active = item.exact
-                ? pathname === item.href
-                : pathname === item.href || pathname.startsWith(item.href + "/");
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  title={collapsed ? item.label : undefined}
-                  className={`flex items-center ${collapsed ? "justify-center" : "gap-[8px]"} rounded-[8px] px-[12px] py-[7px] text-[13px] font-medium transition-colors ${
-                    active
-                      ? "bg-[var(--primary)] text-white shadow-sm"
-                      : "text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]"
-                  }`}
-                >
-                  <Icon size={16} />
-                  {!collapsed && <span>{item.label}</span>}
-                </Link>
-              );
-            })}
+            <div className="space-y-[2px] mt-1">
+              {[
+                { href: `/projects/${currentKey}`, label: "نمای کلی", icon: Layers3, exact: true },
+                { href: `/projects/${currentKey}/issues`, label: "ایشوها و بورد", icon: CheckSquare },
+                { href: `/projects/${currentKey}/cycles`, label: "سایکل‌ها", icon: Layers },
+                { href: `/projects/${currentKey}/roadmap`, label: "رودمپ", icon: Map },
+                { href: `/projects/${currentKey}/milestones`, label: "مایلستون‌ها", icon: Target },
+                { href: `/projects/${currentKey}/github`, label: "گیت‌هاب", icon: GithubIcon },
+                { href: `/projects/${currentKey}/activity`, label: "فعالیت", icon: Activity },
+                { href: `/projects/${currentKey}/analytics`, label: "آنالیتیکس و ارزیابی", icon: BarChart3 },
+                { href: `/projects/${currentKey}/settings`, label: "تنظیمات", icon: Settings },
+              ].map((item) => {
+                const active = item.exact
+                  ? pathname === item.href
+                  : pathname === item.href || pathname.startsWith(item.href + "/");
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    title={collapsed ? item.label : undefined}
+                    className={`flex items-center ${collapsed ? "justify-center" : "gap-[8px]"} rounded-[8px] px-[12px] py-[7px] text-[13px] font-medium transition-colors ${
+                      active
+                        ? "bg-[var(--primary)] text-white shadow-sm"
+                        : "text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]"
+                    }`}
+                  >
+                    <Icon size={16} />
+                    {!collapsed && <span>{item.label}</span>}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
       </nav>
 
       {/* Footer */}
