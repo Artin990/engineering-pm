@@ -221,9 +221,9 @@ export default function ProjectsPage() {
       // ignore
     }
 
-    // 2. Background sync with backend DB (non-blocking for UI)
+    // 2. Direct sync with Supabase PostgreSQL Database via API
     try {
-      await fetch("/api/v1/projects", {
+      const res = await fetch("/api/v1/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -233,6 +233,26 @@ export default function ProjectsPage() {
           targetDate: targetDate || undefined,
         }),
       });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data?.id) {
+          const persistedProject = { ...newProject, id: json.data.id };
+          setProjectsList((prev) =>
+            prev.map((p) => (p.key === cleanKey ? persistedProject : p))
+          );
+          try {
+            const listSaved = localStorage.getItem("flowdeck_projects_list");
+            if (listSaved) {
+              const list: Project[] = JSON.parse(listSaved);
+              const updated = list.map((p) => (p.key === cleanKey ? persistedProject : p));
+              localStorage.setItem("flowdeck_projects_list", JSON.stringify(updated));
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
     } catch {
       // Offline or network error - already stored locally
     }
