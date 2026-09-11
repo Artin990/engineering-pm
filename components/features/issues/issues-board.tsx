@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
   PointerSensor,
   closestCorners,
+  useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -74,7 +75,7 @@ function SortableIssueCard({
   onOpen: (issue: Issue) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: issue.id, data: { type: "issue" } });
+    useSortable({ id: issue.id, data: { type: "issue", issue } });
 
   return (
     <div
@@ -84,17 +85,13 @@ function SortableIssueCard({
       {...listeners}
       onClick={() => onOpen(issue)}
       className={cn(
-        "cursor-grab touch-none rounded-[10px] border border-[var(--border)] bg-[var(--surface-raised)] p-[12px] shadow-sm transition-[0.15s_ease-in-out] hover:border-[var(--primary)] active:cursor-grabbing",
-        isDragging && "opacity-40"
+        "cursor-grab touch-none rounded-[10px] border border-[var(--border)] bg-[var(--surface-raised)] p-[12px] shadow-xs transition-colors hover:border-[var(--primary)] active:cursor-grabbing",
+        isDragging && "opacity-30 border-dashed border-[var(--primary)]"
       )}
     >
       <IssueCardBody issue={issue} />
     </div>
   );
-}
-
-function ColumnDropTarget({ status }: { status: IssueStatus }) {
-  return <SortableContext items={[]} strategy={verticalListSortingStrategy}><span data-column={status} /></SortableContext>;
 }
 
 function BoardColumn({
@@ -106,10 +103,19 @@ function BoardColumn({
   issues: Issue[];
   onOpen: (issue: Issue) => void;
 }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: status,
+    data: { type: "column", status },
+  });
+
   return (
     <div
+      ref={setNodeRef}
       data-column-id={status}
-      className="flex w-[280px] shrink-0 flex-col rounded-[10px] border border-[var(--border)] bg-[var(--background)]"
+      className={cn(
+        "flex w-[280px] shrink-0 flex-col rounded-[10px] border border-[var(--border)] bg-[var(--background)] transition-colors",
+        isOver && "border-[var(--primary)]/60 bg-[var(--primary)]/5"
+      )}
     >
       <div className="flex items-center justify-between border-b border-[var(--border)] p-[12px]">
         <span className="text-[14px] font-semibold text-[var(--text-primary)]">
@@ -122,16 +128,15 @@ function BoardColumn({
         items={issues.map((i) => i.id)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="flex min-h-[120px] flex-1 flex-col gap-[8px] p-[8px]">
+        <div className="flex min-h-[140px] flex-1 flex-col gap-[8px] p-[8px]">
           {issues.map((issue) => (
             <SortableIssueCard key={issue.id} issue={issue} onOpen={onOpen} />
           ))}
           {issues.length === 0 && (
-            <div className="flex h-full min-h-[80px] items-center justify-center rounded-[10px] border border-dashed border-[var(--border)] text-[12px] text-[var(--text-muted)]">
+            <div className="flex h-full min-h-[90px] items-center justify-center rounded-[10px] border border-dashed border-[var(--border)] text-[12px] text-[var(--text-muted)] p-2 text-center">
               برای انتقال، کارت را اینجا رها کنید
             </div>
           )}
-          {issues.length === 0 && <ColumnDropTarget status={status} />}
         </div>
       </SortableContext>
     </div>
@@ -143,7 +148,13 @@ type ColumnsState = Record<IssueStatus, string[]>;
 function buildColumns(issues: Issue[]): ColumnsState {
   const cols = {} as ColumnsState;
   for (const s of ISSUE_STATUS_ORDER) cols[s] = [];
-  for (const i of issues) cols[i.status]?.push(i.id);
+  for (const i of issues) {
+    if (cols[i.status]) {
+      cols[i.status].push(i.id);
+    } else {
+      cols.backlog.push(i.id);
+    }
+  }
   return cols;
 }
 
@@ -158,12 +169,12 @@ export function IssuesBoard({
 }) {
   const [columns, setColumns] = useState<ColumnsState>(() => buildColumns(issues));
   const [activeId, setActiveId] = useState<string | null>(null);
+  const initialColumnRef = useRef<IssueStatus | null>(null);
 
-  // Re-sync local state when the incoming issue set changes (filters, etc.)
+  // Re-sync local state when the incoming issue set changes (filters, store updates)
   const signature = issues.map((i) => `${i.id}:${i.status}`).join(",");
   useEffect(() => {
     setColumns(buildColumns(issues));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature]);
 
   const issuesById = useMemo(() => {
@@ -173,56 +184,93 @@ export function IssuesBoard({
   }, [issues]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   const findColumn = (id: string): IssueStatus | null => {
-    if ((ISSUE_STATUS_ORDER as string[]).includes(id)) return id as IssueStatus;
+    if ((ISSUE_STATUS_ORDER as readonly string[]).includes(id)) {
+      return id as IssueStatus;
+    }
     for (const s of ISSUE_STATUS_ORDER) {
-      if (columns[s].includes(id)) return s;
+      if (columns[s]?.includes(id)) return s;
     }
     return null;
   };
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(String(event.active.id));
+    const currentId = String(event.active.id);
+    setActiveId(currentId);
+    initialColumnRef.current = findColumn(currentId);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
     if (!over) return;
-    const from = findColumn(String(active.id));
-    const to = findColumn(String(over.id));
+    const currentActiveId = String(active.id);
+    const currentOverId = String(over.id);
+
+    const from = findColumn(currentActiveId);
+    const to = findColumn(currentOverId);
+
     if (!from || !to || from === to) return;
+
     setColumns((prev) => {
-      const next = { ...prev };
-      next[from] = next[from].filter((id) => id !== String(active.id));
-      next[to] = [...next[to], String(active.id)];
-      return next;
+      const fromItems = (prev[from] || []).filter((id) => id !== currentActiveId);
+      const toItems = (prev[to] || []).filter((id) => id !== currentActiveId);
+
+      const overIndex = (prev[to] || []).indexOf(currentOverId);
+      const insertIndex = overIndex >= 0 ? overIndex : toItems.length;
+
+      toItems.splice(insertIndex, 0, currentActiveId);
+
+      return {
+        ...prev,
+        [from]: fromItems,
+        [to]: toItems,
+      };
     });
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
-    if (!over) return;
-    const from = findColumn(String(active.id));
-    const to = findColumn(String(over.id));
-    if (!from || !to) return;
-    if (from !== to) onIssueMove?.(String(active.id), to);
-    setColumns((prev) => {
-      const oldIndex = prev[from].indexOf(String(active.id));
-      const newIndex = prev[to].indexOf(String(over.id));
-      if (oldIndex === -1 || newIndex === -1) return prev;
-      const moved = [...prev[to]];
-      moved.splice(newIndex, 0, prev[from][oldIndex]);
-      return {
-        ...prev,
-        [from]: prev[from].filter((id) => id !== String(active.id)),
-        [to]: arrayMove(moved, newIndex, newIndex),
-      };
-    });
+    const initialCol = initialColumnRef.current;
+    initialColumnRef.current = null;
+
+    if (!over) {
+      setColumns(buildColumns(issues));
+      return;
+    }
+
+    const currentActiveId = String(active.id);
+    const currentOverId = String(over.id);
+
+    const targetColumn = findColumn(currentOverId) || findColumn(currentActiveId);
+
+    if (targetColumn && initialCol && targetColumn !== initialCol) {
+      onIssueMove?.(currentActiveId, targetColumn);
+    } else if (targetColumn) {
+      // Reorder within the same column
+      setColumns((prev) => {
+        const items = [...(prev[targetColumn] || [])];
+        const oldIndex = items.indexOf(currentActiveId);
+        const newIndex = items.indexOf(currentOverId);
+        if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+          return {
+            ...prev,
+            [targetColumn]: arrayMove(items, oldIndex, newIndex),
+          };
+        }
+        return prev;
+      });
+    }
+  };
+
+  const handleDragCancel = () => {
+    setActiveId(null);
+    initialColumnRef.current = null;
+    setColumns(buildColumns(issues));
   };
 
   const activeIssue = activeId ? issuesById.get(activeId) : null;
@@ -234,14 +282,14 @@ export function IssuesBoard({
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
-      onDragCancel={() => setActiveId(null)}
+      onDragCancel={handleDragCancel}
     >
       <div className="flex gap-[12px] overflow-x-auto pb-4">
         {ISSUE_STATUS_ORDER.map((status) => (
           <BoardColumn
             key={status}
             status={status}
-            issues={columns[status]
+            issues={(columns[status] || [])
               .map((id) => issuesById.get(id))
               .filter((i): i is Issue => Boolean(i))}
             onOpen={(issue) => onIssueClick?.(issue)}
@@ -250,7 +298,7 @@ export function IssuesBoard({
       </div>
       <DragOverlay>
         {activeIssue ? (
-          <div className="w-[264px] cursor-grabbing rounded-[10px] border border-[var(--primary)] bg-[var(--surface-raised)] p-[12px] shadow-[rgba(0,0,0,0.2)_0_4px_12px]">
+          <div className="w-[264px] cursor-grabbing rounded-[10px] border border-[var(--primary)] bg-[var(--surface-raised)] p-[12px] shadow-lg">
             <IssueCardBody issue={activeIssue} />
           </div>
         ) : null}
@@ -258,3 +306,4 @@ export function IssuesBoard({
     </DndContext>
   );
 }
+
