@@ -20,8 +20,8 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="fa" dir="rtl" suppressHydrationWarning>
-      <body className={`${peyda.variable} antialiased`}>
+    <html lang="fa" dir="rtl" className={`${peyda.variable} ${peyda.className}`} suppressHydrationWarning>
+      <body className={`${peyda.className} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <RoleProvider>{children}</RoleProvider>
         </ThemeProvider>

@@ -1,9 +1,81 @@
 @import "tailwindcss";
 
 /* ======================================================
-   Engineering PM — Design Tokens (Dark/Light)
-   مطابق دقیق بخش ۳ سند PROJECT-MASTER-PLAN-FA.md
-   پالت پایه: Zinc + accent آبی
+   Peyda Web Font Declarations (woff2, woff, ttf)
+   ====================================================== */
+
+@font-face {
+  font-family: "Peyda";
+  src: url("/fonts/PeydaWeb/woff2/peydaWeb-light.woff2") format("woff2"),
+       url("/fonts/PeydaWeb/woff/peydaWeb-light.woff") format("woff"),
+       url("/fonts/PeydaWeb/peyda-light.ttf") format("truetype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Peyda";
+  src: url("/fonts/PeydaWeb/woff2/PeydaWeb-Regular.woff2") format("woff2"),
+       url("/fonts/PeydaWeb/woff/PeydaWeb-Regular.woff") format("woff"),
+       url("/fonts/PeydaWeb/Peyda-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Peyda";
+  src: url("/fonts/PeydaWeb/woff2/PeydaWeb-Medium.woff2") format("woff2"),
+       url("/fonts/PeydaWeb/woff/PeydaWeb-Medium.woff") format("woff"),
+       url("/fonts/PeydaWeb/Peyda-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Peyda";
+  src: url("/fonts/PeydaWeb/woff2/PeydaWeb-SemiBold.woff2") format("woff2"),
+       url("/fonts/PeydaWeb/woff/PeydaWeb-SemiBold.woff") format("woff"),
+       url("/fonts/PeydaWeb/Peyda-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Peyda";
+  src: url("/fonts/PeydaWeb/woff2/PeydaWeb-Bold.woff2") format("woff2"),
+       url("/fonts/PeydaWeb/woff/PeydaWeb-Bold.woff") format("woff"),
+       url("/fonts/PeydaWeb/Peyda-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Peyda";
+  src: url("/fonts/PeydaWeb/woff2/PeydaWeb-ExtraBold.woff2") format("woff2"),
+       url("/fonts/PeydaWeb/woff/PeydaWeb-ExtraBold.woff") format("woff"),
+       url("/fonts/PeydaWeb/Peyda-ExtraBold.ttf") format("truetype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Peyda";
+  src: url("/fonts/PeydaWeb/woff2/PeydaWeb-Black.woff2") format("woff2"),
+       url("/fonts/PeydaWeb/woff/PeydaWeb-Black.woff") format("woff"),
+       url("/fonts/PeydaWeb/Peyda-Black.ttf") format("truetype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ======================================================
+   Flowdeck — Design Tokens (Dark/Light)
    ====================================================== */
 
 :root {
@@ -22,22 +94,6 @@
   --radius: 10px;
   --shadow-md: rgba(0, 0, 0, 0.15) 0 1px 5px 0,
     rgba(0, 0, 0, 0.1) 0 0 1px 1px;
-
-  /* Spacing scale (فقط مقادیر مجاز سند: 4,5,8,9,10,12,14,15,16,18,20,30,40,50) */
-  --space-1: 4px;
-  --space-2: 5px;
-  --space-3: 8px;
-  --space-4: 9px;
-  --space-5: 10px;
-  --space-6: 12px;
-  --space-7: 14px;
-  --space-8: 15px;
-  --space-9: 16px;
-  --space-10: 18px;
-  --space-11: 20px;
-  --space-12: 30px;
-  --space-13: 40px;
-  --space-14: 50px;
 }
 
 .dark {
@@ -64,8 +120,17 @@
   box-sizing: border-box;
 }
 
-html {
-  font-family: var(--font-peyda), "Peyda", "Peyda Web", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+html,
+body,
+button,
+input,
+optgroup,
+select,
+textarea,
+table,
+th,
+td {
+  font-family: var(--font-peyda), "Peyda", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   letter-spacing: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -78,15 +143,10 @@ body {
   font-size: 14px;
   font-weight: 500;
   line-height: 1.8;
-  font-family: inherit;
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* RTL Form Controls & Inputs */
-input, textarea, select, button {
-  font-family: inherit;
-}
-
 input, textarea {
   direction: rtl;
   text-align: right;
@@ -137,6 +197,9 @@ textarea::placeholder {
    ====================================================== */
 
 @theme {
+  --font-sans: var(--font-peyda), "Peyda", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-peyda: var(--font-peyda), "Peyda", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
   --color-background: var(--background);
   --color-surface: var(--surface);
   --color-surface-raised: var(--surface-raised);
