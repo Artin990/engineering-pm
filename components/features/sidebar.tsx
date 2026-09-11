@@ -229,6 +229,22 @@ export function Sidebar() {
           </span>
         </Link>
 
+        <Link
+          href="/settings"
+          aria-current={pathname === "/settings" ? "page" : undefined}
+          title="تنظیمات حساب کاربری"
+          className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} rounded-[10px] px-[12px] py-[8px] text-[13px] font-medium transition-colors ${
+            pathname === "/settings"
+              ? "bg-[var(--primary)] text-white"
+              : "text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]"
+          }`}
+        >
+          <span className="flex items-center gap-[8px]">
+            <Settings size={16} />
+            {!collapsed && "تنظیمات حساب من"}
+          </span>
+        </Link>
+
         {/* Current Project Sub-links if inside a project */}
         {params?.key && (
           <div className="pt-[8px] pb-[4px]">
@@ -249,7 +265,7 @@ export function Sidebar() {
                 { href: `/projects/${currentKey}/members`, label: "اعضا و دسترسی‌ها", icon: Users },
                 { href: `/projects/${currentKey}/activity`, label: "فعالیت", icon: Activity },
                 { href: `/projects/${currentKey}/analytics`, label: "آنالیتیکس و ارزیابی", icon: BarChart3 },
-                { href: `/projects/${currentKey}/settings`, label: "تنظیمات", icon: Settings },
+                { href: `/projects/${currentKey}/settings`, label: "تنظیمات پروژه", icon: Settings },
               ].map((item) => {
                 const active = item.exact
                   ? pathname === item.href
@@ -281,7 +297,11 @@ export function Sidebar() {
       <footer className="border-t border-[var(--border)] pt-[12px] text-[12px] space-y-[8px]">
         {!collapsed ? (
           <div className="flex items-center justify-between rounded-[8px] bg-[var(--surface-raised)] p-[8px]">
-            <div className="flex items-center gap-[8px] min-w-0">
+            <Link
+              href="/settings"
+              className="flex items-center gap-[8px] min-w-0 hover:opacity-85 transition-opacity flex-1"
+              title="مشاهده و ویرایش مشخصات حساب کاربری"
+            >
               <span className={`flex size-8 shrink-0 items-center justify-center rounded-full text-white text-[12px] font-bold overflow-hidden border border-[var(--border)] ${isAdmin ? "bg-[var(--primary)]" : "bg-blue-600"}`}>
                 {profile.avatar && profile.avatar.startsWith("http") ? (
                   <img src={profile.avatar} alt={profile.name} className="size-full object-cover" />
@@ -293,30 +313,40 @@ export function Sidebar() {
                 <span className="text-[12px] font-medium text-[var(--text-primary)] truncate">{profile.name}</span>
                 <span className="text-[10px] text-[var(--text-muted)] truncate">{profile.roleTitle}</span>
               </div>
+            </Link>
+            <div className="flex items-center gap-1.5 shrink-0 ms-1">
+              <Link
+                href="/settings"
+                title="تنظیمات پروفایل"
+                className="p-1.5 rounded text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--surface)] transition-colors"
+              >
+                <Settings size={14} />
+              </Link>
+              <button
+                type="button"
+                onClick={async () => {
+                  await logout();
+                  window.location.href = "/login";
+                }}
+                className="text-[11px] text-[var(--primary)] hover:underline cursor-pointer"
+              >
+                خروج
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={async () => {
-                await logout();
-                window.location.href = "/login";
-              }}
-              className="text-[11px] text-[var(--primary)] hover:underline cursor-pointer shrink-0 ms-1"
-            >
-              خروج
-            </button>
           </div>
         ) : (
           <div className="flex justify-center">
-            <span
-              className={`flex size-8 items-center justify-center rounded-full text-white text-[12px] font-bold overflow-hidden border border-[var(--border)] ${isAdmin ? "bg-[var(--primary)]" : "bg-blue-600"}`}
-              title={`${profile.name} (${profile.roleTitle})`}
+            <Link
+              href="/settings"
+              className={`flex size-8 items-center justify-center rounded-full text-white text-[12px] font-bold overflow-hidden border border-[var(--border)] hover:ring-2 hover:ring-[var(--primary)] transition-all ${isAdmin ? "bg-[var(--primary)]" : "bg-blue-600"}`}
+              title={`تنظیمات حساب: ${profile.name} (${profile.roleTitle})`}
             >
               {profile.avatar && profile.avatar.startsWith("http") ? (
                 <img src={profile.avatar} alt={profile.name} className="size-full object-cover" />
               ) : (
                 profile.name?.charAt(0) || "ک"
               )}
-            </span>
+            </Link>
           </div>
         )}
         {!collapsed && (

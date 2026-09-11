@@ -40,6 +40,7 @@ interface RoleContextValue {
   profile: UserProfile;
   setRole: (role: UserRole) => void;
   setUserSession: (user: Partial<UserProfile>) => void;
+  updateProfile: (updates: Partial<UserProfile>) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
   isAdmin: boolean;
   isMember: boolean;
@@ -211,6 +212,57 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     setCookie("flowdeck_user_name", newProfile.name);
   }, []);
 
+  const updateProfile = useCallback(async (updates: Partial<UserProfile>): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const updatedProfile: UserProfile = {
+        ...profile,
+        ...updates,
+      };
+      setProfile(updatedProfile);
+      localStorage.setItem("flowdeck_user_session", JSON.stringify(updatedProfile));
+      if (updates.name) setCookie("flowdeck_user_name", updates.name);
+
+      const metaUpdates: Record<string, string | null> = {};
+      if (updates.name !== undefined) {
+        metaUpdates.name = updates.name;
+        metaUpdates.full_name = updates.name;
+      }
+      if (updates.avatar !== undefined) {
+        metaUpdates.avatar_url = updates.avatar;
+        metaUpdates.picture = updates.avatar;
+      }
+      if (updates.github !== undefined) {
+        metaUpdates.user_name = updates.github;
+        metaUpdates.github_login = updates.github;
+      }
+      if (updates.roleTitle !== undefined) {
+        metaUpdates.role_title = updates.roleTitle;
+      }
+
+      await supabase.auth.updateUser({
+        data: metaUpdates,
+      });
+
+      try {
+        const { syncUserProfile } = await import("@/app/actions/auth");
+        await syncUserProfile({
+          id: updatedProfile.id,
+          email: updatedProfile.email,
+          name: updatedProfile.name,
+          avatarUrl: updatedProfile.avatar,
+          githubLogin: updatedProfile.github,
+        });
+      } catch (syncErr) {
+        console.warn("[updateProfile] sync warning:", syncErr);
+      }
+
+      return { ok: true };
+    } catch (err: unknown) {
+      console.error("[updateProfile] error:", err);
+      return { ok: false, error: err instanceof Error ? err.message : "خطا در بروزرسانی پروفایل" };
+    }
+  }, [profile, supabase]);
+
   const logout = useCallback(async () => {
     try {
       await supabase.auth.signOut();
@@ -234,6 +286,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         profile,
         setRole,
         setUserSession,
+        updateProfile,
         logout,
         isAdmin: role === "admin" || role === "owner",
         isMember: role === "member" || role === "viewer",
@@ -253,6 +306,7 @@ export function useUserRole() {
       profile: DEFAULT_MEMBER_PROFILE,
       setRole: () => {},
       setUserSession: () => {},
+      updateProfile: async (): Promise<{ ok: boolean; error?: string }> => ({ ok: true }),
       logout: async () => {},
       isAdmin: false,
       isMember: true,
