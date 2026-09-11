@@ -866,3 +866,34 @@ export const githubPullRequestsRelations = relations(
     issueLinks: many(githubIssueLinks),
   })
 );
+
+/* ============================================================
+   Live Chat System
+   ============================================================ */
+
+export const chatSessions = pgTable("chat_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: text("title").notNull().default("اتاق گفتگوی مهندسی"),
+  durationMinutes: integer("duration_minutes").notNull().default(10),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull().defaultNow(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const chatMessages = pgTable("chat_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sessionId: uuid("session_id").references(() => chatSessions.id, { onDelete: "cascade" }),
+  senderId: uuid("sender_id").references(() => profiles.id, { onDelete: "set null" }),
+  senderName: text("sender_name").notNull(),
+  senderEmail: text("sender_email"),
+  senderRole: text("sender_role").default("member"),
+  message: text("message").notNull(),
+  replyTo: jsonb("reply_to"),
+  reactions: jsonb("reactions").default(sql`'{}'::jsonb`),
+  isEdited: boolean("is_edited").default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+

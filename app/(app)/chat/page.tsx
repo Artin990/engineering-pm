@@ -15,11 +15,11 @@ import {
   X,
   Check,
   CornerDownLeft,
+  MoreVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { useUserRole } from "@/lib/role-context";
 import { faNumber, toPersianDigits } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
@@ -44,7 +44,7 @@ export interface ChatMessage {
   reactions?: Record<string, string[]>;
 }
 
-const COMMON_EMOJIS = ["👍", "❤️", "🚀", "😂", "🔥", "👀", "👏", "🎉"];
+const COMMON_EMOJIS = ["👍", "❤️", "🚀", "😂", "🔥", "👀", "👏", "🎉", "💯", "✅"];
 
 export default function ChatPage() {
   const { profile, isAdmin } = useUserRole();
@@ -390,11 +390,14 @@ export default function ChatPage() {
   ];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-65px)] max-w-5xl mx-auto p-3 sm:p-5 space-y-3.5" onClick={() => activeEmojiPickerMsgId && setActiveEmojiPickerMsgId(null)}>
-      {/* 1. Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-4 sm:p-5 shadow-xs shrink-0">
+    <div
+      className="flex flex-col h-[calc(100vh-60px)] w-full bg-[var(--background)] overflow-hidden"
+      onClick={() => activeEmojiPickerMsgId && setActiveEmojiPickerMsgId(null)}
+    >
+      {/* 1. Full-bleed Top Bar Header */}
+      <header className="flex flex-wrap items-center justify-between gap-3 bg-[var(--surface)] border-b border-[var(--border)] px-4 sm:px-6 py-3 shrink-0 shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="size-11 rounded-2xl bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center border border-[var(--primary)]/20 shrink-0">
+          <div className="size-10 rounded-xl bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center border border-[var(--primary)]/20 shrink-0">
             <MessageSquare className="size-5" />
           </div>
           <div>
@@ -402,13 +405,13 @@ export default function ChatPage() {
               <h1 className="text-base sm:text-lg font-bold text-[var(--text-primary)]">
                 اتاق گفتگوی زنده مهندسی
               </h1>
-              <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                <span className="size-1.5 rounded-full bg-emerald-500 animate-ping" />
-                آنلاین و زنده
+              <span className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                <span className="size-2 rounded-full bg-emerald-500 animate-ping" />
+                متصل و ذخیره در دیتابیس
               </span>
             </div>
             <p className="text-xs text-[var(--text-muted)] mt-0.5">
-              امکان ریپلای، ویرایش، حذف پیام و واکنش با ایموجی میان پرسنل و کارفرما (ظرفیت ۱۰۰ پیام چرخشی)
+              تبادل مستقیم پیام، ریپلای، ویرایش، حذف و ری‌اکشن بین کلیه اعضا و کارفرما
             </p>
           </div>
         </div>
@@ -433,243 +436,248 @@ export default function ChatPage() {
               title="پاک‌سازی کلیه پیام‌های تاریخچه"
             >
               <Trash2 className="size-3.5" />
-              پاک‌سازی کل گفتگو
+              پاک‌سازی گفتگو
             </Button>
           )}
         </div>
-      </div>
+      </header>
 
-      {/* 2. Chat Messages Area */}
-      <Card className="flex-1 min-h-0 border-[var(--border)] bg-[var(--surface)] flex flex-col overflow-hidden shadow-xs">
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
-          {messages.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-2 opacity-70">
-              <MessageSquare className="size-12 text-[var(--text-muted)] stroke-1" />
-              <p className="text-sm font-semibold text-[var(--text-primary)]">
-                هنوز پیامی در این گفتگو ارسال نشده است.
-              </p>
-              <p className="text-xs text-[var(--text-muted)]">
-                اولین پیام را بنویسید تا همکاران و کارفرما بلافاصله آن را دریافت کنند.
-              </p>
+      {/* 2. Chat Feed Scroll Area */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-8 py-5 space-y-4">
+        {messages.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3 opacity-70">
+            <div className="size-16 rounded-full bg-[var(--surface-raised)] flex items-center justify-center border border-[var(--border)]">
+              <MessageSquare className="size-8 text-[var(--text-muted)] stroke-1" />
             </div>
-          ) : (
-            messages.map((m) => {
-              const isMe =
-                (profile.email && m.senderEmail && profile.email.toLowerCase() === m.senderEmail.toLowerCase()) ||
-                (profile.id && m.senderId && profile.id === m.senderId) ||
-                (profile.name && m.senderName && profile.name === m.senderName);
-              const isSenderAdmin = m.senderRole === "admin";
-              const canModify = isMe || isAdmin;
+            <h3 className="text-base font-semibold text-[var(--text-primary)]">
+              هنوز پیامی در این گفتگو ارسال نشده است.
+            </h3>
+            <p className="text-xs text-[var(--text-muted)] max-w-sm">
+              اولین پیام را بنویسید تا همکاران و کارفرما بلافاصله آن را دریافت کنند.
+            </p>
+          </div>
+        ) : (
+          messages.map((m) => {
+            const isMe =
+              (profile.email && m.senderEmail && profile.email.toLowerCase() === m.senderEmail.toLowerCase()) ||
+              (profile.id && m.senderId && profile.id === m.senderId) ||
+              (profile.name && m.senderName && profile.name === m.senderName);
+            const isSenderAdmin = m.senderRole === "admin";
+            const canModify = isMe || isAdmin;
 
-              return (
-                <div
-                  key={m.id}
-                  className={`group relative flex flex-col ${isMe ? "items-start" : "items-end"} animate-in fade-in slide-in-from-bottom-2 duration-150`}
-                >
-                  {/* Sender Header */}
-                  <div className={`flex items-center gap-1.5 mb-1 px-1 text-[11px] ${isMe ? "flex-row" : "flex-row-reverse"}`}>
-                    <span className="font-semibold text-[var(--text-primary)]">
-                      {isMe ? "شما" : m.senderName}
+            return (
+              <div
+                key={m.id}
+                className={`group flex flex-col ${isMe ? "items-start" : "items-end"} animate-in fade-in slide-in-from-bottom-2 duration-150`}
+              >
+                {/* Sender Name & Timestamp */}
+                <div className={`flex items-center gap-1.5 mb-1 px-1 text-[11px] ${isMe ? "flex-row" : "flex-row-reverse"}`}>
+                  <span className="font-semibold text-[var(--text-primary)]">
+                    {isMe ? "شما" : m.senderName}
+                  </span>
+                  {isSenderAdmin && (
+                    <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                      <Shield className="size-2.5" />
+                      مدیرعامل
                     </span>
-                    {isSenderAdmin && (
-                      <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                        <Shield className="size-2.5" />
-                        مدیرعامل
-                      </span>
+                  )}
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono">
+                    {formatMessageTime(m.createdAt)}
+                  </span>
+                  {m.isEdited && (
+                    <span className="text-[9px] text-[var(--text-muted)] italic">
+                      (ویرایش شده)
+                    </span>
+                  )}
+                </div>
+
+                {/* Bubble Container */}
+                <div className={`relative max-w-[92%] sm:max-w-[78%] md:max-w-[65%] flex flex-col ${isMe ? "items-start" : "items-end"}`}>
+                  {/* Message Bubble Body */}
+                  <div
+                    className={`relative rounded-2xl px-4 py-3 text-xs sm:text-sm leading-relaxed shadow-xs transition-shadow ${
+                      isMe
+                        ? "bg-[var(--primary)] text-white rounded-br-xs"
+                        : "bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-primary)] rounded-bl-xs"
+                    }`}
+                  >
+                    {/* Replied Message Quote snippet */}
+                    {m.replyTo && (
+                      <div
+                        className={`mb-2 rounded-lg p-2 text-xs border-r-2 ${
+                          isMe
+                            ? "bg-white/15 border-white/80 text-white/95"
+                            : "bg-[var(--surface)] border-[var(--primary)] text-[var(--text-secondary)]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1 font-semibold text-[11px] mb-0.5 opacity-90">
+                          <CornerDownLeft className="size-3" />
+                          <span>پاسخ به {m.replyTo.senderName}</span>
+                        </div>
+                        <p className="line-clamp-2 text-[11px] opacity-80 whitespace-pre-wrap">
+                          {m.replyTo.message}
+                        </p>
+                      </div>
                     )}
-                    <span className="text-[10px] text-[var(--text-muted)] font-mono">
-                      {formatMessageTime(m.createdAt)}
-                    </span>
-                    {m.isEdited && (
-                      <span className="text-[9px] text-[var(--text-muted)] italic">
-                        (ویرایش شده)
-                      </span>
+
+                    {/* Message Content or Inline Edit Form */}
+                    {editingMessage?.id === m.id ? (
+                      <div className="space-y-2 text-[var(--text-primary)]" onClick={(e) => e.stopPropagation()}>
+                        <textarea
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          rows={3}
+                          className="w-full text-xs sm:text-sm p-2.5 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)] resize-none"
+                          autoFocus
+                        />
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditingMessage(null)}
+                            className="h-7 text-xs px-2"
+                          >
+                            انصراف
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={handleSaveEdit}
+                            disabled={!editText.trim() || savingEdit}
+                            className="h-7 text-xs px-2.5 gap-1"
+                          >
+                            <Check className="size-3" />
+                            <span>{savingEdit ? "در حال ذخیره…" : "ذخیره ویرایش"}</span>
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="whitespace-pre-wrap break-words">{m.message}</p>
                     )}
                   </div>
 
-                  {/* Main Bubble Container with Hover Action Menu */}
-                  <div className={`relative max-w-[90%] sm:max-w-[75%] flex flex-col ${isMe ? "items-start" : "items-end"}`}>
-                    {/* Hover Floating Action Bar */}
+                  {/* Inline Action Bar & Emoji Picker (Always clearly visible, never clipped) */}
+                  <div
+                    className={`flex items-center gap-1 mt-1 px-1 transition-opacity ${
+                      activeEmojiPickerMsgId === m.id ? "opacity-100" : "opacity-80 group-hover:opacity-100"
+                    }`}
+                  >
+                    {/* Emoji Reaction Trigger */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveEmojiPickerMsgId(
+                          activeEmojiPickerMsgId === m.id ? null : m.id
+                        );
+                      }}
+                      className="flex items-center gap-1 text-[11px] text-[var(--text-muted)] hover:text-amber-500 hover:bg-[var(--surface-raised)] px-2 py-0.5 rounded-full transition-colors border border-transparent hover:border-[var(--border)]"
+                      title="افزودن واکنش"
+                    >
+                      <Smile className="size-3.5" />
+                      <span className="text-[10px]">واکنش</span>
+                    </button>
+
+                    {/* Reply Action */}
+                    <button
+                      type="button"
+                      onClick={() => setReplyingTo(m)}
+                      className="flex items-center gap-1 text-[11px] text-[var(--text-muted)] hover:text-blue-500 hover:bg-[var(--surface-raised)] px-2 py-0.5 rounded-full transition-colors border border-transparent hover:border-[var(--border)]"
+                      title="پاسخ به پیام"
+                    >
+                      <Reply className="size-3.5" />
+                      <span className="text-[10px]">پاسخ</span>
+                    </button>
+
+                    {/* Edit Action */}
+                    {canModify && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingMessage(m);
+                          setEditText(m.message);
+                        }}
+                        className="flex items-center gap-1 text-[11px] text-[var(--text-muted)] hover:text-emerald-500 hover:bg-[var(--surface-raised)] px-2 py-0.5 rounded-full transition-colors border border-transparent hover:border-[var(--border)]"
+                        title="ویرایش پیام"
+                      >
+                        <Edit3 className="size-3.5" />
+                        <span className="text-[10px]">ویرایش</span>
+                      </button>
+                    )}
+
+                    {/* Delete Action */}
+                    {canModify && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteSingleMessage(m.id)}
+                        className="flex items-center gap-1 text-[11px] text-[var(--text-muted)] hover:text-red-500 hover:bg-[var(--surface-raised)] px-2 py-0.5 rounded-full transition-colors border border-transparent hover:border-[var(--border)]"
+                        title="حذف پیام"
+                      >
+                        <Trash2 className="size-3.5" />
+                        <span className="text-[10px]">حذف</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Clean Emoji Picker Dropdown Popup */}
+                  {activeEmojiPickerMsgId === m.id && (
                     <div
-                      className={`absolute -top-3.5 z-20 hidden group-hover:flex items-center gap-0.5 bg-[var(--surface)] border border-[var(--border)] rounded-full px-1.5 py-0.5 shadow-md ${
-                        isMe ? "left-2" : "right-2"
-                      }`}
+                      className="z-30 mt-1 flex flex-wrap items-center gap-1 bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-2 shadow-xl animate-in zoom-in-95 duration-100 max-w-xs"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {/* Emoji Trigger */}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setActiveEmojiPickerMsgId(
-                            activeEmojiPickerMsgId === m.id ? null : m.id
-                          )
-                        }
-                        className="p-1 rounded-full text-[var(--text-muted)] hover:text-amber-500 hover:bg-[var(--surface-raised)] transition-colors"
-                        title="واکنش با ایموجی"
-                      >
-                        <Smile className="size-3.5" />
-                      </button>
-
-                      {/* Reply Button */}
-                      <button
-                        type="button"
-                        onClick={() => setReplyingTo(m)}
-                        className="p-1 rounded-full text-[var(--text-muted)] hover:text-blue-500 hover:bg-[var(--surface-raised)] transition-colors"
-                        title="پاسخ (Reply)"
-                      >
-                        <Reply className="size-3.5" />
-                      </button>
-
-                      {/* Edit Button */}
-                      {canModify && (
+                      {COMMON_EMOJIS.map((emoji) => (
                         <button
+                          key={emoji}
                           type="button"
-                          onClick={() => {
-                            setEditingMessage(m);
-                            setEditText(m.message);
-                          }}
-                          className="p-1 rounded-full text-[var(--text-muted)] hover:text-emerald-500 hover:bg-[var(--surface-raised)] transition-colors"
-                          title="ویرایش پیام"
+                          onClick={() => handleToggleReaction(m.id, emoji)}
+                          className="size-8 flex items-center justify-center rounded-xl hover:bg-[var(--surface-raised)] hover:scale-125 transition-transform text-base"
                         >
-                          <Edit3 className="size-3.5" />
+                          {emoji}
                         </button>
-                      )}
-
-                      {/* Delete Button */}
-                      {canModify && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteSingleMessage(m.id)}
-                          className="p-1 rounded-full text-[var(--text-muted)] hover:text-red-500 hover:bg-[var(--surface-raised)] transition-colors"
-                          title="حذف پیام"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      )}
+                      ))}
                     </div>
+                  )}
 
-                    {/* Emoji Reaction Selector Popup */}
-                    {activeEmojiPickerMsgId === m.id && (
-                      <div
-                        className={`absolute -top-10 z-30 flex items-center gap-1 bg-[var(--surface)] border border-[var(--border)] rounded-full p-1.5 shadow-xl animate-in zoom-in-95 duration-100 ${
-                          isMe ? "left-0" : "right-0"
-                        }`}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {COMMON_EMOJIS.map((emoji) => (
+                  {/* Existing Reactions Badges */}
+                  {m.reactions && Object.keys(m.reactions).length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1.5 px-1">
+                      {Object.entries(m.reactions).map(([emoji, users]) => {
+                        const hasReacted = users.includes(myIdentifier);
+                        return (
                           <button
                             key={emoji}
                             type="button"
-                            onClick={() => handleToggleReaction(m.id, emoji)}
-                            className="size-7 flex items-center justify-center rounded-full hover:bg-[var(--surface-raised)] hover:scale-125 transition-transform text-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleReaction(m.id, emoji);
+                            }}
+                            className={`flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full border transition-all ${
+                              hasReacted
+                                ? "bg-[var(--primary)]/15 border-[var(--primary)]/40 text-[var(--primary)] font-bold shadow-xs scale-105"
+                                : "bg-[var(--surface)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]"
+                            }`}
+                            title={users.join("، ")}
                           >
-                            {emoji}
+                            <span>{emoji}</span>
+                            <span className="font-mono text-[10px]">{faNumber(users.length)}</span>
                           </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Message Bubble Body */}
-                    <div
-                      className={`rounded-2xl px-4 py-2.5 text-xs sm:text-sm leading-relaxed shadow-xs ${
-                        isMe
-                          ? "bg-[var(--primary)] text-white rounded-br-xs"
-                          : "bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-primary)] rounded-bl-xs"
-                      }`}
-                    >
-                      {/* Replied Message Quote snippet */}
-                      {m.replyTo && (
-                        <div
-                          className={`mb-2 rounded-lg p-2 text-xs border-r-2 ${
-                            isMe
-                              ? "bg-white/15 border-white/80 text-white/95"
-                              : "bg-[var(--surface)] border-[var(--primary)] text-[var(--text-secondary)]"
-                          }`}
-                        >
-                          <div className="flex items-center gap-1 font-semibold text-[11px] mb-0.5 opacity-90">
-                            <CornerDownLeft className="size-3" />
-                            <span>پاسخ به {m.replyTo.senderName}</span>
-                          </div>
-                          <p className="line-clamp-2 text-[11px] opacity-80 whitespace-pre-wrap">
-                            {m.replyTo.message}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Message Content or Inline Edit Form */}
-                      {editingMessage?.id === m.id ? (
-                        <div className="space-y-2 text-[var(--text-primary)]" onClick={(e) => e.stopPropagation()}>
-                          <textarea
-                            value={editText}
-                            onChange={(e) => setEditText(e.target.value)}
-                            rows={3}
-                            className="w-full text-xs sm:text-sm p-2 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--primary)] resize-none"
-                            autoFocus
-                          />
-                          <div className="flex items-center justify-end gap-1.5">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setEditingMessage(null)}
-                              className="h-7 text-xs px-2"
-                            >
-                              انصراف
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={handleSaveEdit}
-                              disabled={!editText.trim() || savingEdit}
-                              className="h-7 text-xs px-2.5 gap-1"
-                            >
-                              <Check className="size-3" />
-                              <span>{savingEdit ? "در حال ذخیره…" : "ذخیره ویرایش"}</span>
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="whitespace-pre-wrap break-words">{m.message}</p>
-                      )}
+                        );
+                      })}
                     </div>
-
-                    {/* Reactions Pill List */}
-                    {m.reactions && Object.keys(m.reactions).length > 0 && (
-                      <div className="flex flex-wrap gap-1 mt-1 px-1">
-                        {Object.entries(m.reactions).map(([emoji, users]) => {
-                          const hasReacted = users.includes(myIdentifier);
-                          return (
-                            <button
-                              key={emoji}
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleToggleReaction(m.id, emoji);
-                              }}
-                              className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full border transition-all ${
-                                hasReacted
-                                  ? "bg-[var(--primary)]/15 border-[var(--primary)]/40 text-[var(--primary)] font-bold shadow-xs scale-105"
-                                  : "bg-[var(--surface)] border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--surface-raised)]"
-                              }`}
-                              title={users.join("، ")}
-                            >
-                              <span>{emoji}</span>
-                              <span className="font-mono text-[10px]">{faNumber(users.length)}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
-              );
-            })
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+              </div>
+            );
+          })
+        )}
+        <div ref={messagesEndRef} />
+      </div>
 
+      {/* 3. Bottom Quick Prompts & Input Box */}
+      <footer className="shrink-0 bg-[var(--surface)] border-t border-[var(--border)]">
         {/* Quick Prompts Bar */}
-        <div className="border-t border-[var(--border)] px-4 py-2 bg-[var(--surface-raised)]/50 overflow-x-auto flex items-center gap-1.5 no-scrollbar">
-          <span className="text-[10px] text-[var(--text-muted)] font-medium shrink-0 flex items-center gap-1">
-            <Sparkles className="size-3 text-[var(--primary)]" />
+        <div className="px-4 sm:px-6 py-2 border-b border-[var(--border)]/60 bg-[var(--surface-raised)]/40 overflow-x-auto flex items-center gap-2 no-scrollbar">
+          <span className="text-[11px] text-[var(--text-muted)] font-medium shrink-0 flex items-center gap-1">
+            <Sparkles className="size-3.5 text-[var(--primary)]" />
             پیام‌های سریع:
           </span>
           {QUICK_PROMPTS.map((p, idx) => (
@@ -679,7 +687,7 @@ export default function ChatPage() {
               onClick={() => {
                 setInputMessage(p);
               }}
-              className="text-[11px] shrink-0 bg-[var(--surface)] hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] border border-[var(--border)] text-[var(--text-secondary)] px-2.5 py-1 rounded-full transition-colors cursor-pointer"
+              className="text-[11px] shrink-0 bg-[var(--surface)] hover:bg-[var(--primary)]/10 hover:text-[var(--primary)] border border-[var(--border)] text-[var(--text-secondary)] px-3 py-1 rounded-full transition-colors cursor-pointer"
             >
               {p}
             </button>
@@ -688,9 +696,9 @@ export default function ChatPage() {
 
         {/* Replying Banner */}
         {replyingTo && (
-          <div className="flex items-center justify-between px-4 py-2 bg-[var(--surface-raised)] border-t border-[var(--border)] text-xs text-[var(--text-secondary)] animate-in slide-in-from-bottom-1">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-2.5 bg-[var(--surface-raised)] border-b border-[var(--border)] text-xs text-[var(--text-secondary)] animate-in slide-in-from-bottom-1">
             <div className="flex items-center gap-2 min-w-0">
-              <Reply className="size-3.5 text-[var(--primary)] shrink-0" />
+              <Reply className="size-4 text-[var(--primary)] shrink-0" />
               <div className="truncate">
                 <span className="font-semibold text-[var(--text-primary)]">در حال پاسخ به {replyingTo.senderName}: </span>
                 <span className="text-[var(--text-muted)] truncate">{replyingTo.message}</span>
@@ -699,36 +707,36 @@ export default function ChatPage() {
             <button
               type="button"
               onClick={() => setReplyingTo(null)}
-              className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors shrink-0"
+              className="p-1 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)] transition-colors shrink-0"
               title="انصراف از پاسخ"
             >
-              <X className="size-3.5" />
+              <X className="size-4" />
             </button>
           </div>
         )}
 
-        {/* 3. Chat Input Box */}
+        {/* Chat Input Box */}
         <form
           onSubmit={handleSendMessage}
-          className="p-3 sm:p-4 border-t border-[var(--border)] bg-[var(--surface)] flex items-center gap-2"
+          className="p-3 sm:p-4 px-4 sm:px-6 flex items-center gap-3"
         >
           <Input
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             placeholder={replyingTo ? `پاسخ به ${replyingTo.senderName}…` : "پیام خود را برای کارفرما و تیم بنویسید…"}
-            className="flex-1 bg-[var(--surface-raised)] text-xs sm:text-sm h-11 px-4"
+            className="flex-1 bg-[var(--surface-raised)] text-xs sm:text-sm h-12 px-4 rounded-xl border-[var(--border)]"
             autoFocus
           />
           <Button
             type="submit"
             disabled={!inputMessage.trim() || sending}
-            className="h-11 px-5 gap-2 text-xs sm:text-sm shrink-0 shadow-sm"
+            className="h-12 px-6 gap-2 text-xs sm:text-sm shrink-0 rounded-xl shadow-sm"
           >
             <Send className="size-4 rotate-180" />
             <span>ارسال</span>
           </Button>
         </form>
-      </Card>
+      </footer>
     </div>
   );
 }

@@ -1,4 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { desc, asc, eq, sql } from "drizzle-orm";
+import { db } from "@/lib/db";
+import { chatMessages } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth/session";
 import { isUserAdminEmail } from "@/lib/auth/admin-check";
 
@@ -21,12 +24,12 @@ export interface ChatMessageItem {
   updatedAt?: string | null;
   isEdited?: boolean;
   replyTo?: ChatReplyInfo | null;
-  reactions?: Record<string, string[]>; // emoji -> array of user names / emails
+  reactions?: Record<string, string[]>;
 }
 
 const MAX_MESSAGES = 100;
 
-// Shared in-memory rolling message buffer (capped at 100 messages)
+// Shared in-memory fallback buffer
 let memoryMessages: ChatMessageItem[] = [
   {
     id: "msg-welcome-1",
@@ -34,7 +37,7 @@ let memoryMessages: ChatMessageItem[] = [
     senderName: "آرتین امیری",
     senderEmail: "amiriartin185@gmil.com",
     senderRole: "admin",
-    message: "سلام همکاران گرامی. به اتاق گفتگوی مهندسی RadarCheck خوش آمدید. پیام‌ها به‌صورت زنده میان تمامی اعضا و کارفرما رد و بدل می‌شود.",
+    message: "سلام همکاران گرامی. به اتاق گفتگوی مهندسی RadarCheck خوش آمدید. پیام‌ها به‌صورت زنده و دائمی میان تمامی اعضا و کارفرما ذخیره و رد و بدل می‌شود.",
     createdAt: new Date().toISOString(),
     reactions: { "👋": ["آرتین امیری"] },
   },
@@ -46,9 +49,39 @@ export async function GET() {
     const userEmail = session?.user?.email;
     const isAdmin = isUserAdminEmail(userEmail);
 
+    let dbList: ChatMessageItem[] = [];
+    try {
+      const rows = await db
+        .select()
+        .from(chatMessages)
+        .orderBy(asc(chatMessages.createdAt))
+        .limit(MAX_MESSAGES);
+
+      if (rows && rows.length > 0) {
+        dbList = rows.map((r) => ({
+          id: r.id,
+          senderId: r.senderId,
+          senderName: r.senderName,
+          senderEmail: r.senderEmail,
+          senderRole: r.senderRole || "member",
+          message: r.message,
+          replyTo: (r.replyTo as ChatReplyInfo) || null,
+          reactions: (r.reactions as Record<string, string[]>) || {},
+          isEdited: Boolean(r.isEdited),
+          updatedAt: r.updatedAt ? new Date(r.updatedAt).toISOString() : null,
+          createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
+        }));
+        memoryMessages = dbList;
+      }
+    } catch (dbErr) {
+      console.warn("[chat-api-get] db query notice:", dbErr);
+    }
+
+    const finalMessages = dbList.length > 0 ? dbList : memoryMessages;
+
     return NextResponse.json({
-      messages: memoryMessages,
-      totalCount: memoryMessages.length,
+      messages: finalMessages,
+      totalCount: finalMessages.length,
       maxCapacity: MAX_MESSAGES,
       currentUser: session
         ? {
@@ -103,13 +136,53 @@ export async function POST(request: NextRequest) {
       reactions: {},
     };
 
-    // اگر به ۱۰۰ پیام رسید، قدیمی‌ترین پیام‌ها حذف شوند و سقف ۱۰۰ رعایت شود
-    memoryMessages.push(newMsg);
-    if (memoryMessages.length > MAX_MESSAGES) {
-      memoryMessages = memoryMessages.slice(memoryMessages.length - MAX_MESSAGES);
+    // ۱. درج دائمی در پایگاه داده PostgreSQL
+    try {
+      await db.insert(chatMessages).values({
+        senderId: session?.profileId || null,
+        senderName: userName,
+        senderEmail: userEmail || null,
+        senderRole: isAdmin ? "admin" : "member",
+        message: body.message.trim(),
+        replyTo: body.replyTo || null,
+        reactions: {},
+        isEdited: false,
+      });
+
+      // واکشی پیام‌های به‌روز
+      const rows = await db
+        .select()
+        .from(chatMessages)
+        .orderBy(asc(chatMessages.createdAt))
+        .limit(MAX_MESSAGES);
+
+      if (rows && rows.length > 0) {
+        memoryMessages = rows.map((r) => ({
+          id: r.id,
+          senderId: r.senderId,
+          senderName: r.senderName,
+          senderEmail: r.senderEmail,
+          senderRole: r.senderRole || "member",
+          message: r.message,
+          replyTo: (r.replyTo as ChatReplyInfo) || null,
+          reactions: (r.reactions as Record<string, string[]>) || {},
+          isEdited: Boolean(r.isEdited),
+          updatedAt: r.updatedAt ? new Date(r.updatedAt).toISOString() : null,
+          createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : new Date().toISOString(),
+        }));
+      }
+    } catch (insertErr) {
+      console.warn("[chat-post-db-warning]", insertErr);
+      memoryMessages.push(newMsg);
+      if (memoryMessages.length > MAX_MESSAGES) {
+        memoryMessages = memoryMessages.slice(memoryMessages.length - MAX_MESSAGES);
+      }
     }
 
-    return NextResponse.json({ data: newMsg, totalCount: memoryMessages.length, messages: memoryMessages }, { status: 201 });
+    return NextResponse.json(
+      { data: newMsg, totalCount: memoryMessages.length, messages: memoryMessages },
+      { status: 201 }
+    );
   } catch (err: unknown) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "خطا در ارسال پیام" },
@@ -130,34 +203,36 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "شناسه پیام الزامی است." }, { status: 400 });
     }
 
-    const msgIndex = memoryMessages.findIndex((m) => m.id === messageId);
-    if (msgIndex === -1) {
-      return NextResponse.json({ error: "پیام مورد نظر یافت نشد." }, { status: 404 });
-    }
-
-    const currentMsg = memoryMessages[msgIndex];
-    const isOwner =
-      (userEmail && currentMsg.senderEmail && userEmail.toLowerCase() === currentMsg.senderEmail.toLowerCase()) ||
-      (body.senderEmail && currentMsg.senderEmail && body.senderEmail.toLowerCase() === currentMsg.senderEmail.toLowerCase()) ||
-      (body.senderName && currentMsg.senderName && body.senderName === currentMsg.senderName);
-
     // 1. ویرایش متن پیام (Edit)
     if (action === "edit") {
-      if (!isOwner && !isAdmin) {
-        return NextResponse.json({ error: "شما مجاز به ویرایش این پیام نیستید." }, { status: 403 });
-      }
       if (!body.newMessage || !body.newMessage.trim()) {
         return NextResponse.json({ error: "متن پیام نمی‌تواند خالی باشد." }, { status: 400 });
       }
 
-      memoryMessages[msgIndex] = {
-        ...currentMsg,
-        message: body.newMessage.trim(),
-        isEdited: true,
-        updatedAt: new Date().toISOString(),
-      };
+      try {
+        await db
+          .update(chatMessages)
+          .set({
+            message: body.newMessage.trim(),
+            isEdited: true,
+            updatedAt: new Date(),
+          })
+          .where(eq(chatMessages.id, messageId));
+      } catch (err) {
+        console.warn("[chat-patch-edit-db]", err);
+      }
 
-      return NextResponse.json({ success: true, message: memoryMessages[msgIndex], messages: memoryMessages });
+      const idx = memoryMessages.findIndex((m) => m.id === messageId);
+      if (idx > -1) {
+        memoryMessages[idx] = {
+          ...memoryMessages[idx],
+          message: body.newMessage.trim(),
+          isEdited: true,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+
+      return NextResponse.json({ success: true, messages: memoryMessages });
     }
 
     // 2. افزودن یا حذف ایموجی واکنش (Reaction Toggle)
@@ -168,36 +243,43 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: "ایموجی واکنش ارسال نشده است." }, { status: 400 });
       }
 
-      const reactions = { ...(currentMsg.reactions || {}) };
-      const currentUsers = reactions[emoji] ? [...reactions[emoji]] : [];
-
-      const existsIndex = currentUsers.indexOf(userName);
-      if (existsIndex > -1) {
-        // حذف واکنش اگر قبلا داده بود
-        currentUsers.splice(existsIndex, 1);
-        if (currentUsers.length === 0) {
-          delete reactions[emoji];
+      let updatedReactions: Record<string, string[]> = {};
+      const idx = memoryMessages.findIndex((m) => m.id === messageId);
+      if (idx > -1) {
+        const curMsg = memoryMessages[idx];
+        const reactions = { ...(curMsg.reactions || {}) };
+        const users = reactions[emoji] ? [...reactions[emoji]] : [];
+        const existsIndex = users.indexOf(userName);
+        if (existsIndex > -1) {
+          users.splice(existsIndex, 1);
+          if (users.length === 0) delete reactions[emoji];
+          else reactions[emoji] = users;
         } else {
-          reactions[emoji] = currentUsers;
+          users.push(userName);
+          reactions[emoji] = users;
         }
-      } else {
-        // افزودن واکنش جدید
-        currentUsers.push(userName);
-        reactions[emoji] = currentUsers;
+        memoryMessages[idx] = { ...curMsg, reactions };
+        updatedReactions = reactions;
       }
 
-      memoryMessages[msgIndex] = {
-        ...currentMsg,
-        reactions,
-      };
+      try {
+        await db
+          .update(chatMessages)
+          .set({ reactions: updatedReactions })
+          .where(eq(chatMessages.id, messageId));
+      } catch (err) {
+        console.warn("[chat-patch-reaction-db]", err);
+      }
 
-      return NextResponse.json({ success: true, message: memoryMessages[msgIndex], messages: memoryMessages });
+      return NextResponse.json({ success: true, messages: memoryMessages });
     }
 
     // 3. حذف یک پیام تکی (Delete Single)
     if (action === "delete_single") {
-      if (!isOwner && !isAdmin) {
-        return NextResponse.json({ error: "تنها فرستنده یا مدیرعامل مجاز به حذف این پیام هستند." }, { status: 403 });
+      try {
+        await db.delete(chatMessages).where(eq(chatMessages.id, messageId));
+      } catch (err) {
+        console.warn("[chat-patch-delete-db]", err);
       }
 
       memoryMessages = memoryMessages.filter((m) => m.id !== messageId);
@@ -226,7 +308,20 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // بازنشانی چت
+    try {
+      await db.delete(chatMessages);
+      await db.insert(chatMessages).values({
+        senderId: session?.profileId || null,
+        senderName: session?.user?.user_metadata?.name || "مدیرعامل",
+        senderEmail: userEmail || null,
+        senderRole: "admin",
+        message: "تاریخچه گفتگو توسط مدیرعامل پاک‌سازی و دور جدید آغاز شد.",
+        reactions: {},
+      });
+    } catch (err) {
+      console.warn("[chat-delete-db]", err);
+    }
+
     memoryMessages = [
       {
         id: `msg-reset-${Date.now()}`,
