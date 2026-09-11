@@ -100,26 +100,20 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
           setCookie("flowdeck_user_email", userEmail);
           setCookie("flowdeck_user_id", session.user.id);
           setCookie("flowdeck_user_name", userName);
+          localStorage.setItem("flowdeck_user_session", JSON.stringify(userProf));
+          localStorage.setItem("flowdeck_active_role", userRole);
           setIsLoading(false);
           return;
-        }
-
-        // بررسی در صورت وجود ذخیره محلی قبلی
-        const savedSession = localStorage.getItem("flowdeck_user_session");
-        if (savedSession && mounted) {
-          const parsed = JSON.parse(savedSession) as UserProfile;
-          const isAdminUser = isUserAdminEmail(parsed.email);
-          const userRole: UserRole = isAdminUser ? "admin" : "member";
-          const roleTitle = isAdminUser ? "مدیرعامل و ادمین ارشد" : "توسعه‌دهنده / کاربر عادی";
-
-          parsed.role = userRole;
-          parsed.roleTitle = roleTitle;
-          setProfile(parsed);
-          setRoleState(userRole);
-          setCookie("flowdeck_active_role", userRole);
-          setCookie("flowdeck_user_email", parsed.email);
-          setCookie("flowdeck_user_id", parsed.id);
-          setCookie("flowdeck_user_name", parsed.name);
+        } else if (mounted) {
+          // در صورتی که نشستی در سوپابیس وجود ندارد، سشن لوکال را پاک کن
+          localStorage.removeItem("flowdeck_user_session");
+          localStorage.removeItem("flowdeck_active_role");
+          deleteCookie("flowdeck_active_role");
+          deleteCookie("flowdeck_user_email");
+          deleteCookie("flowdeck_user_id");
+          deleteCookie("flowdeck_user_name");
+          setProfile(DEFAULT_MEMBER_PROFILE);
+          setRoleState("member");
         }
       } catch (err) {
         console.warn("[RoleProvider] Auth sync note:", err);

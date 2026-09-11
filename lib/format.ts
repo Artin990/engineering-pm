@@ -3,16 +3,24 @@
  * ⚠️ کدهای ایشو (مثل PM-142) لاتین می‌مانند — برای آن‌ها از formatIssueKey استفاده کنید.
  */
 
+const PERSIAN_DIGITS = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
+
+/** تبدیل صریح تمام ارقام انگلیسی به فارسی */
+export function toPersianDigits(input: string | number | bigint | null | undefined): string {
+  if (input === null || input === undefined) return "";
+  return String(input).replace(/[0-9]/g, (w) => PERSIAN_DIGITS[+w]);
+}
+
 /** عدد به رقم فارسی با جداکننده هزارگان: ۱۲۳٬۴۵۶ */
 export function faNumber(value: number | bigint): string {
-  return value.toLocaleString("fa-IR");
+  const formatted = value.toLocaleString("en-US");
+  return toPersianDigits(formatted.replace(/,/g, "٬"));
 }
 
 /** درصد فارسی: ٪۷۵ */
 export function faPercent(value: number, fractionDigits = 0): string {
-  return `${(value * 100).toLocaleString("fa-IR", {
-    maximumFractionDigits: fractionDigits,
-  })}٪`;
+  const num = (value * 100).toFixed(fractionDigits);
+  return `٪${toPersianDigits(num)}`;
 }
 
 /** تاریخ به تقویم شمسی/جلالی (هجری خورشیدی) */
@@ -21,13 +29,14 @@ export function faDate(date: Date | string | number | null | undefined): string 
   try {
     const d = date instanceof Date ? date : new Date(date);
     if (isNaN(d.getTime())) return String(date);
-    return new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+    const formatted = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
       year: "numeric",
       month: "long",
       day: "numeric",
     }).format(d);
+    return toPersianDigits(formatted);
   } catch {
-    return String(date);
+    return toPersianDigits(String(date));
   }
 }
 
@@ -37,15 +46,16 @@ export function faDateTime(date: Date | string | number | null | undefined): str
   try {
     const d = date instanceof Date ? date : new Date(date);
     if (isNaN(d.getTime())) return String(date);
-    return new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+    const formatted = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
       year: "numeric",
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     }).format(d);
+    return toPersianDigits(formatted);
   } catch {
-    return String(date);
+    return toPersianDigits(String(date));
   }
 }
 
@@ -55,13 +65,14 @@ export function faShortDate(date: Date | string | number | null | undefined): st
   try {
     const d = date instanceof Date ? date : new Date(date);
     if (isNaN(d.getTime())) return String(date);
-    return new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+    const formatted = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
     }).format(d);
+    return toPersianDigits(formatted);
   } catch {
-    return String(date);
+    return toPersianDigits(String(date));
   }
 }
 

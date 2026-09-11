@@ -90,23 +90,29 @@ function LoginForm() {
           id: data.user.id,
           email: data.user.email || email.trim(),
           name: userName,
-          role: (userMeta.role as "admin" | "member") || "admin",
+          avatar: userMeta.avatar_url || userMeta.picture,
+          github: userMeta.user_name || userMeta.github_login,
         });
 
-        // همگام‌سازی در دیتابیس
-        await syncUserProfile({
-          id: data.user.id,
-          email: data.user.email || email.trim(),
-          name: userName,
-          avatarUrl: userMeta.avatar_url,
-          githubLogin: userMeta.user_name,
-        });
+        // همگام‌سازی غیربلاک‌کننده در دیتابیس
+        try {
+          await syncUserProfile({
+            id: data.user.id,
+            email: data.user.email || email.trim(),
+            name: userName,
+            avatarUrl: userMeta.avatar_url || userMeta.picture,
+            githubLogin: userMeta.user_name || userMeta.github_login,
+          });
+        } catch (syncErr) {
+          console.warn("[Login] syncUserProfile non-fatal note:", syncErr);
+        }
 
         router.push(redirectTo);
         router.refresh();
       }
-    } catch {
-      setError("خطایی در ارتباط با سرور رخ داد. لطفاً مجدداً تلاش نمایید.");
+    } catch (err: any) {
+      console.error("[Login] error:", err);
+      setError(err?.message || "خطایی در برقراری ارتباط رخ داد. لطفاً اتصال اینترنت خود را بررسی نمایید.");
       setLoading(false);
     }
   };

@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { faDate, faNumber, faPercent } from "@/lib/format";
 import { useProjectStore } from "@/lib/project-store";
+import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import {
   ISSUE_STATUS_LABEL,
   MILESTONE_STATUS_LABEL,
@@ -285,21 +286,11 @@ export default function MilestonesPage() {
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[13px] font-medium text-[var(--text-primary)]">
-                      تاریخ سررسید
-                    </label>
-                    {targetDate && (
-                      <span className="text-[12px] font-medium text-[var(--primary)]">
-                        تقویم شمسی: {faDate(targetDate)}
-                      </span>
-                    )}
-                  </div>
-                  <Input
-                    type="date"
+                  <JalaliDatePicker
+                    label="تاریخ سررسید (شمسی)"
                     value={targetDate}
-                    onChange={(e) => setTargetDate(e.target.value)}
-                    className="bg-[var(--background)]"
+                    onChange={setTargetDate}
+                    placeholder="۱۴۰۵/۰۲/۰۱"
                   />
                 </div>
               </div>

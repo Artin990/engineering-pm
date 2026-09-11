@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { useProjectStore } from "@/lib/project-store";
 import { CYCLE_STATUS_LABEL, type Cycle, type CycleStatus } from "@/components/features/types";
+import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import { faDate, faNumber, faPercent } from "@/lib/format";
 
 export default function CyclesPage({
@@ -208,40 +209,18 @@ export default function CyclesPage({
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[13px] font-medium text-[var(--text-primary)]">
-                      تاریخ شروع
-                    </label>
-                    {startDate && (
-                      <span className="text-[11px] text-[var(--primary)]">
-                        {faDate(startDate)}
-                      </span>
-                    )}
-                  </div>
-                  <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-[13px] font-medium text-[var(--text-primary)]">
-                      تاریخ پایان
-                    </label>
-                    {endDate && (
-                      <span className="text-[11px] text-[var(--primary)]">
-                        {faDate(endDate)}
-                      </span>
-                    )}
-                  </div>
-                  <Input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
-                </div>
+                <JalaliDatePicker
+                  label="تاریخ شروع (شمسی)"
+                  value={startDate}
+                  onChange={setStartDate}
+                  placeholder="۱۴۰۵/۰۱/۰۱"
+                />
+                <JalaliDatePicker
+                  label="تاریخ پایان (شمسی)"
+                  value={endDate}
+                  onChange={setEndDate}
+                  placeholder="۱۴۰۵/۰۱/۱۵"
+                />
               </div>
 
               <div>

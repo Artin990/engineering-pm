@@ -7,6 +7,7 @@ import type {
   Member,
   Milestone,
   Cycle,
+  ActivityEvent,
 } from "@/components/features/types";
 import { getProjectByKey } from "@/components/features/__fixtures__/mock-data";
 
@@ -16,6 +17,7 @@ interface ProjectStoreState {
   cycles: Cycle[];
   milestones: Milestone[];
   members: Member[];
+  activities: ActivityEvent[];
 }
 
 interface ProjectStoreContextValue {
@@ -24,6 +26,7 @@ interface ProjectStoreContextValue {
   cycles: Cycle[];
   milestones: Milestone[];
   members: Member[];
+  activities: ActivityEvent[];
   addIssue: (issue: Issue) => void;
   updateIssue: (id: string, updates: Partial<Issue>) => void;
   deleteIssue: (id: string) => void;
@@ -37,6 +40,7 @@ interface ProjectStoreContextValue {
   updateMember: (id: string, updates: Partial<Member>) => void;
   deleteMember: (id: string) => void;
   updateProject: (updates: Partial<Project>) => void;
+  addActivity: (activity: Omit<ActivityEvent, "id" | "createdAt">) => void;
 }
 
 const ProjectStoreContext = createContext<ProjectStoreContextValue | undefined>(undefined);
@@ -60,6 +64,7 @@ export function ProjectStoreProvider({
       cycles: [],
       milestones: [],
       members: DEFAULT_MEMBERS,
+      activities: [],
     };
   });
 
@@ -77,6 +82,7 @@ export function ProjectStoreProvider({
             cycles: Array.isArray(parsed.cycles) ? parsed.cycles : prev.cycles,
             milestones: Array.isArray(parsed.milestones) ? parsed.milestones : prev.milestones,
             members: Array.isArray(parsed.members) ? parsed.members : [],
+            activities: Array.isArray(parsed.activities) ? parsed.activities : [],
           }));
         }
       }
@@ -187,11 +193,37 @@ export function ProjectStoreProvider({
   }, [computedState.project]);
 
   // Actions
+  const addActivity = useCallback(
+    (act: Omit<ActivityEvent, "id" | "createdAt">) => {
+      const newEvent: ActivityEvent = {
+        ...act,
+        id: `act-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        createdAt: new Date().toISOString(),
+      };
+      const nextState: ProjectStoreState = {
+        ...state,
+        activities: [newEvent, ...(state.activities || [])].slice(0, 100),
+      };
+      saveState(nextState);
+    },
+    [state, saveState]
+  );
+
   const addIssue = useCallback(
     (issue: Issue) => {
+      const newAct: ActivityEvent = {
+        id: `act-${Date.now()}`,
+        kind: "internal",
+        verb: "created",
+        entityType: "issue",
+        title: `ایجاد ایشو ${issue.key}: ${issue.title}`,
+        actor: issue.assignee || null,
+        createdAt: new Date().toISOString(),
+      };
       const nextState: ProjectStoreState = {
         ...state,
         issues: [issue, ...state.issues],
+        activities: [newAct, ...(state.activities || [])].slice(0, 100),
       };
       saveState(nextState);
     },
@@ -200,9 +232,23 @@ export function ProjectStoreProvider({
 
   const updateIssue = useCallback(
     (id: string, updates: Partial<Issue>) => {
+      const existing = state.issues.find((i) => i.id === id);
+      let newAct: ActivityEvent | null = null;
+      if (existing && updates.status && updates.status !== existing.status) {
+        newAct = {
+          id: `act-${Date.now()}`,
+          kind: "internal",
+          verb: updates.status === "done" ? "merged" : "updated",
+          entityType: "issue",
+          title: `تغییر وضعیت ${existing.key} به «${updates.status}»`,
+          actor: existing.assignee || null,
+          createdAt: new Date().toISOString(),
+        };
+      }
       const nextState: ProjectStoreState = {
         ...state,
         issues: state.issues.map((i) => (i.id === id ? { ...i, ...updates, updatedAt: new Date().toISOString() } : i)),
+        activities: newAct ? [newAct, ...(state.activities || [])].slice(0, 100) : state.activities || [],
       };
       saveState(nextState);
     },
@@ -211,9 +257,19 @@ export function ProjectStoreProvider({
 
   const deleteIssue = useCallback(
     (id: string) => {
+      const existing = state.issues.find((i) => i.id === id);
+      const newAct: ActivityEvent = {
+        id: `act-${Date.now()}`,
+        kind: "internal",
+        verb: "closed",
+        entityType: "issue",
+        title: `حذف ایشو ${existing?.key || id}`,
+        createdAt: new Date().toISOString(),
+      };
       const nextState: ProjectStoreState = {
         ...state,
         issues: state.issues.filter((i) => i.id !== id),
+        activities: [newAct, ...(state.activities || [])].slice(0, 100),
       };
       saveState(nextState);
     },
@@ -222,9 +278,18 @@ export function ProjectStoreProvider({
 
   const addCycle = useCallback(
     (cycle: Cycle) => {
+      const newAct: ActivityEvent = {
+        id: `act-${Date.now()}`,
+        kind: "internal",
+        verb: "opened",
+        entityType: "cycle",
+        title: `ایجاد سایکل کاری «${cycle.name}»`,
+        createdAt: new Date().toISOString(),
+      };
       const nextState: ProjectStoreState = {
         ...state,
         cycles: [cycle, ...state.cycles],
+        activities: [newAct, ...(state.activities || [])].slice(0, 100),
       };
       saveState(nextState);
     },
@@ -255,9 +320,18 @@ export function ProjectStoreProvider({
 
   const addMilestone = useCallback(
     (milestone: Milestone) => {
+      const newAct: ActivityEvent = {
+        id: `act-${Date.now()}`,
+        kind: "internal",
+        verb: "created",
+        entityType: "milestone",
+        title: `ایجاد مایلستون «${milestone.title}»`,
+        createdAt: new Date().toISOString(),
+      };
       const nextState: ProjectStoreState = {
         ...state,
         milestones: [...state.milestones, milestone],
+        activities: [newAct, ...(state.activities || [])].slice(0, 100),
       };
       saveState(nextState);
     },
@@ -288,9 +362,19 @@ export function ProjectStoreProvider({
 
   const addMember = useCallback(
     (member: Member) => {
+      const newAct: ActivityEvent = {
+        id: `act-${Date.now()}`,
+        kind: "internal",
+        verb: "assigned",
+        entityType: "member",
+        title: `عضویت ${member.displayName} در تیم پروژه`,
+        actor: member,
+        createdAt: new Date().toISOString(),
+      };
       const nextState: ProjectStoreState = {
         ...state,
         members: [...state.members, member],
+        activities: [newAct, ...(state.activities || [])].slice(0, 100),
       };
       saveState(nextState);
     },
@@ -334,6 +418,7 @@ export function ProjectStoreProvider({
     <ProjectStoreContext.Provider
       value={{
         ...computedState,
+        activities: state.activities || [],
         addIssue,
         updateIssue,
         deleteIssue,
@@ -347,6 +432,7 @@ export function ProjectStoreProvider({
         updateMember,
         deleteMember,
         updateProject,
+        addActivity,
       }}
     >
       {children}
@@ -364,6 +450,7 @@ export function useProjectStore() {
       cycles: [],
       milestones: [],
       members: DEFAULT_MEMBERS,
+      activities: [],
       addIssue: () => {},
       updateIssue: () => {},
       deleteIssue: () => {},
@@ -377,6 +464,7 @@ export function useProjectStore() {
       updateMember: () => {},
       deleteMember: () => {},
       updateProject: () => {},
+      addActivity: () => {},
     };
   }
   return context;

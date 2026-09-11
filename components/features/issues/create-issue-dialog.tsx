@@ -21,6 +21,7 @@ import {
   type IssueType,
 } from "@/components/features/types";
 import { useProjectStore } from "@/lib/project-store";
+import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import { faDate } from "@/lib/format";
 
 interface CreateIssueDialogProps {
@@ -258,21 +259,11 @@ export function CreateIssueDialog({
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-[12px] font-medium text-[var(--text-muted)]">
-                  تاریخ سررسید
-                </label>
-                {dueDate && (
-                  <span className="text-[11px] font-medium text-[var(--primary)]">
-                    {faDate(dueDate)}
-                  </span>
-                )}
-              </div>
-              <Input
-                type="date"
+              <JalaliDatePicker
+                label="تاریخ سررسید (شمسی)"
                 value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full bg-[var(--background)]"
+                onChange={setDueDate}
+                placeholder="۱۴۰۵/۰۱/۱۵"
               />
             </div>
           </div>

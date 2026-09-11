@@ -24,6 +24,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import {
   Select,
   SelectContent,
@@ -524,21 +525,11 @@ export default function ProjectsPage() {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-[13px] font-medium text-[var(--text-primary)]">
-                    تاریخ هدف (سررسید پروژه)
-                  </label>
-                  {targetDate && (
-                    <span className="text-[12px] font-medium text-[var(--primary)]">
-                      تقویم شمسی: {faDate(targetDate)}
-                    </span>
-                  )}
-                </div>
-                <Input
-                  type="date"
+                <JalaliDatePicker
+                  label="تاریخ هدف و سررسید پروژه (شمسی)"
                   value={targetDate}
-                  onChange={(e) => setTargetDate(e.target.value)}
-                  className="bg-[var(--background)]"
+                  onChange={setTargetDate}
+                  placeholder="۱۴۰۵/۰۶/۳۱"
                 />
               </div>
 

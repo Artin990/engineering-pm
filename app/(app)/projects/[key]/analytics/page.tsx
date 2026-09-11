@@ -189,7 +189,7 @@ function buildIndividualProfile(member: Member, issues: Issue[]): IndividualProf
         ? "کارآموز مهندسی نرم‌افزار"
         : "مهندس تیم و توسعه‌دهنده",
     type: isIntern ? "intern" : "employee",
-    avatar: member.displayName.trim().charAt(0) || "ک",
+    avatar: member.avatarUrl || member.displayName.trim().charAt(0) || "ک",
     mentorName: isIntern ? "مدیر فنی" : undefined,
     onboardingProgress: isIntern ? 90 : 100,
     learningCurveScore: isIntern ? 85 : 95,
