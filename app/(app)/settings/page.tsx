@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   User,
   Shield,
@@ -14,6 +15,13 @@ import {
   Mail,
   Briefcase,
   Sparkles,
+  Building2,
+  LogOut,
+  Copy,
+  Check,
+  Users,
+  ArrowRightLeft,
+  Loader2,
 } from "lucide-react";
 import { GithubIcon } from "@/components/ui/github-icon";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +31,12 @@ import { Badge } from "@/components/ui/badge";
 import { useUserRole } from "@/lib/role-context";
 import { createClient } from "@/lib/supabase/client";
 import { deleteUserAccountAction } from "@/app/actions/auth";
+import {
+  getOrganizationInfo,
+  joinOrganizationByCode,
+  leaveCurrentOrgAction,
+  type OrgInfoResult,
+} from "@/app/actions/organization";
 
 export default function UserSettingsPage() {
   const { profile, isAdmin, updateProfile, logout } = useUserRole();
@@ -48,11 +62,28 @@ export default function UserSettingsPage() {
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [passwordError, setPasswordError] = useState("");
 
+  // Organization & Subordinate State
+  const [orgInfo, setOrgInfo] = useState<OrgInfoResult | null>(null);
+  const [newOrgCode, setNewOrgCode] = useState("");
+  const [isJoiningOrg, setIsJoiningOrg] = useState(false);
+  const [isLeavingOrg, setIsLeavingOrg] = useState(false);
+  const [orgMessage, setOrgMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [copiedOrgCode, setCopiedOrgCode] = useState(false);
+
   // Self Account Deletion State
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+
+  const fetchOrg = async () => {
+    try {
+      const res = await getOrganizationInfo();
+      if (res.ok) setOrgInfo(res);
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     setName(profile.name || "");
@@ -61,6 +92,7 @@ export default function UserSettingsPage() {
     if (profile.avatar && profile.avatar.startsWith("http")) {
       setAvatarUrl(profile.avatar);
     }
+    fetchOrg();
   }, [profile]);
 
   // Sync GitHub Avatar shortcut
@@ -78,11 +110,17 @@ export default function UserSettingsPage() {
     setProfileSuccess(false);
 
     try {
-      const finalAvatar = avatarUrl.trim() || (github.trim() ? `https://github.com/${github.trim().replace(/^@/, "")}.png` : name.charAt(0) || "ک");
-      
+      const finalAvatar =
+        avatarUrl.trim() ||
+        (github.trim()
+          ? `https://github.com/${github.trim().replace(/^@/, "")}.png`
+          : name.charAt(0) || "ک");
+
       const res = await updateProfile({
         name: name.trim() || "کاربر RadarCheck",
-        roleTitle: roleTitle.trim() || (isAdmin ? "مدیرعامل و ادمین ارشد" : "توسعه‌دهنده / کاربر عادی"),
+        roleTitle:
+          roleTitle.trim() ||
+          (isAdmin ? "مدیرعامل و ادمین ارشد" : "توسعه‌دهنده / کاربر عادی"),
         github: github.trim().replace(/^@/, "") || undefined,
         avatar: finalAvatar,
       });
@@ -94,7 +132,9 @@ export default function UserSettingsPage() {
         setProfileError(res.error || "خطا در ذخیره‌سازی اطلاعات");
       }
     } catch (err: unknown) {
-      setProfileError(err instanceof Error ? err.message : "خطای سیستمی در ذخیره اطلاعات");
+      setProfileError(
+        err instanceof Error ? err.message : "خطای سیستمی در ذخیره اطلاعات"
+      );
     } finally {
       setProfileSaving(false);
     }
@@ -130,13 +170,87 @@ export default function UserSettingsPage() {
         setTimeout(() => setPasswordSuccess(false), 4000);
       }
     } catch (err: unknown) {
-      setPasswordError(err instanceof Error ? err.message : "خطای ارتباط با سرور");
+      setPasswordError(
+        err instanceof Error ? err.message : "خطای ارتباط با سرور"
+      );
     } finally {
       setPasswordSaving(false);
     }
   };
 
-  const effectiveAvatar = avatarUrl.trim() || (github.trim() ? `https://github.com/${github.trim().replace(/^@/, "")}.png` : null);
+  const handleJoinOrganization = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newOrgCode.trim()) return;
+
+    setIsJoiningOrg(true);
+    setOrgMessage(null);
+
+    try {
+      const res = await joinOrganizationByCode(newOrgCode.trim());
+      if (res.ok) {
+        setOrgMessage({
+          type: "success",
+          text: `با موفقیت به سازمان «${res.workspaceName || "جدید"}» (مدیرعامل: ${res.ownerName || "مدیر ارشد"}) پیوستید.`,
+        });
+        setNewOrgCode("");
+        await fetchOrg();
+      } else {
+        setOrgMessage({
+          type: "error",
+          text: res.error || "کد زیرمجموعه‌گیری نامعتبر است.",
+        });
+      }
+    } catch {
+      setOrgMessage({
+        type: "error",
+        text: "خطایی در برقراری ارتباط رخ داد. لطفاً مجدداً تلاش کنید.",
+      });
+    } finally {
+      setIsJoiningOrg(false);
+    }
+  };
+
+  const handleLeaveOrganization = async () => {
+    if (
+      !confirm(
+        "آیا از خروج از این سازمان اطمینان دارید؟ با خروج، پروژه‌ها و گفتگوهای این مجموعه از دسترس شما خارج می‌شود."
+      )
+    ) {
+      return;
+    }
+
+    setIsLeavingOrg(true);
+    setOrgMessage(null);
+
+    try {
+      const res = await leaveCurrentOrgAction();
+      if (res.ok) {
+        setOrgMessage({
+          type: "success",
+          text: "با موفقیت از مجموعه خارج شدید. اکنون می‌توانید با کد جدید به سازمان دیگری بپیوندید.",
+        });
+        await fetchOrg();
+      } else {
+        setOrgMessage({
+          type: "error",
+          text: res.error || "خطا در خروج از سازمان",
+        });
+      }
+    } catch {
+      setOrgMessage({
+        type: "error",
+        text: "خطای سیستمی در پردازش درخواست خروج.",
+      });
+    } finally {
+      setIsLeavingOrg(false);
+    }
+  };
+
+  const effectiveAvatar =
+    avatarUrl.trim() ||
+    (github.trim()
+      ? `https://github.com/${github.trim().replace(/^@/, "")}.png`
+      : null);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-16">
@@ -149,78 +263,42 @@ export default function UserSettingsPage() {
             </h1>
             <Badge
               variant={isAdmin ? "default" : "secondary"}
-              className={isAdmin ? "bg-amber-500/10 text-amber-500 border-amber-500/30" : ""}
+              className="gap-1 text-xs"
             >
-              {isAdmin ? "مدیر کل" : "کاربر عادی"}
+              <Shield className="size-3" />
+              {isAdmin ? "مدیرعامل (Admin)" : "کاربر عادی (Member)"}
             </Badge>
           </div>
           <p className="text-sm text-[var(--text-muted)] mt-1">
-            اطلاعات فردی، هویت گیت‌هاب، رمز عبور و تنظیمات اختصاصی حساب خود را در این بخش مدیریت کنید.
+            مدیریت مشخصات شخصی، وضعیت سازمان و رمز عبور
           </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={logout}
+            className="gap-1.5 text-xs text-[var(--text-muted)] hover:text-red-500 hover:border-red-500/30"
+          >
+            خروج از حساب کاربری
+          </Button>
         </div>
       </div>
 
-      {/* Profile Overview Banner */}
-      <Card className="border-[var(--border)] bg-gradient-to-r from-[var(--surface-raised)] to-[var(--surface)]">
-        <CardContent className="p-6">
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-start">
-            <div className="relative group">
-              <span className="flex size-20 shrink-0 items-center justify-center rounded-full text-white text-2xl font-bold overflow-hidden border-2 border-[var(--primary)] bg-[var(--primary)] shadow-md">
-                {effectiveAvatar ? (
-                  <img src={effectiveAvatar} alt={profile.name} className="size-full object-cover" />
-                ) : (
-                  profile.name?.charAt(0) || "ک"
-                )}
-              </span>
-            </div>
-            <div className="flex-1 min-w-0 space-y-1">
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                <h2 className="text-xl font-bold text-[var(--text-primary)]">{profile.name}</h2>
-                {isAdmin ? (
-                  <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 font-medium border border-amber-500/20">
-                    <Shield size={12} /> مدیر ارشد
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 font-medium border border-blue-500/20">
-                    <User size={12} /> کاربر عادی
-                  </span>
-                )}
-              </div>
-              <p className="text-sm text-[var(--text-secondary)]">{profile.roleTitle}</p>
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs text-[var(--text-muted)] pt-1">
-                <span className="flex items-center gap-1">
-                  <Mail size={13} /> {profile.email}
-                </span>
-                {profile.github && (
-                  <a
-                    href={`https://github.com/${profile.github}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-[var(--primary)] hover:underline"
-                  >
-                    <GithubIcon size={13} /> github.com/{profile.github}
-                    <ExternalLink size={11} />
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Edit Profile Form */}
+      {/* Profile Information */}
       <Card className="border-[var(--border)]">
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <User className="size-4 text-[var(--primary)]" />
-            ویرایش اطلاعات فردی و شغلی
+            مشخصات فردی و پروفایل عمومی
           </CardTitle>
           <CardDescription>
-            نام و عنوان شغلی شما در تمام پروژه‌ها، ایشوها و گزارش‌های سازمانی نمایش داده خواهد شد.
+            این اطلاعات در بورد پروژه‌ها، لیست اعضا و بخش نظرات برای همکاران نمایش داده می‌شود.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSaveProfile} className="space-y-4">
+          <form onSubmit={handleSaveProfile} className="space-y-6">
             {profileError && (
               <div className="p-3 rounded-md bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
                 <AlertCircle className="size-4 shrink-0" />
@@ -230,36 +308,42 @@ export default function UserSettingsPage() {
             {profileSuccess && (
               <div className="p-3 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2">
                 <CheckCircle2 className="size-4 shrink-0" />
-                اطلاعات پروفایل شما با موفقیت بروزرسانی شد.
+                اطلاعات حساب کاربری شما با موفقیت ذخیره و همگام گردید.
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[var(--text-primary)]">
-                  نام و نام خانوادگی <span className="text-red-500">*</span>
-                </label>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="مثال: آرتین امیری"
-                  required
-                  className="bg-[var(--surface-raised)]"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-[var(--text-primary)]">
-                  عنوان شغلی / تخصصی
-                </label>
-                <div className="relative">
-                  <Input
-                    value={roleTitle}
-                    onChange={(e) => setRoleTitle(e.target.value)}
-                    placeholder="مثال: Senior Frontend Developer"
-                    className="bg-[var(--surface-raised)] pr-8"
+            {/* Avatar & Display Preview */}
+            <div className="flex items-center gap-4 p-4 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)]">
+              <div className="relative size-16 shrink-0 rounded-full overflow-hidden bg-[var(--primary)]/10 border-2 border-[var(--border)] flex items-center justify-center text-xl font-bold text-[var(--primary)]">
+                {effectiveAvatar ? (
+                  <img
+                    src={effectiveAvatar}
+                    alt={name}
+                    className="size-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = "none";
+                    }}
                   />
-                  <Briefcase className="size-3.5 absolute right-2.5 top-3 text-[var(--text-muted)]" />
+                ) : (
+                  name.charAt(0) || "ک"
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold text-sm text-[var(--text-primary)] truncate">
+                  {name || "کاربر RadarCheck"}
+                </h3>
+                <p className="text-xs text-[var(--text-muted)] font-mono truncate">
+                  {profile.email}
+                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="outline" className="text-[10px] py-0 px-2">
+                    {roleTitle || "توسعه‌دهنده"}
+                  </Badge>
+                  {github && (
+                    <span className="text-[11px] text-[var(--text-muted)] flex items-center gap-1 font-mono">
+                      <GithubIcon size={12} /> @{github}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -267,36 +351,62 @@ export default function UserSettingsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-[var(--text-primary)]">
-                  آدرس ایمیل (غیرقابل تغییر مستقیم)
+                  نام و نام خانوادگی
                 </label>
                 <Input
-                  value={profile.email}
-                  disabled
-                  className="bg-[var(--surface)] text-[var(--text-muted)] cursor-not-allowed opacity-80"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="مثال: علی رضایی"
+                  className="bg-[var(--surface-raised)]"
+                  required
                 />
               </div>
 
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-[var(--text-primary)]">
-                    نام کاربری GitHub
-                  </label>
+                <label className="text-xs font-medium text-[var(--text-primary)]">
+                  عنوان شغلی / تخصصی
+                </label>
+                <Input
+                  value={roleTitle}
+                  onChange={(e) => setRoleTitle(e.target.value)}
+                  placeholder="مثال: Senior Frontend Engineer"
+                  className="bg-[var(--surface-raised)]"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-[var(--text-primary)] flex items-center justify-between">
+                  <span>ایمیل حساب (غیرقابل تغییر)</span>
+                  <Mail className="size-3.5 text-[var(--text-muted)]" />
+                </label>
+                <Input
+                  value={profile.email}
+                  disabled
+                  className="bg-[var(--surface-raised)] opacity-70 cursor-not-allowed font-mono text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-[var(--text-primary)] flex items-center justify-between">
+                  <span>نام کاربری GitHub</span>
                   {github && (
                     <button
                       type="button"
                       onClick={handleFetchGithubAvatar}
-                      className="text-[11px] text-[var(--primary)] hover:underline flex items-center gap-1 cursor-pointer"
+                      className="text-[10px] text-[var(--primary)] hover:underline cursor-pointer"
                     >
-                      <Sparkles size={11} /> دریافت آواتار از گیت‌هاب
+                      دریافت خودکار آواتار
                     </button>
                   )}
-                </div>
+                </label>
                 <div className="relative">
                   <Input
                     value={github}
                     onChange={(e) => setGithub(e.target.value)}
-                    placeholder="مثال: Artin990"
-                    className="bg-[var(--surface-raised)] pr-8 font-mono text-xs"
+                    placeholder="reza-dev"
+                    className="bg-[var(--surface-raised)] font-mono text-xs pr-8"
                   />
                   <GithubIcon className="size-3.5 absolute right-2.5 top-3 text-[var(--text-muted)]" />
                 </div>
@@ -330,6 +440,162 @@ export default function UserSettingsPage() {
               </Button>
             </div>
           </form>
+        </CardContent>
+      </Card>
+
+      {/* Organization & Referral Code Section */}
+      <Card className="border-[var(--border)]">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Building2 className="size-4 text-[var(--primary)]" />
+            سازمان و زیرمجموعه
+          </CardTitle>
+          <CardDescription>
+            {isAdmin
+              ? "اطلاعات سازمان و کد زیرمجموعه‌گیری مدیرعامل جهت عضویت پرسنل تیم"
+              : "مدیریت عضویت در مجموعه، خروج از سازمان یا انتقال به سازمان جدید"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {orgMessage && (
+            <div
+              className={`p-3 rounded-md text-xs flex items-center gap-2 ${
+                orgMessage.type === "success"
+                  ? "bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+                  : "bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400"
+              }`}
+            >
+              {orgMessage.type === "success" ? (
+                <CheckCircle2 className="size-4 shrink-0" />
+              ) : (
+                <AlertCircle className="size-4 shrink-0" />
+              )}
+              {orgMessage.text}
+            </div>
+          )}
+
+          {isAdmin ? (
+            /* CEO View */
+            <div className="rounded-xl bg-gradient-to-r from-[var(--primary)]/10 to-[var(--surface-raised)] p-5 border border-[var(--primary)]/20 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="text-xs text-[var(--text-muted)] font-medium">
+                    کد زیرمجموعه‌گیری اختصاصی شما (جهت ارائه به پرسنل):
+                  </div>
+                  <div className="text-2xl font-mono font-bold text-[var(--primary)] tracking-wider mt-1">
+                    {orgInfo?.inviteCode || "RADAR-185"}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(orgInfo?.inviteCode || "RADAR-185");
+                      setCopiedOrgCode(true);
+                      setTimeout(() => setCopiedOrgCode(false), 2000);
+                    }}
+                    className="gap-1.5 text-xs bg-[var(--background)]"
+                  >
+                    {copiedOrgCode ? (
+                      <Check className="size-3.5 text-emerald-500" />
+                    ) : (
+                      <Copy className="size-3.5" />
+                    )}
+                    {copiedOrgCode ? "کپی شد" : "کپی کد"}
+                  </Button>
+                  <Button asChild size="sm" className="gap-1.5 text-xs">
+                    <Link href="/members">
+                      <Users className="size-3.5" />
+                      مشاهده اعضای زیرمجموعه
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                پرسنل با وارد کردن این کد در هنگام ثبت‌نام، به طور مستقیم به این سازمان ملحق می‌شوند و پروژه‌ها، چت روم و تسک‌های مربوطه برای آن‌ها نمایش داده خواهد شد.
+              </p>
+            </div>
+          ) : (
+            /* Regular Member View */
+            <div className="space-y-5">
+              {/* Current Organization Details */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-[var(--surface-raised)] border border-[var(--border)]">
+                <div className="space-y-1">
+                  <div className="text-xs text-[var(--text-muted)]">مجموعه فعال شما:</div>
+                  <div className="text-base font-bold text-[var(--text-primary)]">
+                    {orgInfo?.workspaceName || "سازمان مهندسی RadarCheck"}
+                  </div>
+                  <div className="text-xs text-[var(--text-secondary)]">
+                    مدیرعامل / رهبر سازمان:{" "}
+                    <span className="font-semibold text-[var(--text-primary)]">
+                      {orgInfo?.ownerName || "مدیر ارشد"}
+                    </span>{" "}
+                    {orgInfo?.ownerEmail && (
+                      <span className="text-[var(--text-muted)] font-mono">
+                        ({orgInfo.ownerEmail})
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLeaveOrganization}
+                  disabled={isLeavingOrg}
+                  className="shrink-0 gap-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:border-red-500/30"
+                >
+                  {isLeavingOrg ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <LogOut className="size-3.5" />
+                  )}
+                  خروج از این مجموعه
+                </Button>
+              </div>
+
+              {/* Join New Organization */}
+              <form
+                onSubmit={handleJoinOrganization}
+                className="p-4 rounded-xl border border-dashed border-[var(--border)] space-y-3"
+              >
+                <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]">
+                  <ArrowRightLeft className="size-4 text-[var(--primary)]" />
+                  پیوستن به مجموعه یا سازمان جدید
+                </div>
+                <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                  اگر کد زیرمجموعه‌گیری جدیدی از کارفرما یا مدیرعامل دریافت کرده‌اید، آن را وارد کرده و تأیید نمایید:
+                </p>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                  <div className="relative flex-1">
+                    <Building2 className="absolute end-3 top-1/2 -translate-y-1/2 size-4 text-[var(--text-muted)] pointer-events-none" />
+                    <Input
+                      dir="ltr"
+                      value={newOrgCode}
+                      onChange={(e) => setNewOrgCode(e.target.value.toUpperCase())}
+                      placeholder="مثال: RADAR-185"
+                      className="pe-9 font-mono uppercase bg-[var(--surface-raised)]"
+                    />
+                  </div>
+                  <Button
+                    type="submit"
+                    disabled={isJoiningOrg || !newOrgCode.trim()}
+                    className="shrink-0 gap-1.5 text-xs"
+                  >
+                    {isJoiningOrg ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="size-3.5" />
+                    )}
+                    اعمال و پیوستن به سازمان
+                  </Button>
+                </div>
+              </form>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -521,7 +787,10 @@ export default function UserSettingsPage() {
                       setIsDeletingAccount(false);
                     }
                   } catch (err: unknown) {
-                    const message = err instanceof Error ? err.message : "خطای سیستمی در حذف اکانت";
+                    const message =
+                      err instanceof Error
+                        ? err.message
+                        : "خطای سیستمی در حذف اکانت";
                     setDeleteError(message);
                     setIsDeletingAccount(false);
                   }

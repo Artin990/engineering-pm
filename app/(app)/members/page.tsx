@@ -16,14 +16,14 @@ import {
   CheckCircle2,
   Building2,
   Edit2,
+  Copy,
+  Sparkles,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -44,6 +44,11 @@ import { useUserRole } from "@/lib/role-context";
 import { type Member } from "@/components/features/types";
 import { faNumber } from "@/lib/format";
 import { deleteUserAccountAction } from "@/app/actions/auth";
+import {
+  getOrganizationInfo,
+  removeOrgMemberAction,
+  type OrgInfoResult,
+} from "@/app/actions/organization";
 
 const INITIAL_ORG_MEMBERS: Member[] = [];
 
@@ -54,6 +59,7 @@ export default function OrganizationMembersPage() {
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
+  const [orgInfo, setOrgInfo] = useState<OrgInfoResult | null>(null);
 
   // Form State
   const [name, setName] = useState("");
@@ -62,11 +68,15 @@ export default function OrganizationMembersPage() {
   const [role, setRole] = useState<"admin" | "member" | "intern">("member");
   const [successMsg, setSuccessMsg] = useState("");
 
-  // Invite Link
+  // Invite Copy States
   const [copiedLink, setCopiedLink] = useState(false);
-  const inviteLink = typeof window !== "undefined"
-    ? `${window.location.origin}/register?org=flowdeck`
-    : `https://flowdeck.dev/register?org=flowdeck`;
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  const activeInviteCode = orgInfo?.inviteCode || "RADAR-185";
+  const inviteLink =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/register?code=${activeInviteCode}`
+      : `https://radarcheck.dev/register?code=${activeInviteCode}`;
 
   // Load from API & localStorage
   const fetchMembers = async () => {
@@ -84,40 +94,66 @@ export default function OrganizationMembersPage() {
       // ignore
     }
 
+    // 1. Fetch organization details (Invite code, CEO info)
+    try {
+      const info = await getOrganizationInfo();
+      if (info.ok) {
+        setOrgInfo(info);
+      }
+    } catch {
+      // ignore
+    }
+
+    // 2. Fetch members of the organization
     try {
       const res = await fetch("/api/v1/members");
       if (res.ok) {
         const json = await res.json();
         if (Array.isArray(json.data) && json.data.length > 0) {
-          const apiMembers: Member[] = json.data.map((p: {
-            id: string;
-            displayName: string;
-            email: string | null;
-            avatarUrl: string | null;
-            githubLogin: string | null;
-            createdAt?: string;
-          }) => {
-            const isAdminEmail =
-              p.email &&
-              ["amiriartin185@gmil.com", "amiriartin185@gmail.com", "artinamiri185@gmail.com"].includes(
-                p.email.toLowerCase()
-              );
-            return {
-              id: p.id,
-              displayName: p.displayName || p.email?.split("@")[0] || "کاربر جدید",
-              email: p.email || "",
-              avatarUrl: p.avatarUrl || null,
-              githubLogin: p.githubLogin || null,
-              role: isAdminEmail ? "admin" : "member",
-              status: "active",
-              joinedAt: p.createdAt ? new Date(p.createdAt).toLocaleDateString("fa-IR") : "به‌تازگی",
-            };
-          });
+          const apiMembers: Member[] = json.data.map(
+            (p: {
+              id: string;
+              displayName: string;
+              email: string | null;
+              avatarUrl: string | null;
+              githubLogin: string | null;
+              createdAt?: string;
+              role?: string;
+            }) => {
+              const isAdminEmail =
+                p.email &&
+                [
+                  "amiriartin185@gmil.com",
+                  "amiriartin185@gmail.com",
+                  "artinamiri185@gmail.com",
+                ].includes(p.email.toLowerCase());
+              return {
+                id: p.id,
+                displayName: p.displayName || p.email?.split("@")[0] || "کاربر جدید",
+                email: p.email || "",
+                avatarUrl: p.avatarUrl || null,
+                githubLogin: p.githubLogin || null,
+                role: isAdminEmail ? "admin" : (p.role as "admin" | "member" | "intern") || "member",
+                status: "active",
+                joinedAt: p.createdAt
+                  ? new Date(p.createdAt).toLocaleDateString("fa-IR")
+                  : "به‌تازگی",
+              };
+            }
+          );
 
           // Merge without duplicate emails/ids
           const merged = [...apiMembers];
           for (const lm of localList) {
-            if (!merged.some((m) => (m.email && lm.email && m.email.toLowerCase() === lm.email.toLowerCase()) || m.id === lm.id)) {
+            if (
+              !merged.some(
+                (m) =>
+                  (m.email &&
+                    lm.email &&
+                    m.email.toLowerCase() === lm.email.toLowerCase()) ||
+                  m.id === lm.id
+              )
+            ) {
               merged.push(lm);
             }
           }
@@ -146,6 +182,12 @@ export default function OrganizationMembersPage() {
     } catch {
       // ignore
     }
+  };
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(activeInviteCode);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
   };
 
   const handleCopyInvite = () => {
@@ -244,10 +286,13 @@ export default function OrganizationMembersPage() {
   };
 
   const handleDelete = async (id: string) => {
-    // دیلیت سریع توسط ادمین
+    // حذف سریع از سازمان و دیتابیس توسط ادمین
     const updated = members.filter((m) => m.id !== id);
     saveMembers(updated);
+
     try {
+      await removeOrgMemberAction(id);
+      await fetch(`/api/v1/members?id=${id}`, { method: "DELETE" });
       await deleteUserAccountAction(id);
     } catch (err) {
       console.warn("[Members] user delete notice:", err);
@@ -303,49 +348,84 @@ export default function OrganizationMembersPage() {
               <Building2 className="w-5 h-5" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              دایرکتوری اعضای سازمان
+              اعضای کل سازمان و زیرمجموعه
             </h1>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
-            بانک جامع اعضای فنی، مدیران و کارآموزان — اعضا را یکبار اضافه کنید و در تمامی پروژه‌ها استفاده نمایید
+            مدیریت متمرکز پرسنل، رهگیر کد زیرمجموعه‌گیری و اعطای دسترسی به پروژه‌ها
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          {isAdmin ? (
-            <>
-              <Button
-                variant="outline"
-                onClick={handleCopyInvite}
-                className="gap-2 text-xs border-border bg-card shadow-xs"
-              >
-                {copiedLink ? (
-                  <Check className="w-3.5 h-3.5 text-emerald-500" />
-                ) : (
-                  <LinkIcon className="w-3.5 h-3.5" />
-                )}
-                {copiedLink ? "لینک کپی شد!" : "کپی لینک دعوت به سازمان"}
-              </Button>
-              <Button onClick={handleOpenAdd} className="gap-1.5 shadow-sm">
-                <UserPlus className="w-4 h-4" />
-                افزودن عضو جدید
-              </Button>
-            </>
-          ) : (
-            <Badge variant="outline" className="gap-1 text-xs py-1.5 px-3 border-blue-500/30 text-blue-600 dark:text-blue-400">
-              <Shield className="w-3.5 h-3.5" />
-              دسترسی مشاهده دایرکتوری
-            </Badge>
-          )}
+          <Button onClick={handleOpenAdd} className="gap-1.5 shadow-sm">
+            <UserPlus className="w-4 h-4" />
+            افزودن عضو دستی
+          </Button>
         </div>
       </div>
 
-      {!isAdmin && (
-        <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3.5 text-xs sm:text-sm text-blue-600 dark:text-blue-400 flex items-center justify-between">
-          <span>شما به عنوان کاربر عادی در حال مشاهده لیست اعضای سازمان هستید. تغییر نقش‌ها و حذف اعضا صرفاً توسط مدیر ارشد امکان‌پذیر است.</span>
-          <Badge variant="outline" className="text-xs border-blue-500/30">فقط خواندنی</Badge>
+      {/* CEO Referral Code & Invite Banner */}
+      <div className="rounded-2xl border border-[var(--primary)]/30 bg-gradient-to-r from-[var(--primary)]/10 via-[var(--surface-raised)] to-[var(--surface)] p-5 sm:p-6 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <div className="space-y-2 max-w-2xl">
+            <div className="flex items-center gap-2">
+              <Badge className="bg-[var(--primary)] text-white text-xs px-2.5 py-0.5 font-medium flex items-center gap-1">
+                <Sparkles className="size-3" />
+                کد زیرمجموعه‌گیری اختصاصی مدیرعامل
+              </Badge>
+              <span className="text-xs text-[var(--text-muted)] font-mono">
+                {orgInfo?.workspaceName || "سازمان مهندسی RadarCheck"}
+              </span>
+            </div>
+            <h2 className="text-lg font-bold text-[var(--text-primary)]">
+              پرسنل را با کد زیرمجموعه‌گیری به سازمان متصل کنید
+            </h2>
+            <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
+              این کد یا لینک اختصاصی را در اختیار اعضای تیم خود قرار دهید. با وارد کردن این کد در مرحله ثبت‌نام، کاربر به صورت خودکار زیرمجموعه شما شده و در این لیست قرار می‌گیرد و به پروژه‌ها، چت و تسک‌های مشترک دسترسی خواهد داشت.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
+            {/* Code Box */}
+            <div className="flex items-center justify-between gap-3 bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 shadow-xs">
+              <div className="text-start">
+                <span className="block text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-semibold">
+                  کد سازمان
+                </span>
+                <span className="text-base sm:text-lg font-mono font-bold text-[var(--primary)] tracking-wider">
+                  {activeInviteCode}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleCopyCode}
+                className="h-8 gap-1.5 text-xs border-[var(--border)] bg-[var(--background)]"
+              >
+                {copiedCode ? (
+                  <Check className="size-3.5 text-emerald-500" />
+                ) : (
+                  <Copy className="size-3.5" />
+                )}
+                {copiedCode ? "کپی شد" : "کپی کد"}
+              </Button>
+            </div>
+
+            {/* Link Button */}
+            <Button
+              onClick={handleCopyInvite}
+              className="gap-2 text-xs sm:text-sm h-11 px-4 shadow-sm"
+            >
+              {copiedLink ? (
+                <Check className="size-4 text-white" />
+              ) : (
+                <LinkIcon className="size-4" />
+              )}
+              {copiedLink ? "لینک ثبت‌نام کپی شد!" : "کپی لینک ثبت‌نام مستقیم"}
+            </Button>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Role Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -440,14 +520,18 @@ export default function OrganizationMembersPage() {
                 <th className="py-3.5 px-4 text-start">حساب GitHub</th>
                 <th className="py-3.5 px-4 text-start">سطح دسترسی و نقش</th>
                 <th className="py-3.5 px-4 text-start">تاریخ عضویت</th>
-                {isAdmin && <th className="py-3.5 px-4 text-center">عملیات</th>}
+                {isAdmin && <th className="py-3.5 px-4 text-center">عملیات مدیریت</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-border/60">
               {filteredMembers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-muted-foreground">
-                    عضوی با این مشخصات یافت نشد.
+                    <Users className="size-10 mx-auto text-[var(--text-muted)] mb-2 opacity-50" />
+                    <p className="font-semibold text-sm">عضوی با این مشخصات یافت نشد.</p>
+                    <p className="text-xs text-[var(--text-muted)] mt-1">
+                      کد زیرمجموعه‌گیری <code className="font-mono font-bold text-[var(--primary)]">{activeInviteCode}</code> را به پرسنل جدید بدهید تا ثبت‌نام نمایند.
+                    </p>
                   </td>
                 </tr>
               ) : (
@@ -529,7 +613,7 @@ export default function OrganizationMembersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="text-xs">
-                            <DropdownMenuLabel>عملیات</DropdownMenuLabel>
+                            <DropdownMenuLabel>عملیات پرسنلی</DropdownMenuLabel>
                             <DropdownMenuItem onClick={() => handleOpenEdit(m)}>
                               <Edit2 className="w-3.5 h-3.5 ms-1" />
                               ویرایش مشخصات
@@ -540,7 +624,7 @@ export default function OrganizationMembersPage() {
                               className="text-destructive focus:text-destructive"
                             >
                               <Trash2 className="w-3.5 h-3.5 ms-1" />
-                              حذف از سازمان
+                              حذف و اخراج از سازمان
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

@@ -121,6 +121,7 @@ export const workspaces = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     name: varchar("name", { length: 255 }).notNull(),
     slug: varchar("slug", { length: 100 }).notNull(),
+    inviteCode: varchar("invite_code", { length: 32 }),
     logoUrl: text("logo_url"),
     ownerId: uuid("owner_id").references(() => profiles.id),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -130,7 +131,10 @@ export const workspaces = pgTable(
       .$onUpdateFn(() => sql`now()`),
     deletedAt: timestamp("deleted_at", { withTimezone: true }), // soft delete
   },
-  (t) => [uniqueIndex("workspaces_slug_idx").on(t.slug)]
+  (t) => [
+    uniqueIndex("workspaces_slug_idx").on(t.slug),
+    uniqueIndex("workspaces_invite_code_idx").on(t.inviteCode),
+  ]
 );
 
 export const workspaceMembers = pgTable(

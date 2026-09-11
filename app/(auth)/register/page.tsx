@@ -1,10 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
-import { Eye, EyeOff, User, Mail, Lock, AlertCircle, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  User,
+  Mail,
+  Lock,
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  ShieldCheck,
+  Building2,
+  Sparkles,
+} from "lucide-react";
 import { GithubIcon } from "@/components/ui/github-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,8 +25,9 @@ import { createClient } from "@/lib/supabase/client";
 import { useUserRole } from "@/lib/role-context";
 import { syncUserProfile } from "@/app/actions/auth";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
   const { setUserSession } = useUserRole();
 
@@ -22,6 +35,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
@@ -29,11 +43,19 @@ export default function RegisterPage() {
   const [registeredEmail, setRegisteredEmail] = useState("");
   const [isEmailConfirmationPending, setIsEmailConfirmationPending] = useState(false);
 
+  useEffect(() => {
+    const codeParam = searchParams.get("code") || searchParams.get("invite") || searchParams.get("ref");
+    if (codeParam) {
+      setInviteCode(codeParam.toUpperCase());
+    }
+  }, [searchParams]);
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const trimmedName = name.trim();
     const trimmedEmail = email.trim();
+    const trimmedCode = inviteCode.trim().toUpperCase();
 
     if (!trimmedName || !trimmedEmail || !password) {
       setError("لطفاً تمامی فیلدهای الزامی را تکمیل نمایید.");
@@ -78,6 +100,7 @@ export default function RegisterPage() {
             name: trimmedName,
             full_name: trimmedName,
             display_name: trimmedName,
+            invite_code: trimmedCode || undefined,
           },
         },
       });
@@ -101,20 +124,20 @@ export default function RegisterPage() {
       }
 
       if (data?.user) {
-        // همگام‌سازی کاربر و ساخت ورک‌اسپیس اولیه در دیتابیس
+        // همگام‌سازی کاربر و اتصال به سازمان مدیرعامل
         await syncUserProfile({
           id: data.user.id,
           email: trimmedEmail,
           name: trimmedName,
+          inviteCode: trimmedCode || null,
         });
 
-        // اگر سشن بلافاصله فعال است (بدون نیاز به تأیید ایمیل)
+        // اگر سشن بلافاصله فعال است
         if (data.session) {
           setUserSession({
             id: data.user.id,
             name: trimmedName,
             email: trimmedEmail,
-            role: "admin",
           });
           router.push("/projects");
           router.refresh();
@@ -161,13 +184,13 @@ export default function RegisterPage() {
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-[440px] rounded-[16px] border border-[var(--border)] bg-[var(--surface)] p-[32px] shadow-xl">
+      <div className="w-full max-w-[460px] rounded-[16px] border border-[var(--border)] bg-[var(--surface)] p-[32px] shadow-xl">
         {/* Logo & Header */}
         <div className="flex flex-col items-center text-center mb-6">
           <div className="relative h-12 w-48 mb-2">
             <Image
               src="/Flow-Deck-Logo.png"
-              alt="FlowDeck"
+              alt="RadarCheck"
               fill
               sizes="200px"
               className="object-contain dark:hidden"
@@ -175,7 +198,7 @@ export default function RegisterPage() {
             />
             <Image
               src="/Flow-Deck-Logo-for-dark-mode.png"
-              alt="FlowDeck"
+              alt="RadarCheck"
               fill
               sizes="200px"
               className="object-contain hidden dark:block"
@@ -186,7 +209,7 @@ export default function RegisterPage() {
             ایجاد حساب کاربری
           </h1>
           <p className="mt-1 text-[13px] text-[var(--text-muted)]">
-            پلتفرم یکپارچه مدیریت پروژه‌های مهندسی
+            پلتفرم یکپارچه مدیریت مهندسی و پروژه
           </p>
         </div>
 
@@ -283,6 +306,27 @@ export default function RegisterPage() {
               </div>
 
               <div>
+                <label htmlFor="reg-code" className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
+                  کد زیرمجموعه‌گیری مدیرعامل (اختیاری)
+                </label>
+                <div className="relative">
+                  <Building2 className="absolute end-3 top-1/2 -translate-y-1/2 size-4 text-[var(--text-muted)] pointer-events-none" />
+                  <Input
+                    id="reg-code"
+                    name="inviteCode"
+                    dir="ltr"
+                    value={inviteCode}
+                    onChange={(e) => { setInviteCode(e.target.value.toUpperCase()); if (error) setError(""); }}
+                    placeholder="مثال: RADAR-185"
+                    className="pe-9 text-start font-mono uppercase bg-[var(--background)]"
+                  />
+                </div>
+                <p className="text-[11px] text-[var(--text-muted)] mt-1">
+                  در صورت دریافت کد از مدیرعامل، اینجا وارد نمایید تا مستقیماً به پروژه‌ها متصل شوید.
+                </p>
+              </div>
+
+              <div>
                 <label htmlFor="reg-password" className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
                   کلمه عبور (حداقل ۶ کاراکتر)
                 </label>
@@ -359,5 +403,13 @@ export default function RegisterPage() {
         )}
       </div>
     </main>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center"><Loader2 className="size-8 animate-spin text-[var(--primary)]" /></div>}>
+      <RegisterForm />
+    </Suspense>
   );
 }
