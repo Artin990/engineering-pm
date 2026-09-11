@@ -77,13 +77,20 @@ export function Sidebar() {
           title="FlowDeck — سامانه مدیریت مهندسی"
         >
           {collapsed ? (
-            <div className="relative size-9 shrink-0 overflow-hidden rounded-[8px] bg-white p-1 shadow-xs border border-[var(--border)]">
+            <div className="relative size-9 shrink-0 overflow-hidden rounded-[8px] bg-transparent p-1 shadow-xs border border-[var(--border)]">
               <Image
                 src="/Flow-Deck-Logo.png"
                 alt="FlowDeck"
                 fill
                 sizes="36px"
-                className="object-contain object-left"
+                className="object-contain object-left dark:hidden"
+              />
+              <Image
+                src="/Flow-Deck-Logo-for-dark-mode.png"
+                alt="FlowDeck"
+                fill
+                sizes="36px"
+                className="object-contain object-left hidden dark:block"
               />
             </div>
           ) : (
@@ -94,7 +101,15 @@ export function Sidebar() {
                   alt="FlowDeck Logo"
                   fill
                   sizes="130px"
-                  className="object-contain object-right"
+                  className="object-contain object-right dark:hidden"
+                  priority
+                />
+                <Image
+                  src="/Flow-Deck-Logo-for-dark-mode.png"
+                  alt="FlowDeck Logo"
+                  fill
+                  sizes="130px"
+                  className="object-contain object-right hidden dark:block"
                   priority
                 />
               </div>

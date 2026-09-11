@@ -115,7 +115,15 @@ export default function LoginPage() {
               alt="FlowDeck"
               fill
               sizes="200px"
-              className="object-contain"
+              className="object-contain dark:hidden"
+              priority
+            />
+            <Image
+              src="/Flow-Deck-Logo-for-dark-mode.png"
+              alt="FlowDeck"
+              fill
+              sizes="200px"
+              className="object-contain hidden dark:block"
               priority
             />
           </div>

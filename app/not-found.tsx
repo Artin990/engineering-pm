@@ -19,7 +19,15 @@ export default function NotFound() {
               alt="Flowdeck Logo"
               width={48}
               height={48}
-              className="object-contain"
+              className="object-contain dark:hidden"
+              priority
+            />
+            <Image
+              src="/Flow-Deck-Logo-for-dark-mode.png"
+              alt="Flowdeck Logo"
+              width={48}
+              height={48}
+              className="object-contain hidden dark:block"
               priority
             />
           </div>
