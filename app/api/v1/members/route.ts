@@ -3,7 +3,7 @@ import { desc, eq, and, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, workspaces, workspaceMembers } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth/session";
-import { isUserAdminEmail } from "@/lib/role-context";
+import { isUserAdminEmail } from "@/lib/auth/admin-check";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,53 @@ export async function GET() {
     const userId = session?.user?.id;
     const isAdmin = isUserAdminEmail(userEmail);
 
-    // برای مدیرعامل و ادمین کل: بازگرداندن کلیه اعضای ثبت‌نام شده در سامانه با جوین مشخصات
+    // ۱. همگام‌سازی تضمینی کلیه کاربران ثبت‌نام شده در auth.users به جدول public.profiles
+    try {
+      await db.execute(sql`
+        INSERT INTO public.profiles (id, display_name, email, created_at, updated_at)
+        SELECT 
+          u.id, 
+          COALESCE(
+            NULLIF(u.raw_user_meta_data->>'name', ''),
+            NULLIF(u.raw_user_meta_data->>'full_name', ''),
+            NULLIF(u.raw_user_meta_data->>'user_name', ''),
+            split_part(u.email, '@', 1),
+            'کاربر جدید'
+          ),
+          u.email,
+          COALESCE(u.created_at, now()),
+          now()
+        FROM auth.users u
+        ON CONFLICT (id) DO UPDATE SET
+          email = EXCLUDED.email,
+          display_name = COALESCE(NULLIF(public.profiles.display_name, ''), EXCLUDED.display_name);
+      `);
+    } catch (syncErr) {
+      console.warn("[members-route] sync auth.users notice:", syncErr);
+    }
+
+    // ۲. اطمینان از انتساب همه اعضا به سازمان اصلی کارفرما در workspace_members
+    try {
+      await db.execute(sql`
+        INSERT INTO public.workspace_members (workspace_id, user_id, role, joined_at)
+        SELECT 
+          w.id,
+          p.id,
+          CASE 
+            WHEN LOWER(p.email) IN ('amiriartin185@gmil.com', 'amiriartin185@gmail.com', 'artinamiri185@gmail.com') THEN 'owner'::public.workspace_role
+            ELSE 'member'::public.workspace_role
+          END,
+          COALESCE(p.created_at, now())
+        FROM public.workspaces w
+        CROSS JOIN public.profiles p
+        WHERE (w.name ILIKE '%RadarCheck%' OR w.name ILIKE '%سازمان%')
+        ON CONFLICT (workspace_id, user_id) DO NOTHING;
+      `);
+    } catch (wsSyncErr) {
+      console.warn("[members-route] sync workspace_members notice:", wsSyncErr);
+    }
+
+    // ۳. بازگرداندن کلیه اعضای ثبت‌نام شده در سامانه با جوین مشخصات
     if (isAdmin || !userId) {
       const allOrgProfiles = await db
         .select({
@@ -92,7 +138,6 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession().catch(() => null);
     const body = await request.json();
 
     if (!body.displayName && !body.email) {

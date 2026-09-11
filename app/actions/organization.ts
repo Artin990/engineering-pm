@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, sql, ilike, or } from "drizzle-orm";
+import { eq, and, sql, ilike, or, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { profiles, workspaces, workspaceMembers } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/server";
@@ -438,5 +438,59 @@ export async function removeOrgMemberAction(
   } catch (err: unknown) {
     console.error("[removeOrgMemberAction] Error:", err);
     return { ok: false, error: err instanceof Error ? err.message : "خطا در حذف عضو از سازمان" };
+  }
+}
+
+/**
+ * دریافت مستقیم لیست اعضای سازمان از دیتابیس سمت سرور
+ */
+export async function getOrganizationMembersAction() {
+  try {
+    // ۱. اطمینان از همگام بودن auth.users با profiles
+    try {
+      await db.execute(sql`
+        INSERT INTO public.profiles (id, display_name, email, created_at, updated_at)
+        SELECT 
+          u.id, 
+          COALESCE(
+            NULLIF(u.raw_user_meta_data->>'name', ''),
+            NULLIF(u.raw_user_meta_data->>'full_name', ''),
+            NULLIF(u.raw_user_meta_data->>'user_name', ''),
+            split_part(u.email, '@', 1),
+            'کاربر جدید'
+          ),
+          u.email,
+          COALESCE(u.created_at, now()),
+          now()
+        FROM auth.users u
+        ON CONFLICT (id) DO UPDATE SET
+          email = EXCLUDED.email,
+          display_name = COALESCE(NULLIF(public.profiles.display_name, ''), EXCLUDED.display_name);
+      `);
+    } catch (e) {
+      console.warn("[getOrganizationMembersAction] sync notice:", e);
+    }
+
+    // ۲. دریافت پروفایل‌ها
+    const allProfiles = await db
+      .select({
+        id: profiles.id,
+        displayName: profiles.displayName,
+        email: profiles.email,
+        avatarUrl: profiles.avatarUrl,
+        githubLogin: profiles.githubLogin,
+        createdAt: profiles.createdAt,
+        role: sql<string>`COALESCE(${workspaceMembers.role}, 'member')`,
+      })
+      .from(profiles)
+      .leftJoin(workspaceMembers, eq(profiles.id, workspaceMembers.userId))
+      .orderBy(desc(profiles.createdAt));
+
+    const unique = Array.from(new Map(allProfiles.map((p) => [p.id, p])).values());
+
+    return { ok: true, data: unique };
+  } catch (err: unknown) {
+    console.error("[getOrganizationMembersAction] Error:", err);
+    return { ok: false, data: [] };
   }
 }

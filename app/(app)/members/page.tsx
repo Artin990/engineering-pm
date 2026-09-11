@@ -49,6 +49,7 @@ import { deleteUserAccountAction } from "@/app/actions/auth";
 import {
   getOrganizationInfo,
   generateNewInviteCodeAction,
+  getOrganizationMembersAction,
   removeOrgMemberAction,
   type OrgInfoResult,
 } from "@/app/actions/organization";
@@ -112,66 +113,81 @@ export default function OrganizationMembersPage() {
       // ignore
     }
 
-    // 2. Fetch members of the organization
+    // 2. Fetch members of the organization (Via Direct Server Action & API Route fallback)
     try {
-      const res = await fetch("/api/v1/members");
-      if (res.ok) {
-        const json = await res.json();
-        if (Array.isArray(json.data) && json.data.length > 0) {
-          const apiMembers: Member[] = json.data.map(
-            (p: {
-              id: string;
-              displayName: string;
-              email: string | null;
-              avatarUrl: string | null;
-              githubLogin: string | null;
-              createdAt?: string;
-              role?: string;
-            }) => {
-              const isAdminEmail =
-                p.email &&
-                [
-                  "amiriartin185@gmil.com",
-                  "amiriartin185@gmail.com",
-                  "artinamiri185@gmail.com",
-                ].includes(p.email.toLowerCase());
-              return {
-                id: p.id,
-                displayName: p.displayName || p.email?.split("@")[0] || "کاربر جدید",
-                email: p.email || "",
-                avatarUrl: p.avatarUrl || null,
-                githubLogin: p.githubLogin || null,
-                role: isAdminEmail ? "admin" : (p.role as "admin" | "member" | "intern") || "member",
-                status: "active",
-                joinedAt: p.createdAt
-                  ? new Date(p.createdAt).toLocaleDateString("fa-IR")
-                  : "به‌تازگی",
-              };
-            }
-          );
+      let rawData: {
+        id: string;
+        displayName: string;
+        email: string | null;
+        avatarUrl?: string | null;
+        githubLogin?: string | null;
+        createdAt?: string | Date;
+        role?: string;
+      }[] = [];
 
-          // Merge without duplicate emails/ids
-          const merged = [...apiMembers];
-          for (const lm of localList) {
-            if (
-              !merged.some(
-                (m) =>
-                  (m.email &&
-                    lm.email &&
-                    m.email.toLowerCase() === lm.email.toLowerCase()) ||
-                  m.id === lm.id
-              )
-            ) {
-              merged.push(lm);
-            }
-          }
+      try {
+        const actionRes = await getOrganizationMembersAction();
+        if (actionRes.ok && Array.isArray(actionRes.data) && actionRes.data.length > 0) {
+          rawData = actionRes.data as typeof rawData;
+        }
+      } catch {
+        // fallback to api
+      }
 
-          setMembers(merged);
-          try {
-            localStorage.setItem("flowdeck_org_members", JSON.stringify(merged));
-          } catch {
-            // ignore
+      if (rawData.length === 0) {
+        const res = await fetch("/api/v1/members");
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.data) && json.data.length > 0) {
+            rawData = json.data;
           }
+        }
+      }
+
+      if (rawData.length > 0) {
+        const apiMembers: Member[] = rawData.map((p) => {
+          const isAdminEmail =
+            p.email &&
+            [
+              "amiriartin185@gmil.com",
+              "amiriartin185@gmail.com",
+              "artinamiri185@gmail.com",
+            ].includes(p.email.toLowerCase());
+          return {
+            id: p.id,
+            displayName: p.displayName || p.email?.split("@")[0] || "کاربر جدید",
+            email: p.email || "",
+            avatarUrl: p.avatarUrl || null,
+            githubLogin: p.githubLogin || null,
+            role: isAdminEmail ? "admin" : (p.role as "admin" | "member" | "intern") || "member",
+            status: "active",
+            joinedAt: p.createdAt
+              ? new Date(p.createdAt).toLocaleDateString("fa-IR")
+              : "به‌تازگی",
+          };
+        });
+
+        // Merge without duplicate emails/ids
+        const merged = [...apiMembers];
+        for (const lm of localList) {
+          if (
+            !merged.some(
+              (m) =>
+                (m.email &&
+                  lm.email &&
+                  m.email.toLowerCase() === lm.email.toLowerCase()) ||
+                m.id === lm.id
+            )
+          ) {
+            merged.push(lm);
+          }
+        }
+
+        setMembers(merged);
+        try {
+          localStorage.setItem("flowdeck_org_members", JSON.stringify(merged));
+        } catch {
+          // ignore
         }
       }
     } catch {
@@ -181,7 +197,7 @@ export default function OrganizationMembersPage() {
 
   useEffect(() => {
     fetchMembers();
-    const interval = setInterval(fetchMembers, 3500);
+    const interval = setInterval(fetchMembers, 3000);
     return () => clearInterval(interval);
   }, []);
 
