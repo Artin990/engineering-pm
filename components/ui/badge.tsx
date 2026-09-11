@@ -4,22 +4,22 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center gap-[4px] rounded-[10px] border px-[12px] py-[4px] text-[14px] font-medium tracking-[0] transition-[0.15s_ease-in-out] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+  "inline-flex items-center justify-center gap-1.5 rounded-[6px] border px-2.5 py-0.5 text-[11px] sm:text-[12px] font-medium leading-normal transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]",
   {
     variants: {
       variant: {
         default:
-          "border-transparent bg-[var(--primary)] text-white shadow-sm hover:bg-[var(--primary-hover)]",
+          "border-transparent bg-[var(--primary)] text-white shadow-xs hover:bg-[var(--primary-hover)]",
         secondary:
-          "border-transparent bg-[var(--surface-raised)] text-[var(--text-primary)] hover:bg-[var(--surface)]",
+          "border-transparent bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:bg-[var(--surface)]",
         destructive:
-          "border-transparent bg-[#dc2626] text-white shadow-sm hover:bg-[#b91c1c]",
+          "border-transparent bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20",
         outline:
-          "border-[var(--border)] bg-[var(--background)] text-[var(--text-primary)] hover:bg-[var(--surface)]",
+          "border-[var(--border)] bg-[var(--background)] text-[var(--text-primary)] hover:bg-[var(--surface-raised)]",
         success:
-          "border-transparent bg-[#16a34a] text-white shadow-sm hover:bg-[#15803d]",
+          "border-transparent bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
         warning:
-          "border-transparent bg-[#d97706] text-white shadow-sm hover:bg-[#b45309]",
+          "border-transparent bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20",
       },
     },
     defaultVariants: {
