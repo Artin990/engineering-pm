@@ -15,8 +15,17 @@ export interface SyncUserProfileInput {
   inviteCode?: string | null;
 }
 
+function generateRandomInviteCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let randomPart = "";
+  for (let i = 0; i < 5; i++) {
+    randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `RADAR-${randomPart}`;
+}
+
 /**
- * همگام‌سازی اطلاعات کاربر در جدول profiles و اتصال تضمینی به سازمان مدیرعامل
+ * همگام‌سازی اطلاعات کاربر در جدول profiles و اتصال به سازمان صرفاً در صورت داشتن کد دعوت
  */
 export async function syncUserProfile(input: SyncUserProfileInput) {
   try {
@@ -44,28 +53,60 @@ export async function syncUserProfile(input: SyncUserProfileInput) {
         },
       });
 
-    // ۲. یافتن سازمان اصلی کارفرما/مدیرعامل
-    let [mainOrgWs] = await db
-      .select({ id: workspaces.id })
-      .from(workspaces)
-      .where(
-        or(
-          ilike(workspaces.name, "%RadarCheck%"),
-          ilike(workspaces.name, "%سازمان%")
+    // ۲. اگر کاربر مدیرعامل / ادمین است:
+    if (isAdmin) {
+      let [adminWs] = await db
+        .select()
+        .from(workspaces)
+        .where(
+          or(
+            eq(workspaces.ownerId, input.id),
+            ilike(workspaces.name, "%RadarCheck%")
+          )
         )
-      )
-      .limit(1);
+        .limit(1);
 
-    if (!mainOrgWs) {
-      const [firstWs] = await db.select({ id: workspaces.id }).from(workspaces).limit(1);
-      mainOrgWs = firstWs;
+      if (!adminWs) {
+        const freshCode = generateRandomInviteCode();
+        const [created] = await db
+          .insert(workspaces)
+          .values({
+            name: "سازمان مهندسی RadarCheck",
+            slug: `radarcheck-org-${input.id.slice(0, 6)}`,
+            ownerId: input.id,
+            inviteCode: freshCode,
+          })
+          .returning();
+        adminWs = created;
+      } else if (!adminWs.inviteCode) {
+        const freshCode = generateRandomInviteCode();
+        await db
+          .update(workspaces)
+          .set({ inviteCode: freshCode, updatedAt: new Date() })
+          .where(eq(workspaces.id, adminWs.id));
+      }
+
+      if (adminWs) {
+        await db
+          .insert(workspaceMembers)
+          .values({
+            workspaceId: adminWs.id,
+            userId: input.id,
+            role: "owner",
+          })
+          .onConflictDoUpdate({
+            target: [workspaceMembers.workspaceId, workspaceMembers.userId],
+            set: { role: "owner", updatedAt: new Date() },
+          });
+      }
+      return { ok: true, error: null };
     }
 
-    // اگر کد زیرمجموعه‌گیری وارد شده بود، سازمان متناظر را بیاب
+    // ۳. اگر کاربر عادی است و با کد دعوت ثبت‌نام کرده است:
     if (input.inviteCode && input.inviteCode.trim()) {
       const cleanCode = input.inviteCode.trim().toUpperCase();
-      const [customWs] = await db
-        .select({ id: workspaces.id })
+      let [targetWs] = await db
+        .select()
         .from(workspaces)
         .where(
           or(
@@ -77,45 +118,56 @@ export async function syncUserProfile(input: SyncUserProfileInput) {
         )
         .limit(1);
 
-      if (customWs) {
-        mainOrgWs = customWs;
+      if (!targetWs) {
+        const [mainWs] = await db
+          .select()
+          .from(workspaces)
+          .where(ilike(workspaces.name, "%RadarCheck%"))
+          .limit(1);
+        targetWs = mainWs;
+      }
+
+      if (targetWs) {
+        // ثبت در لیست اعضای سازمان مدیرعامل
+        await db
+          .insert(workspaceMembers)
+          .values({
+            workspaceId: targetWs.id,
+            userId: input.id,
+            role: "member",
+          })
+          .onConflictDoUpdate({
+            target: [workspaceMembers.workspaceId, workspaceMembers.userId],
+            set: { role: "member", updatedAt: new Date() },
+          });
+
+        return { ok: true, error: null };
       }
     }
 
-    // ۳. اتصال کاربر به سازمان مدیرعامل
-    if (mainOrgWs) {
-      await db
-        .insert(workspaceMembers)
-        .values({
-          workspaceId: mainOrgWs.id,
-          userId: input.id,
-          role: isAdmin ? "owner" : "member",
-        })
-        .onConflictDoUpdate({
-          target: [workspaceMembers.workspaceId, workspaceMembers.userId],
-          set: {
-            role: isAdmin ? "owner" : "member",
-            updatedAt: new Date(),
-          },
-        });
-    } else {
-      // ایجاد اولین ورک‌اسپیس در صورت خالی بودن دیتابیس
+    // ۴. کاربر عادی بدون کد دعوت: ایجاد فضای کاری شخصی جداگانه (به سازمان مدیرعامل اضافه نمی‌شود)
+    const [existingMember] = await db
+      .select({ id: workspaceMembers.id })
+      .from(workspaceMembers)
+      .where(eq(workspaceMembers.userId, input.id))
+      .limit(1);
+
+    if (!existingMember) {
       const cleanSlug = `ws-${input.id.slice(0, 8)}-${Date.now().toString().slice(-4)}`;
-      const [newWs] = await db
+      const [personalWs] = await db
         .insert(workspaces)
         .values({
-          name: isAdmin ? "سازمان مهندسی RadarCheck" : `ورک‌اسپیس ${displayName}`,
+          name: `فضای شخصی ${displayName}`,
           slug: cleanSlug,
           ownerId: input.id,
-          inviteCode: isAdmin ? "RADAR-185" : undefined,
         })
         .returning();
 
-      if (newWs) {
+      if (personalWs) {
         await db.insert(workspaceMembers).values({
-          workspaceId: newWs.id,
+          workspaceId: personalWs.id,
           userId: input.id,
-          role: isAdmin ? "owner" : "member",
+          role: "owner",
         });
       }
     }

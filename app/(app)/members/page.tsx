@@ -167,25 +167,9 @@ export default function OrganizationMembersPage() {
           };
         });
 
-        // Merge without duplicate emails/ids
-        const merged = [...apiMembers];
-        for (const lm of localList) {
-          if (
-            !merged.some(
-              (m) =>
-                (m.email &&
-                  lm.email &&
-                  m.email.toLowerCase() === lm.email.toLowerCase()) ||
-                m.id === lm.id
-            )
-          ) {
-            merged.push(lm);
-          }
-        }
-
-        setMembers(merged);
+        setMembers(apiMembers);
         try {
-          localStorage.setItem("flowdeck_org_members", JSON.stringify(merged));
+          localStorage.setItem("flowdeck_org_members", JSON.stringify(apiMembers));
         } catch {
           // ignore
         }

@@ -85,13 +85,13 @@ export async function getOrganizationInfo(): Promise<OrgInfoResult> {
         }
       }
 
-      // بررسی تاریخ انقضای ۱۰ دقیقه‌ای کد دعوت
+      // بررسی تاریخ انقضای ۱۰ دقیقه‌ای کد دعوت یا عدم وجود کد
       let activeCode = adminWs.inviteCode;
       const lastUpdate = adminWs.updatedAt ? new Date(adminWs.updatedAt).getTime() : 0;
       const elapsedSeconds = Math.floor((Date.now() - lastUpdate) / 1000);
 
-      if (!activeCode || elapsedSeconds >= CODE_VALIDITY_SECONDS) {
-        // جنریت کد رندوم ۱۰ دقیقه‌ای جدید
+      if (!activeCode || activeCode.trim() === "" || elapsedSeconds >= CODE_VALIDITY_SECONDS) {
+        // جنریت کد رندوم ۱۰ دقیقه‌ای جدید بلافاصله
         const freshCode = generateRandomCode();
         const [updatedWs] = await db
           .update(workspaces)
@@ -102,30 +102,30 @@ export async function getOrganizationInfo(): Promise<OrgInfoResult> {
           .where(eq(workspaces.id, adminWs.id))
           .returning();
 
-        adminWs = updatedWs;
-        activeCode = freshCode;
+        if (updatedWs) {
+          adminWs = updatedWs;
+          activeCode = freshCode;
+        }
       }
 
-      const remainingSeconds = Math.max(0, CODE_VALIDITY_SECONDS - elapsedSeconds);
+      const remainingSeconds = Math.max(0, CODE_VALIDITY_SECONDS - (elapsedSeconds % CODE_VALIDITY_SECONDS));
 
-      // تعداد اعضای ثبت‌نام شده در سازمان
+      // تعداد اعضای واقعی عضو این ورک‌اسپیس
       const memberRows = await db
         .select({ id: workspaceMembers.id })
         .from(workspaceMembers)
         .where(eq(workspaceMembers.workspaceId, adminWs.id));
 
-      const totalProfiles = await db.select({ id: profiles.id }).from(profiles);
-
       return {
         ok: true,
         workspaceId: adminWs.id,
         workspaceName: adminWs.name,
-        inviteCode: activeCode || "RADAR-185",
+        inviteCode: activeCode || generateRandomCode(),
         expiresInSeconds: remainingSeconds > 0 ? remainingSeconds : CODE_VALIDITY_SECONDS,
         isOwner: true,
         ownerName: user.user_metadata?.name || user.email?.split("@")[0] || "مدیرعامل",
         ownerEmail: user.email,
-        membersCount: Math.max(memberRows.length, totalProfiles.length, 1),
+        membersCount: Math.max(memberRows.length, 1),
       };
     }
 
@@ -178,7 +178,7 @@ export async function getOrganizationInfo(): Promise<OrgInfoResult> {
     return {
       ok: true,
       isOwner: false,
-      workspaceName: "بدون مجموعه",
+      workspaceName: "فضای کاری شخصی",
       membersCount: 1,
     };
   } catch (err: unknown) {
@@ -296,7 +296,6 @@ export async function joinOrganizationByCode(
       .limit(1);
 
     if (!targetWs) {
-      // اگر کدی با پیشوند RADAR بود، به سازمان اصلی مدیرعامل متصل شود
       const [mainWs] = await db
         .select({
           id: workspaces.id,
@@ -305,6 +304,7 @@ export async function joinOrganizationByCode(
           inviteCode: workspaces.inviteCode,
         })
         .from(workspaces)
+        .where(ilike(workspaces.name, "%RadarCheck%"))
         .limit(1);
       targetWs = mainWs;
     }
@@ -432,7 +432,6 @@ export async function removeOrgMemberAction(
 
     // حذف از تمام ورک‌اسپیس‌ها و پروژه‌ها
     await db.delete(workspaceMembers).where(eq(workspaceMembers.userId, targetUserId));
-    await db.delete(profiles).where(eq(profiles.id, targetUserId));
 
     return { ok: true };
   } catch (err: unknown) {
@@ -442,37 +441,58 @@ export async function removeOrgMemberAction(
 }
 
 /**
- * دریافت مستقیم لیست اعضای سازمان از دیتابیس سمت سرور
+ * دریافت مستقیم لیست اعضای سازمان از دیتابیس سمت سرور (فقط افرادی که عضو این ورک‌اسپیس هستند)
  */
 export async function getOrganizationMembersAction() {
   try {
-    // ۱. اطمینان از همگام بودن auth.users با profiles
-    try {
-      await db.execute(sql`
-        INSERT INTO public.profiles (id, display_name, email, created_at, updated_at)
-        SELECT 
-          u.id, 
-          COALESCE(
-            NULLIF(u.raw_user_meta_data->>'name', ''),
-            NULLIF(u.raw_user_meta_data->>'full_name', ''),
-            NULLIF(u.raw_user_meta_data->>'user_name', ''),
-            split_part(u.email, '@', 1),
-            'کاربر جدید'
-          ),
-          u.email,
-          COALESCE(u.created_at, now()),
-          now()
-        FROM auth.users u
-        ON CONFLICT (id) DO UPDATE SET
-          email = EXCLUDED.email,
-          display_name = COALESCE(NULLIF(public.profiles.display_name, ''), EXCLUDED.display_name);
-      `);
-    } catch (e) {
-      console.warn("[getOrganizationMembersAction] sync notice:", e);
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authErr,
+    } = await supabase.auth.getUser();
+
+    if (authErr || !user) {
+      return { ok: false, data: [] };
     }
 
-    // ۲. دریافت پروفایل‌ها
-    const allProfiles = await db
+    const isAdmin = isUserAdminEmail(user.email);
+
+    // ۱. یافتن ورک‌اسپیس متناظر
+    let workspaceId: string | null = null;
+
+    if (isAdmin) {
+      let [adminWs] = await db
+        .select({ id: workspaces.id })
+        .from(workspaces)
+        .where(
+          or(
+            eq(workspaces.ownerId, user.id),
+            ilike(workspaces.name, "%RadarCheck%")
+          )
+        )
+        .limit(1);
+
+      if (adminWs) {
+        workspaceId = adminWs.id;
+      }
+    } else {
+      const [userWs] = await db
+        .select({ workspaceId: workspaceMembers.workspaceId })
+        .from(workspaceMembers)
+        .where(eq(workspaceMembers.userId, user.id))
+        .limit(1);
+
+      if (userWs) {
+        workspaceId = userWs.workspaceId;
+      }
+    }
+
+    if (!workspaceId) {
+      return { ok: true, data: [] };
+    }
+
+    // ۲. دریافت منحصراً اعضایی که عضو این ورک‌اسپیس هستند
+    const orgMembers = await db
       .select({
         id: profiles.id,
         displayName: profiles.displayName,
@@ -480,13 +500,15 @@ export async function getOrganizationMembersAction() {
         avatarUrl: profiles.avatarUrl,
         githubLogin: profiles.githubLogin,
         createdAt: profiles.createdAt,
-        role: sql<string>`COALESCE(${workspaceMembers.role}, 'member')`,
+        role: workspaceMembers.role,
+        joinedAt: workspaceMembers.joinedAt,
       })
-      .from(profiles)
-      .leftJoin(workspaceMembers, eq(profiles.id, workspaceMembers.userId))
-      .orderBy(desc(profiles.createdAt));
+      .from(workspaceMembers)
+      .innerJoin(profiles, eq(workspaceMembers.userId, profiles.id))
+      .where(eq(workspaceMembers.workspaceId, workspaceId))
+      .orderBy(desc(workspaceMembers.joinedAt));
 
-    const unique = Array.from(new Map(allProfiles.map((p) => [p.id, p])).values());
+    const unique = Array.from(new Map(orgMembers.map((p) => [p.id, p])).values());
 
     return { ok: true, data: unique };
   } catch (err: unknown) {
