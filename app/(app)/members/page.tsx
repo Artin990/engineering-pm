@@ -173,6 +173,8 @@ export default function OrganizationMembersPage() {
 
   useEffect(() => {
     fetchMembers();
+    const interval = setInterval(fetchMembers, 3500);
+    return () => clearInterval(interval);
   }, []);
 
   const saveMembers = (updated: Member[]) => {

@@ -5,75 +5,71 @@ import { profiles, workspaces, workspaceMembers } from "@/lib/db/schema";
 import { getSession } from "@/lib/auth/session";
 import { isUserAdminEmail } from "@/lib/role-context";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
-    const session = await getSession();
+    const session = await getSession().catch(() => null);
     const userEmail = session?.user?.email;
     const userId = session?.user?.id;
     const isAdmin = isUserAdminEmail(userEmail);
 
-    if (userId && isAdmin) {
-      // برای مدیرعامل: اعضای ورک‌اسپیس مدیرعامل یا کلیه پروفایل‌ها
-      const [adminWs] = await db
-        .select({ id: workspaces.id })
-        .from(workspaces)
-        .where(eq(workspaces.ownerId, userId))
-        .limit(1);
+    // برای مدیرعامل و ادمین کل: بازگرداندن کلیه اعضای ثبت‌نام شده در سامانه با جوین مشخصات
+    if (isAdmin || !userId) {
+      const allOrgProfiles = await db
+        .select({
+          id: profiles.id,
+          displayName: profiles.displayName,
+          email: profiles.email,
+          avatarUrl: profiles.avatarUrl,
+          githubLogin: profiles.githubLogin,
+          createdAt: profiles.createdAt,
+          role: sql<string>`COALESCE(${workspaceMembers.role}, 'member')`,
+          joinedAt: sql<string>`COALESCE(${workspaceMembers.joinedAt}, ${profiles.createdAt})`,
+        })
+        .from(profiles)
+        .leftJoin(workspaceMembers, eq(profiles.id, workspaceMembers.userId))
+        .orderBy(desc(profiles.createdAt));
 
-      if (adminWs) {
-        const orgMembers = await db
-          .select({
-            id: profiles.id,
-            displayName: profiles.displayName,
-            email: profiles.email,
-            avatarUrl: profiles.avatarUrl,
-            githubLogin: profiles.githubLogin,
-            createdAt: profiles.createdAt,
-            role: workspaceMembers.role,
-            joinedAt: workspaceMembers.joinedAt,
-          })
-          .from(workspaceMembers)
-          .innerJoin(profiles, eq(workspaceMembers.userId, profiles.id))
-          .where(eq(workspaceMembers.workspaceId, adminWs.id))
-          .orderBy(desc(workspaceMembers.joinedAt));
+      // حذف ردیف‌های تکراری بر اساس شناسه پروفایل
+      const uniqueProfiles = Array.from(
+        new Map(allOrgProfiles.map((p) => [p.id, p])).values()
+      );
 
-        if (orgMembers.length > 0) {
-          return NextResponse.json({ data: orgMembers });
-        }
-      }
-    } else if (userId) {
-      // برای کاربر عادی: اعضای همان سازمانی که کاربر در آن عضو است
-      const [userWs] = await db
-        .select({ workspaceId: workspaceMembers.workspaceId })
+      return NextResponse.json({ data: uniqueProfiles });
+    }
+
+    // برای کاربر عادی: بازگرداندن اعضای همان سازمان
+    const [userWs] = await db
+      .select({ workspaceId: workspaceMembers.workspaceId })
+      .from(workspaceMembers)
+      .where(eq(workspaceMembers.userId, userId))
+      .limit(1);
+
+    if (userWs) {
+      const orgMembers = await db
+        .select({
+          id: profiles.id,
+          displayName: profiles.displayName,
+          email: profiles.email,
+          avatarUrl: profiles.avatarUrl,
+          githubLogin: profiles.githubLogin,
+          createdAt: profiles.createdAt,
+          role: workspaceMembers.role,
+          joinedAt: workspaceMembers.joinedAt,
+        })
         .from(workspaceMembers)
-        .where(eq(workspaceMembers.userId, userId))
-        .limit(1);
+        .innerJoin(profiles, eq(workspaceMembers.userId, profiles.id))
+        .where(eq(workspaceMembers.workspaceId, userWs.workspaceId))
+        .orderBy(desc(workspaceMembers.joinedAt));
 
-      if (userWs) {
-        const orgMembers = await db
-          .select({
-            id: profiles.id,
-            displayName: profiles.displayName,
-            email: profiles.email,
-            avatarUrl: profiles.avatarUrl,
-            githubLogin: profiles.githubLogin,
-            createdAt: profiles.createdAt,
-            role: workspaceMembers.role,
-            joinedAt: workspaceMembers.joinedAt,
-          })
-          .from(workspaceMembers)
-          .innerJoin(profiles, eq(workspaceMembers.userId, profiles.id))
-          .where(eq(workspaceMembers.workspaceId, userWs.workspaceId))
-          .orderBy(desc(workspaceMembers.joinedAt));
-
-        if (orgMembers.length > 0) {
-          return NextResponse.json({ data: orgMembers });
-        }
+      if (orgMembers.length > 0) {
+        return NextResponse.json({ data: orgMembers });
       }
     }
 
-    // بازگشت تمام پروفایل‌ها در صورت عدم تفکیک
-    const allProfiles = await db
+    // بازگشت تمام پروفایل‌ها در صورت نبود دسته‌بندی خاص
+    const fallbackProfiles = await db
       .select({
         id: profiles.id,
         displayName: profiles.displayName,
@@ -81,11 +77,13 @@ export async function GET() {
         avatarUrl: profiles.avatarUrl,
         githubLogin: profiles.githubLogin,
         createdAt: profiles.createdAt,
+        role: sql<string>`'member'`,
+        joinedAt: profiles.createdAt,
       })
       .from(profiles)
       .orderBy(desc(profiles.createdAt));
 
-    return NextResponse.json({ data: allProfiles });
+    return NextResponse.json({ data: fallbackProfiles });
   } catch (err) {
     console.warn("[members-api-error]", err);
     return NextResponse.json({ data: [] });
@@ -94,7 +92,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getSession().catch(() => null);
     const body = await request.json();
 
     if (!body.displayName && !body.email) {
@@ -122,26 +120,6 @@ export async function POST(request: NextRequest) {
       })
       .returning();
 
-    // اگر مدیرعامل است، به ورک‌اسپیس او نیز متصل شود
-    if (session?.user?.id && isUserAdminEmail(session.user.email)) {
-      const [adminWs] = await db
-        .select({ id: workspaces.id })
-        .from(workspaces)
-        .where(eq(workspaces.ownerId, session.user.id))
-        .limit(1);
-
-      if (adminWs && created) {
-        await db
-          .insert(workspaceMembers)
-          .values({
-            workspaceId: adminWs.id,
-            userId: created.id,
-            role: "member",
-          })
-          .onConflictDoNothing();
-      }
-    }
-
     return NextResponse.json({ data: created }, { status: 201 });
   } catch (err: unknown) {
     console.error("[create-member-error]", err);
@@ -154,7 +132,7 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getSession().catch(() => null);
     if (!session?.user?.id || !isUserAdminEmail(session.user.email)) {
       return NextResponse.json({ error: "دسترسی غیرمجاز" }, { status: 403 });
     }
@@ -165,24 +143,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "شناسه عضو الزامی است." }, { status: 400 });
     }
 
-    const [adminWs] = await db
-      .select({ id: workspaces.id })
-      .from(workspaces)
-      .where(eq(workspaces.ownerId, session.user.id))
-      .limit(1);
-
-    if (adminWs) {
-      await db
-        .delete(workspaceMembers)
-        .where(
-          and(
-            eq(workspaceMembers.workspaceId, adminWs.id),
-            eq(workspaceMembers.userId, memberId)
-          )
-        );
-    } else {
-      await db.delete(workspaceMembers).where(eq(workspaceMembers.userId, memberId));
-    }
+    await db.delete(workspaceMembers).where(eq(workspaceMembers.userId, memberId));
+    await db.delete(profiles).where(eq(profiles.id, memberId));
 
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {

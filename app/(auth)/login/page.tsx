@@ -107,8 +107,7 @@ function LoginForm() {
           console.warn("[Login] syncUserProfile non-fatal note:", syncErr);
         }
 
-        router.push(redirectTo);
-        router.refresh();
+        window.location.href = redirectTo;
       }
     } catch (err: unknown) {
       console.error("[Login] error:", err);
@@ -122,7 +121,11 @@ function LoginForm() {
     setOauthLoading(true);
     setError("");
     try {
-      const callbackUrl = `${window.location.origin}/callback`;
+      const inviteCode = searchParams.get("code") || searchParams.get("invite") || "";
+      const callbackUrl = inviteCode
+        ? `${window.location.origin}/callback?invite=${encodeURIComponent(inviteCode)}`
+        : `${window.location.origin}/callback`;
+
       const { error: oauthErr } = await supabase.auth.signInWithOAuth({
         provider: "github",
         options: {

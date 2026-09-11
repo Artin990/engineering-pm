@@ -139,8 +139,7 @@ function RegisterForm() {
             name: trimmedName,
             email: trimmedEmail,
           });
-          router.push("/projects");
-          router.refresh();
+          window.location.href = "/projects";
           return;
         }
 
@@ -159,7 +158,11 @@ function RegisterForm() {
     setOauthLoading(true);
     setError("");
     try {
-      const callbackUrl = `${window.location.origin}/callback`;
+      const codeToPass = inviteCode.trim().toUpperCase();
+      const callbackUrl = codeToPass
+        ? `${window.location.origin}/callback?invite=${encodeURIComponent(codeToPass)}`
+        : `${window.location.origin}/callback`;
+
       const { error: oauthErr } = await supabase.auth.signInWithOAuth({
         provider: "github",
         options: {

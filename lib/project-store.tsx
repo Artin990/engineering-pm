@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from "react";
 import type {
   Project,
   Issue,
@@ -93,6 +93,8 @@ export function ProjectStoreProvider({
     [normalizedKey]
   );
 
+  const lastSyncTimestampRef = useRef<number>(0);
+
   // Load from localStorage & sync live with Server and Supabase Realtime Channel
   useEffect(() => {
     let mounted = true;
@@ -132,6 +134,14 @@ export function ProjectStoreProvider({
               return;
             }
 
+            const incomingTime = Number(json.timestamp) || 0;
+            if (incomingTime && incomingTime <= lastSyncTimestampRef.current) {
+              return; // Data has not changed on server, skip re-render
+            }
+            if (incomingTime) {
+              lastSyncTimestampRef.current = incomingTime;
+            }
+
             setState((prev) => {
               const serverIssues = Array.isArray(json.data.issues) && json.data.issues.length > 0 ? json.data.issues : prev.issues;
               const serverCycles = Array.isArray(json.data.cycles) && json.data.cycles.length > 0 ? json.data.cycles : prev.cycles;
@@ -165,7 +175,7 @@ export function ProjectStoreProvider({
     }
 
     syncFromServer();
-    const pollInterval = setInterval(syncFromServer, 2500);
+    const pollInterval = setInterval(syncFromServer, 3000);
 
     // 3. Supabase Realtime Channel
     try {
