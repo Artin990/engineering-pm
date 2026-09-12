@@ -91,16 +91,12 @@ export default function ProjectsPage() {
     }
 
     // 1. First load from localStorage for instant offline/persisted data
-    let localProjects: Project[] = [];
     try {
       const saved = localStorage.getItem("flowdeck_projects_list");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          localProjects = parsed;
-          if (projectsList.length === 0) {
-            setProjectsList(parsed);
-          }
+        if (Array.isArray(parsed) && parsed.length > 0 && projectsList.length === 0) {
+          setProjectsList(parsed);
         }
       }
     } catch {
@@ -137,27 +133,22 @@ export default function ProjectsPage() {
             mergedPrs: 0,
           }));
 
-          // Merge without duplicate keys
-          const merged = [...mapped];
-          for (const lp of localProjects) {
-            if (!merged.some((m) => m.key === lp.key)) {
-              merged.push(lp);
-            }
-          }
+          // For accurate visibility, use server-filtered project list
+          const finalProjects = mapped;
 
           // Only update state if projects actually changed to prevent UI re-renders & flickering
           setProjectsList((prev) => {
             const prevSignature = JSON.stringify(prev.map((p) => ({ id: p.id, key: p.key, name: p.name, status: p.status, health: p.health })));
-            const nextSignature = JSON.stringify(merged.map((p) => ({ id: p.id, key: p.key, name: p.name, status: p.status, health: p.health })));
+            const nextSignature = JSON.stringify(finalProjects.map((p) => ({ id: p.id, key: p.key, name: p.name, status: p.status, health: p.health })));
             if (prevSignature === nextSignature) {
               return prev;
             }
             try {
-              localStorage.setItem("flowdeck_projects_list", JSON.stringify(merged));
+              localStorage.setItem("flowdeck_projects_list", JSON.stringify(finalProjects));
             } catch {
               // ignore
             }
-            return merged;
+            return finalProjects;
           });
         }
       }

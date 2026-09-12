@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { desc, isNull } from "drizzle-orm";
-import { AuthError, getSession } from "@/lib/auth/session";
+import { desc, isNull, eq, and } from "drizzle-orm";
+import { AuthError, getSession, getOptionalSession } from "@/lib/auth/session";
+import { isUserAdminEmail } from "@/lib/auth/admin-check";
 import { db } from "@/lib/db";
-import { workspaces, workspaceMembers, projects, profiles } from "@/lib/db/schema";
+import { workspaces, workspaceMembers, projects, profiles, projectMembers } from "@/lib/db/schema";
 import { listWorkspaceProjects, createProject } from "@/lib/db/queries/project";
 
 function errJson(err: unknown) {
@@ -23,7 +24,11 @@ function errJson(err: unknown) {
 
 export async function GET(request: NextRequest) {
   try {
-    await getSession();
+    const session = await getOptionalSession();
+    const userEmail = session?.user?.email || "";
+    const userId = session?.profileId || session?.user?.id;
+    const isAdmin = isUserAdminEmail(userEmail);
+
     const { searchParams } = new URL(request.url);
     const workspaceId = searchParams.get("workspaceId");
 
@@ -37,19 +42,92 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Return all projects visible in workspace
-    try {
-      const allProjects = await db
-        .select()
-        .from(projects)
-        .where(isNull(projects.deletedAt))
-        .orderBy(desc(projects.createdAt));
+    // ۱. اگر کاربر مدیرعامل / ادمین است: کلیه پروژه‌های شرکت برای او نمایش داده می‌شود
+    if (isAdmin || !session) {
+      try {
+        const allProjects = await db
+          .select()
+          .from(projects)
+          .where(isNull(projects.deletedAt))
+          .orderBy(desc(projects.createdAt));
 
-      return NextResponse.json({ data: allProjects });
-    } catch (dbErr) {
-      console.warn("[db-list-warn]", dbErr);
-      return NextResponse.json({ data: [] });
+        return NextResponse.json({ data: allProjects });
+      } catch (dbErr) {
+        console.warn("[db-list-warn]", dbErr);
+        return NextResponse.json({ data: [] });
+      }
     }
+
+    // ۲. اگر کاربر عادی / عضو زیرمجموعه است:
+    // منحصراً پروژه‌هایی که مدیرعامل این کاربر را به عنوان عضو پروژه ادد کرده است نمایش داده شود
+    if (userId) {
+      try {
+        const assignedProjects = await db
+          .select({
+            id: projects.id,
+            workspaceId: projects.workspaceId,
+            key: projects.key,
+            name: projects.name,
+            description: projects.description,
+            status: projects.status,
+            health: projects.health,
+            targetDate: projects.targetDate,
+            githubRepo: projects.githubRepo,
+            ownerId: projects.ownerId,
+            teamId: projects.teamId,
+            createdAt: projects.createdAt,
+            updatedAt: projects.updatedAt,
+          })
+          .from(projectMembers)
+          .innerJoin(projects, eq(projectMembers.projectId, projects.id))
+          .where(and(eq(projectMembers.userId, userId), isNull(projects.deletedAt)))
+          .orderBy(desc(projects.createdAt));
+
+        // بررسی بر اساس ایمیل در صورت متفاوت بودن شناسه پروفایل
+        const extraProjects: typeof assignedProjects = [];
+        if (userEmail) {
+          const profRows = await db
+            .select({ id: profiles.id })
+            .from(profiles)
+            .where(eq(profiles.email, userEmail));
+
+          for (const prof of profRows) {
+            if (prof.id !== userId) {
+              const extra = await db
+                .select({
+                  id: projects.id,
+                  workspaceId: projects.workspaceId,
+                  key: projects.key,
+                  name: projects.name,
+                  description: projects.description,
+                  status: projects.status,
+                  health: projects.health,
+                  targetDate: projects.targetDate,
+                  githubRepo: projects.githubRepo,
+                  ownerId: projects.ownerId,
+                  teamId: projects.teamId,
+                  createdAt: projects.createdAt,
+                  updatedAt: projects.updatedAt,
+                })
+                .from(projectMembers)
+                .innerJoin(projects, eq(projectMembers.projectId, projects.id))
+                .where(and(eq(projectMembers.userId, prof.id), isNull(projects.deletedAt)));
+              extraProjects.push(...extra);
+            }
+          }
+        }
+
+        const combined = [...assignedProjects, ...extraProjects];
+        const unique = Array.from(new Map(combined.map((p) => [p.id, p])).values());
+
+        return NextResponse.json({ data: unique });
+      } catch (memErr) {
+        console.warn("[assigned-projects-err]", memErr);
+        return NextResponse.json({ data: [] });
+      }
+    }
+
+    return NextResponse.json({ data: [] });
   } catch (err) {
     return errJson(err);
   }

@@ -42,7 +42,6 @@ import { useUserRole } from "@/lib/role-context";
 import { useProjectStore } from "@/lib/project-store";
 import { type Member } from "@/components/features/types";
 import { faNumber } from "@/lib/format";
-import { deleteUserAccountAction } from "@/app/actions/auth";
 
 export default function MembersPage() {
   const params = useParams<{ key: string }>();
@@ -465,18 +464,13 @@ export default function MembersPage() {
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
-                                onClick={async () => {
+                                onClick={() => {
                                   deleteMember(m.id);
-                                  try {
-                                    await deleteUserAccountAction(m.id);
-                                  } catch (err) {
-                                    console.warn("[ProjectMembers] delete notice:", err);
-                                  }
                                 }}
                                 className="text-destructive focus:text-destructive"
                               >
                                 <Trash2 className="w-3.5 h-3.5 ms-1" />
-                                حذف سریع کاربر
+                                حذف از این پروژه
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>

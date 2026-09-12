@@ -184,7 +184,10 @@ export async function POST(
                     userId: targetUserId,
                     role: dbRole,
                   })
-                  .onConflictDoNothing();
+                  .onConflictDoUpdate({
+                    target: [projectMembers.projectId, projectMembers.userId],
+                    set: { role: dbRole, updatedAt: new Date() },
+                  });
               }
             } catch {
               // Ignore single member insert note
