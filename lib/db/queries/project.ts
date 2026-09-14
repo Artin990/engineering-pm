@@ -1,7 +1,7 @@
-import { eq, and, isNull, desc, ne } from "drizzle-orm";
+import { eq, and, isNull, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { db } from "@/lib/db";
-import { projects, projectMembers, workspaceMembers } from "@/lib/db/schema";
+import { projects, projectMembers } from "@/lib/db/schema";
 import type { CreateProjectInput, UpdateProjectFields } from "@/lib/validators";
 
 // ---------- Project CRUD ----------
@@ -60,34 +60,6 @@ export async function createProject(workspaceId: string, ownerId: string, input:
     userId: ownerId,
     role: "lead",
   });
-
-  // ۲. سایر اعضای workspace (زیرمجموعه‌ها) به عنوان contributor اضافه می‌شوند
-  try {
-    const wsMembers = await db
-      .select({ userId: workspaceMembers.userId })
-      .from(workspaceMembers)
-      .where(
-        and(
-          eq(workspaceMembers.workspaceId, workspaceId),
-          ne(workspaceMembers.userId, ownerId)
-        )
-      );
-
-    if (wsMembers.length > 0) {
-      await db
-        .insert(projectMembers)
-        .values(
-          wsMembers.map((m) => ({
-            projectId: project.id,
-            userId: m.userId,
-            role: "contributor" as const,
-          }))
-        )
-        .onConflictDoNothing();
-    }
-  } catch (err) {
-    console.warn("[createProject] Could not auto-enroll workspace members:", err);
-  }
 
   return project;
 }

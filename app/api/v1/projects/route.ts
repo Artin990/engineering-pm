@@ -84,32 +84,7 @@ export async function GET(request: NextRequest) {
           .where(and(eq(projectMembers.userId, userId), isNull(projects.deletedAt)))
           .orderBy(desc(projects.createdAt));
 
-        // ۲.۲. پروژه‌های workspace که کاربر عضوش هست (fallback برای پروژه‌های قدیمی)
-        const wsProjects = await db
-          .select({
-            id: projects.id,
-            workspaceId: projects.workspaceId,
-            key: projects.key,
-            name: projects.name,
-            description: projects.description,
-            status: projects.status,
-            health: projects.health,
-            targetDate: projects.targetDate,
-            githubRepo: projects.githubRepo,
-            ownerId: projects.ownerId,
-            teamId: projects.teamId,
-            createdAt: projects.createdAt,
-            updatedAt: projects.updatedAt,
-          })
-          .from(workspaceMembers)
-          .innerJoin(projects, and(
-            eq(projects.workspaceId, workspaceMembers.workspaceId),
-            isNull(projects.deletedAt)
-          ))
-          .where(eq(workspaceMembers.userId, userId))
-          .orderBy(desc(projects.createdAt));
-
-        // ۲.۳. بررسی بر اساس ایمیل در صورت متفاوت بودن شناسه پروفایل
+        // ۲.۲. بررسی بر اساس ایمیل در صورت متفاوت بودن شناسه پروفایل
         const extraProjects: typeof assignedProjects = [];
         if (userEmail) {
           const profRows = await db
@@ -143,7 +118,7 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        const combined = [...assignedProjects, ...wsProjects, ...extraProjects];
+        const combined = [...assignedProjects, ...extraProjects];
         const unique = Array.from(new Map(combined.map((p) => [p.id, p])).values());
 
         return NextResponse.json({ data: unique });

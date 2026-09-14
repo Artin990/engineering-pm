@@ -95,13 +95,14 @@ export default function ProjectSettingsPage({
     setTimeout(() => setSaved(false), 2500);
   };
 
-  const handleAddMember = (e: React.FormEvent) => {
+  const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isAdmin) return;
     if (!newMemberName.trim()) return;
 
+    const newId = `m-${Date.now()}`;
     addMember({
-      id: `m-${Date.now()}`,
+      id: newId,
       displayName: newMemberName.trim(),
       avatarUrl: null,
       githubLogin: newMemberGithub.trim() || undefined,
@@ -109,14 +110,36 @@ export default function ProjectSettingsPage({
       status: "active",
       joinedAt: "امروز",
     });
+
+    try {
+      await fetch(`/api/v1/projects/${project.key}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          displayName: newMemberName.trim(),
+          githubLogin: newMemberGithub.trim() || undefined,
+          role: "contributor",
+        }),
+      });
+    } catch {
+      // ignore
+    }
+
     setNewMemberName("");
     setNewMemberGithub("");
     setAddMemberOpen(false);
   };
 
-  const handleRemoveMember = (id: string) => {
+  const handleRemoveMember = async (id: string) => {
     if (!isAdmin) return;
     deleteMember(id);
+    try {
+      await fetch(`/api/v1/projects/${project.key}/members?userId=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+    } catch {
+      // ignore
+    }
   };
 
   return (
