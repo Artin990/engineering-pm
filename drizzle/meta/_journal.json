@@ -8,6 +8,13 @@
       "when": 1789005042502,
       "tag": "0000_init_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789429340377,
+      "tag": "0001_dark_paladin",
+      "breakpoints": true
     }
   ]
 }
