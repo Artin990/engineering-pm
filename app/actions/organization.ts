@@ -1,8 +1,8 @@
 "use server";
 
-import { eq, and, sql, ilike, or, desc } from "drizzle-orm";
+import { eq, and, sql, ilike, or, desc, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { profiles, workspaces, workspaceMembers } from "@/lib/db/schema";
+import { profiles, workspaces, workspaceMembers, projects, projectMembers } from "@/lib/db/schema";
 import { getOptionalSession } from "@/lib/auth/session";
 import { isUserAdminEmail } from "@/lib/auth/admin-check";
 
@@ -320,6 +320,34 @@ export async function joinOrganizationByCode(
         target: [workspaceMembers.workspaceId, workspaceMembers.userId],
         set: { role: "member", updatedAt: new Date() },
       });
+
+    // ۳.۵. افزودن خودکار عضو جدید به تمام پروژه‌های فعال workspace به عنوان contributor
+    try {
+      const wsProjects = await db
+        .select({ id: projects.id })
+        .from(projects)
+        .where(
+          and(
+            eq(projects.workspaceId, targetWs.id),
+            isNull(projects.deletedAt)
+          )
+        );
+
+      if (wsProjects.length > 0) {
+        await db
+          .insert(projectMembers)
+          .values(
+            wsProjects.map((p) => ({
+              projectId: p.id,
+              userId: userId,
+              role: "contributor" as const,
+            }))
+          )
+          .onConflictDoNothing();
+      }
+    } catch (enrollErr) {
+      console.warn("[joinOrganizationByCode] Could not auto-enroll in projects:", enrollErr);
+    }
 
     // ۴. دریافت نام مدیرعامل
     let ownerName = "مدیرعامل سازمان";
