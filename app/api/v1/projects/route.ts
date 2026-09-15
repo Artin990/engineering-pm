@@ -166,35 +166,45 @@ export async function POST(request: NextRequest) {
     let workspaceId = body.workspaceId;
     if (!workspaceId) {
       try {
-        const [existingWs] = await db.select({ id: workspaces.id }).from(workspaces).limit(1);
-        if (existingWs) {
-          workspaceId = existingWs.id;
-        } else {
-          const [newWs] = await db
-            .insert(workspaces)
-            .values({
-              name: "ورک‌اسپیس Flowdeck",
-              slug: `ws-${Date.now()}`,
-              ownerId: session.profileId,
-            })
-            .returning();
-          workspaceId = newWs.id;
+        const [ownerWs] = await db
+          .select({ id: workspaces.id })
+          .from(workspaces)
+          .where(eq(workspaces.ownerId, session.profileId))
+          .limit(1);
 
-          await db
-            .insert(workspaceMembers)
-            .values({
-              workspaceId: newWs.id,
-              userId: session.profileId,
-              role: "owner",
-            })
-            .onConflictDoNothing();
+        if (ownerWs) {
+          workspaceId = ownerWs.id;
+        } else {
+          const [firstWs] = await db.select({ id: workspaces.id }).from(workspaces).limit(1);
+          if (firstWs) {
+            workspaceId = firstWs.id;
+          } else {
+            const [newWs] = await db
+              .insert(workspaces)
+              .values({
+                name: "سازمان مهندسی RadarCheck",
+                slug: `radarcheck-ws-${Date.now()}`,
+                ownerId: session.profileId,
+              })
+              .returning();
+            workspaceId = newWs.id;
+
+            await db
+              .insert(workspaceMembers)
+              .values({
+                workspaceId: newWs.id,
+                userId: session.profileId,
+                role: "owner",
+              })
+              .onConflictDoNothing();
+          }
         }
       } catch (wsErr) {
         console.warn("[workspace-resolve-warn]", wsErr);
       }
     }
 
-    // 3. ثبت پروژه
+    // 3. ثبت پروژه در دیتابیس
     try {
       const project = await createProject(workspaceId, session.profileId, {
         workspaceId,
@@ -207,21 +217,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ data: project }, { status: 201 });
     } catch (createErr) {
       console.warn("[project-insert-warn]", createErr);
-      // Fallback: ایجاد شی پروژه موفق برای پاسخ فرانت‌اند
-      const fallbackProject = {
-        id: `proj-${Date.now()}`,
-        workspaceId: workspaceId || "default-ws",
-        ownerId: session.profileId,
-        key: cleanKey,
-        name: body.name.trim(),
-        description: body.description?.trim() || null,
-        status: "active",
-        health: "on_track",
-        targetDate: body.targetDate || null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      return NextResponse.json({ data: fallbackProject }, { status: 201 });
+      const [existingPrj] = await db
+        .select()
+        .from(projects)
+        .where(eq(projects.key, cleanKey))
+        .limit(1);
+
+      if (existingPrj) {
+        return NextResponse.json({ data: existingPrj }, { status: 200 });
+      }
+
+      const [directCreated] = await db
+        .insert(projects)
+        .values({
+          workspaceId,
+          ownerId: session.profileId,
+          key: cleanKey,
+          name: body.name.trim(),
+          description: body.description?.trim() || null,
+        })
+        .returning();
+
+      return NextResponse.json({ data: directCreated }, { status: 201 });
     }
   } catch (err) {
     return errJson(err);
