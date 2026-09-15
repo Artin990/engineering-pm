@@ -103,6 +103,7 @@ export default function MembersPage() {
 
     const accumulatedMembers = new Map<string, OrgMemberItem>();
     const assignedIds = new Set<string>();
+    const assignedEmails = new Set<string>();
     const assignedRolesMap = new Map<string, "lead" | "contributor" | "viewer" | "admin" | "member" | "intern">();
 
     // 1. Fetch from Project Members API Route (gets DB project members and org members)
@@ -113,13 +114,16 @@ export default function MembersPage() {
         if (Array.isArray(json.projectMembers)) {
           json.projectMembers.forEach((pm: {
             id: string;
+            userId?: string;
             displayName: string;
             email: string;
             githubLogin: string | null;
             role: "lead" | "contributor" | "viewer" | "admin" | "member" | "intern";
           }) => {
-            assignedIds.add(pm.id);
-            assignedRolesMap.set(pm.id, pm.role);
+            const uId = pm.userId || pm.id;
+            if (uId) assignedIds.add(uId);
+            if (pm.email) assignedEmails.add(pm.email.toLowerCase().trim());
+            if (uId) assignedRolesMap.set(uId, pm.role);
           });
         }
 
@@ -127,6 +131,11 @@ export default function MembersPage() {
           json.orgMembers.forEach((om: OrgMemberItem) => {
             const uId = om.userId || om.id;
             if (uId) {
+              const isAssigned =
+                assignedIds.has(uId) ||
+                (om.email ? assignedEmails.has(om.email.toLowerCase().trim()) : false) ||
+                Boolean(om.isAssignedToProject);
+
               accumulatedMembers.set(uId, {
                 id: uId,
                 userId: uId,
@@ -134,7 +143,7 @@ export default function MembersPage() {
                 email: om.email || "",
                 avatarUrl: om.avatarUrl,
                 githubLogin: om.githubLogin,
-                isAssignedToProject: assignedIds.has(uId) || Boolean(om.isAssignedToProject),
+                isAssignedToProject: isAssigned,
                 projectRole: assignedRolesMap.get(uId) || om.projectRole || "member",
               });
             }
@@ -274,7 +283,9 @@ export default function MembersPage() {
     // 1. Instant Optimistic UI Update (Immediate visual feedback)
     setOrgMembers((prev) =>
       prev.map((om) =>
-        om.userId === targetUserId || om.id === targetUserId
+        om.userId === targetUserId ||
+        om.id === targetUserId ||
+        (om.email && orgMember.email && om.email.toLowerCase().trim() === orgMember.email.toLowerCase().trim())
           ? { ...om, isAssignedToProject: true, projectRole: customRole }
           : om
       )

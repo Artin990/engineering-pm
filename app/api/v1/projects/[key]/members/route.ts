@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { eq, and, isNull, desc, or, ilike } from "drizzle-orm";
+import { eq, and, isNull, desc, or, ilike, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { projects, projectMembers, workspaceMembers, profiles, workspaces } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/client";
@@ -25,17 +25,17 @@ export async function GET(
       })
       .from(projects)
       .where(
-        and(
-          or(
-            eq(projects.key, normKey),
-            ilike(projects.key, rawKey)
-          ),
-          isNull(projects.deletedAt)
+        or(
+          eq(projects.key, normKey),
+          ilike(projects.key, rawKey)
         )
       )
       .limit(1);
 
-    if (!project) {
+    if (project) {
+      // اگر قبلاً سافت دلیت شده بود، بازیابی شود
+      await db.update(projects).set({ deletedAt: null }).where(eq(projects.id, project.id));
+    } else {
       // ایجاد پروژه در صورت نبودن در DB
       const [firstWs] = await db
         .select({ id: workspaces.id, ownerId: workspaces.ownerId })
@@ -59,13 +59,13 @@ export async function GET(
 
     const projectId = project?.id;
 
-    // ۲. دریافت اعضای تخصیص‌یافته به این پروژه
+    // ۲. دریافت اعضای تخصیص‌یافته به این پروژه با LEFT JOIN برای جلوگیری از حذف رکوردها
     let currentProjectMembers: {
       id: string;
       userId: string;
       role: "lead" | "contributor" | "viewer";
       joinedAt: Date | null;
-      displayName: string;
+      displayName: string | null;
       email: string | null;
       avatarUrl: string | null;
       githubLogin: string | null;
@@ -84,12 +84,15 @@ export async function GET(
           githubLogin: profiles.githubLogin,
         })
         .from(projectMembers)
-        .innerJoin(profiles, eq(projectMembers.userId, profiles.id))
+        .leftJoin(profiles, eq(projectMembers.userId, profiles.id))
         .where(eq(projectMembers.projectId, projectId))
         .orderBy(desc(projectMembers.createdAt));
     }
 
     const assignedUserIds = new Set(currentProjectMembers.map((m) => m.userId));
+    const assignedEmails = new Set(
+      currentProjectMembers.map((m) => m.email?.toLowerCase()).filter(Boolean) as string[]
+    );
     const projectMemberRoles = new Map(currentProjectMembers.map((m) => [m.userId, m.role]));
 
     // ۳. دریافت کلیه اعضای ثبت‌نام شده در سامانه/سازمان جهت پیشنهاد هوشمند
@@ -106,7 +109,9 @@ export async function GET(
       .orderBy(desc(profiles.createdAt));
 
     const mappedOrgMembers = allProfiles.map((p) => {
-      const isAssigned = assignedUserIds.has(p.id);
+      const isAssigned =
+        assignedUserIds.has(p.id) ||
+        (p.email ? assignedEmails.has(p.email.toLowerCase()) : false);
       const assignedRole = projectMemberRoles.get(p.id) || "contributor";
 
       return {
@@ -163,17 +168,16 @@ export async function POST(
       })
       .from(projects)
       .where(
-        and(
-          or(
-            eq(projects.key, normKey),
-            ilike(projects.key, rawKey)
-          ),
-          isNull(projects.deletedAt)
+        or(
+          eq(projects.key, normKey),
+          ilike(projects.key, rawKey)
         )
       )
       .limit(1);
 
-    if (!project) {
+    if (project) {
+      await db.update(projects).set({ deletedAt: null }).where(eq(projects.id, project.id));
+    } else {
       const [firstWs] = await db.select({ id: workspaces.id, ownerId: workspaces.ownerId }).from(workspaces).limit(1);
       if (firstWs) {
         const [created] = await db
@@ -214,17 +218,27 @@ export async function POST(
         ? "viewer"
         : "contributor";
 
-    // ۲. افزودن اعضای انتخاب شده به دیتابیس با اطمینان از عدم خطای FK
+    // ۲. افزودن اعضای انتخاب شده به دیتابیس با تطابق هوشمند پروفایل
     for (const uId of userIdsToAdd) {
       if (!uId) continue;
       try {
+        let finalProfileId = uId;
+
+        // جستجوی پروفایل با id یا ایمیل
         const [prof] = await db
           .select({ id: profiles.id })
           .from(profiles)
-          .where(eq(profiles.id, uId))
+          .where(
+            or(
+              eq(profiles.id, uId),
+              body.email ? eq(profiles.email, body.email.trim()) : sql`false`
+            )
+          )
           .limit(1);
 
-        if (!prof) {
+        if (prof) {
+          finalProfileId = prof.id;
+        } else {
           await db
             .insert(profiles)
             .values({
@@ -236,17 +250,28 @@ export async function POST(
             .onConflictDoNothing();
         }
 
+        // انتساب به پروژه
         await db
           .insert(projectMembers)
           .values({
             projectId: project.id,
-            userId: uId,
+            userId: finalProfileId,
             role: dbRole,
           })
           .onConflictDoUpdate({
             target: [projectMembers.projectId, projectMembers.userId],
             set: { role: dbRole, updatedAt: new Date() },
           });
+
+        // همچنین اطمینان از عضویت در ورک‌اسپیس پروژه
+        await db
+          .insert(workspaceMembers)
+          .values({
+            workspaceId: project.workspaceId,
+            userId: finalProfileId,
+            role: dbRole === "lead" ? "owner" : "member",
+          })
+          .onConflictDoNothing();
       } catch (err) {
         console.warn("[projectMembers insert error for " + uId + "]:", err);
       }
