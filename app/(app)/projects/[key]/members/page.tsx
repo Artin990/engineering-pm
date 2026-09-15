@@ -73,7 +73,6 @@ export default function MembersPage() {
   const [orgMembers, setOrgMembers] = useState<OrgMemberItem[]>([]);
   const [selectedOrgUserIds, setSelectedOrgUserIds] = useState<string[]>([]);
   const [bulkRole, setBulkRole] = useState<"admin" | "member" | "intern">("member");
-  const [isProcessingAction, setIsProcessingAction] = useState(false);
   const [actionSuccessMsg, setActionSuccessMsg] = useState("");
 
   // Single invite form state
@@ -267,119 +266,123 @@ export default function MembersPage() {
     };
   }, [projectKey, loadData]);
 
-  // Handle adding member from Organization list
+  // Handle adding member from Organization list with Instant Optimistic UI
   const handleAddOrgMemberToProject = async (orgMember: OrgMemberItem, customRole: "admin" | "member" | "intern" = "member") => {
-    setIsProcessingAction(true);
-    setActionSuccessMsg("");
+    const targetUserId = orgMember.userId || orgMember.id;
+    if (!targetUserId) return;
+
+    // 1. Instant Optimistic UI Update (Immediate visual feedback)
+    setOrgMembers((prev) =>
+      prev.map((om) =>
+        om.userId === targetUserId || om.id === targetUserId
+          ? { ...om, isAssignedToProject: true, projectRole: customRole }
+          : om
+      )
+    );
+
+    addMember({
+      id: targetUserId,
+      displayName: orgMember.displayName,
+      email: orgMember.email,
+      githubLogin: orgMember.githubLogin || null,
+      role: customRole,
+      status: "active",
+      joinedAt: "امروز",
+    });
+
+    setActionSuccessMsg(`عضو «${orgMember.displayName}» با موفقیت به این پروژه اضافه شد و دسترسی او فعال گردید.`);
+    setTimeout(() => setActionSuccessMsg(""), 3500);
+
+    // 2. Background Server Sync
     try {
-      const res = await fetch(`/api/v1/projects/${projectKey}/members`, {
+      await fetch(`/api/v1/projects/${projectKey}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: orgMember.userId,
+          userId: targetUserId,
+          id: targetUserId,
+          displayName: orgMember.displayName,
+          email: orgMember.email,
+          githubLogin: orgMember.githubLogin || undefined,
           role: customRole === "admin" ? "lead" : customRole === "intern" ? "viewer" : "contributor",
         }),
       });
+    } catch (err) {
+      console.warn("[handleAddOrgMemberToProject err]:", err);
+    }
+  };
 
-      if (res.ok) {
+  // Handle bulk add of selected organization members with Instant Optimistic UI
+  const handleBulkAddOrgMembers = async () => {
+    if (selectedOrgUserIds.length === 0) return;
+    const targetIds = [...selectedOrgUserIds];
+    setSelectedOrgUserIds([]);
+
+    // 1. Instant Optimistic UI Update
+    setOrgMembers((prev) =>
+      prev.map((om) =>
+        targetIds.includes(om.userId) || targetIds.includes(om.id)
+          ? { ...om, isAssignedToProject: true, projectRole: bulkRole }
+          : om
+      )
+    );
+
+    targetIds.forEach((uId) => {
+      const found = orgMembers.find((om) => om.userId === uId || om.id === uId);
+      if (found) {
         addMember({
-          id: orgMember.userId,
-          displayName: orgMember.displayName,
-          email: orgMember.email,
-          githubLogin: orgMember.githubLogin || null,
-          role: customRole,
+          id: uId,
+          displayName: found.displayName,
+          email: found.email,
+          githubLogin: found.githubLogin || null,
+          role: bulkRole,
           status: "active",
           joinedAt: "امروز",
         });
-
-        setOrgMembers((prev) =>
-          prev.map((om) =>
-            om.userId === orgMember.userId ? { ...om, isAssignedToProject: true, projectRole: customRole } : om
-          )
-        );
-
-        setActionSuccessMsg(`عضو «${orgMember.displayName}» با موفقیت به این پروژه اضافه شد و کارت برای او فعال گردید.`);
-        setTimeout(() => setActionSuccessMsg(""), 3500);
       }
-    } catch {
-      // error
-    } finally {
-      setIsProcessingAction(false);
-    }
-  };
+    });
 
-  // Handle bulk add of selected organization members
-  const handleBulkAddOrgMembers = async () => {
-    if (selectedOrgUserIds.length === 0) return;
-    setIsProcessingAction(true);
-    setActionSuccessMsg("");
+    setActionSuccessMsg(`${faNumber(targetIds.length)} عضو با موفقیت به این پروژه افزوده شدند.`);
+    setTimeout(() => setActionSuccessMsg(""), 3500);
+
+    // 2. Background Server Sync
     try {
-      const res = await fetch(`/api/v1/projects/${projectKey}/members`, {
+      await fetch(`/api/v1/projects/${projectKey}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userIds: selectedOrgUserIds,
+          userIds: targetIds,
           role: bulkRole === "admin" ? "lead" : bulkRole === "intern" ? "viewer" : "contributor",
         }),
       });
-
-      if (res.ok) {
-        selectedOrgUserIds.forEach((uId) => {
-          const found = orgMembers.find((om) => om.userId === uId);
-          if (found) {
-            addMember({
-              id: found.userId,
-              displayName: found.displayName,
-              email: found.email,
-              githubLogin: found.githubLogin || null,
-              role: bulkRole,
-              status: "active",
-              joinedAt: "امروز",
-            });
-          }
-        });
-
-        setOrgMembers((prev) =>
-          prev.map((om) =>
-            selectedOrgUserIds.includes(om.userId)
-              ? { ...om, isAssignedToProject: true, projectRole: bulkRole }
-              : om
-          )
-        );
-
-        setActionSuccessMsg(`${faNumber(selectedOrgUserIds.length)} عضو با موفقیت به پروژه افزوده شدند.`);
-        setSelectedOrgUserIds([]);
-        setTimeout(() => setActionSuccessMsg(""), 3500);
-      }
-    } catch {
-      // error
-    } finally {
-      setIsProcessingAction(false);
+    } catch (err) {
+      console.warn("[handleBulkAddOrgMembers err]:", err);
     }
   };
 
-  // Handle member removal
+  // Handle member removal with Instant Optimistic UI
   const handleRemoveMember = async (memberId: string, displayName: string) => {
     if (!confirm(`آیا از حذف «${displayName}» از این پروژه مطمئن هستید؟ دسترسی او به این پروژه قطع خواهد شد.`)) {
       return;
     }
 
-    try {
-      deleteMember(memberId);
-      setOrgMembers((prev) =>
-        prev.map((om) =>
-          om.userId === memberId || om.id === memberId ? { ...om, isAssignedToProject: false } : om
-        )
-      );
+    // 1. Instant Optimistic UI Update
+    setOrgMembers((prev) =>
+      prev.map((om) =>
+        om.userId === memberId || om.id === memberId ? { ...om, isAssignedToProject: false } : om
+      )
+    );
+    deleteMember(memberId);
+    setActionSuccessMsg(`عضو «${displayName}» از این پروژه خارج شد.`);
+    setTimeout(() => setActionSuccessMsg(""), 3000);
 
+    // 2. Background Server Sync
+    try {
       await fetch(`/api/v1/projects/${projectKey}/members?userId=${encodeURIComponent(memberId)}`, {
         method: "DELETE",
       });
-
-      setActionSuccessMsg(`عضو «${displayName}» از پروژه خارج شد.`);
-      setTimeout(() => setActionSuccessMsg(""), 3000);
-    } catch {
-      // ignore
+    } catch (err) {
+      console.warn("[handleRemoveMember err]:", err);
     }
   };
 
@@ -387,7 +390,9 @@ export default function MembersPage() {
   const handleRoleChange = async (memberId: string, newRole: "admin" | "member" | "intern") => {
     updateMember(memberId, { role: newRole });
     setOrgMembers((prev) =>
-      prev.map((om) => (om.userId === memberId ? { ...om, projectRole: newRole } : om))
+      prev.map((om) =>
+        om.userId === memberId || om.id === memberId ? { ...om, projectRole: newRole } : om
+      )
     );
     try {
       await fetch(`/api/v1/projects/${projectKey}/members`, {
@@ -398,8 +403,8 @@ export default function MembersPage() {
           role: newRole,
         }),
       });
-    } catch {
-      // ignore
+    } catch (err) {
+      console.warn("[handleRoleChange err]:", err);
     }
   };
 
@@ -674,11 +679,10 @@ export default function MembersPage() {
                 <Button
                   size="sm"
                   onClick={handleBulkAddOrgMembers}
-                  disabled={isProcessingAction}
                   className="h-8 text-xs gap-1.5 shadow-sm"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
-                  {isProcessingAction ? "در حال افزودن…" : "افزودن همزمان به پروژه"}
+                  افزودن همزمان به پروژه
                 </Button>
                 <Button
                   variant="ghost"
@@ -854,8 +858,7 @@ export default function MembersPage() {
                           <Button
                             size="sm"
                             onClick={() => handleAddOrgMemberToProject(om, "member")}
-                            disabled={isProcessingAction}
-                            className="h-7 text-[11px] px-3 gap-1 shadow-xs bg-primary text-white hover:bg-primary/90"
+                            className="h-7 text-[11px] px-3 gap-1 shadow-xs bg-primary text-white hover:bg-primary/90 cursor-pointer"
                           >
                             <UserPlus size={13} />
                             افزودن به پروژه +

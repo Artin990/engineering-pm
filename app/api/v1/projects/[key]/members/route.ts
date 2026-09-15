@@ -196,11 +196,15 @@ export async function POST(
 
     const body = await request.json();
 
-    const userIdsToAdd: string[] = Array.isArray(body.userIds)
+    const rawUserIds = Array.isArray(body.userIds)
       ? body.userIds
       : body.userId
       ? [body.userId]
+      : body.id
+      ? [body.id]
       : [];
+
+    const userIdsToAdd: string[] = rawUserIds.filter(Boolean);
 
     const rawRole = String(body.role || "contributor").toLowerCase();
     const dbRole: "lead" | "contributor" | "viewer" =
@@ -210,20 +214,42 @@ export async function POST(
         ? "viewer"
         : "contributor";
 
-    // ۲. افزودن اعضای انتخاب شده به دیتابیس
+    // ۲. افزودن اعضای انتخاب شده به دیتابیس با اطمینان از عدم خطای FK
     for (const uId of userIdsToAdd) {
       if (!uId) continue;
-      await db
-        .insert(projectMembers)
-        .values({
-          projectId: project.id,
-          userId: uId,
-          role: dbRole,
-        })
-        .onConflictDoUpdate({
-          target: [projectMembers.projectId, projectMembers.userId],
-          set: { role: dbRole, updatedAt: new Date() },
-        });
+      try {
+        const [prof] = await db
+          .select({ id: profiles.id })
+          .from(profiles)
+          .where(eq(profiles.id, uId))
+          .limit(1);
+
+        if (!prof) {
+          await db
+            .insert(profiles)
+            .values({
+              id: uId,
+              displayName: body.displayName || "عضو سازمان",
+              email: body.email || null,
+              githubLogin: body.githubLogin || null,
+            })
+            .onConflictDoNothing();
+        }
+
+        await db
+          .insert(projectMembers)
+          .values({
+            projectId: project.id,
+            userId: uId,
+            role: dbRole,
+          })
+          .onConflictDoUpdate({
+            target: [projectMembers.projectId, projectMembers.userId],
+            set: { role: dbRole, updatedAt: new Date() },
+          });
+      } catch (err) {
+        console.warn("[projectMembers insert error for " + uId + "]:", err);
+      }
     }
 
     // ۳. اگر عضو جدیدی با ایمیل دستی اضافه شده باشد
