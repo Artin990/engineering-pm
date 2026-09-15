@@ -19,7 +19,6 @@ import {
   Sparkles,
   Building2,
   AlertCircle,
-  Clock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +43,7 @@ import { useProjectStore } from "@/lib/project-store";
 import { type Member } from "@/components/features/types";
 import { faNumber } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
+import { getOrganizationMembersAction } from "@/app/actions/organization";
 
 interface OrgMemberItem {
   id: string;
@@ -61,7 +61,7 @@ export default function MembersPage() {
   const projectKey = (params?.key || "PM").toUpperCase();
 
   const { isAdmin } = useUserRole();
-  const { members, addMember, updateMember, deleteMember } = useProjectStore();
+  const { addMember, updateMember, deleteMember } = useProjectStore();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -97,17 +97,20 @@ export default function MembersPage() {
     setTimeout(() => setInviteLinkCopied(false), 2000);
   };
 
-  // Load project members & organization members from API
+  // Comprehensive loading from all available database sources + localStorage
   const loadData = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
     setRefreshing(true);
+
+    const accumulatedMembers = new Map<string, OrgMemberItem>();
+    const assignedIds = new Set<string>();
+    const assignedRolesMap = new Map<string, "lead" | "contributor" | "viewer" | "admin" | "member" | "intern">();
+
+    // 1. Fetch from Project Members API Route (gets DB project members and org members)
     try {
       const res = await fetch(`/api/v1/projects/${projectKey}/members`);
       if (res.ok) {
         const json = await res.json();
-        if (Array.isArray(json.orgMembers)) {
-          setOrgMembers(json.orgMembers);
-        }
         if (Array.isArray(json.projectMembers)) {
           json.projectMembers.forEach((pm: {
             id: string;
@@ -116,23 +119,101 @@ export default function MembersPage() {
             githubLogin: string | null;
             role: "lead" | "contributor" | "viewer" | "admin" | "member" | "intern";
           }) => {
-            const mappedRole: "admin" | "member" | "intern" =
-              pm.role === "lead" || pm.role === "admin"
-                ? "admin"
-                : pm.role === "viewer" || pm.role === "intern"
-                ? "intern"
-                : "member";
+            assignedIds.add(pm.id);
+            assignedRolesMap.set(pm.id, pm.role);
+          });
+        }
 
-            const existing = members.find((m) => m.id === pm.id);
-            if (!existing) {
-              addMember({
-                id: pm.id,
-                displayName: pm.displayName,
-                email: pm.email,
-                githubLogin: pm.githubLogin,
-                role: mappedRole,
-                status: "active",
-                joinedAt: "امروز",
+        if (Array.isArray(json.orgMembers)) {
+          json.orgMembers.forEach((om: OrgMemberItem) => {
+            const uId = om.userId || om.id;
+            if (uId) {
+              accumulatedMembers.set(uId, {
+                id: uId,
+                userId: uId,
+                displayName: om.displayName || om.email?.split("@")[0] || "کاربر سازمان",
+                email: om.email || "",
+                avatarUrl: om.avatarUrl,
+                githubLogin: om.githubLogin,
+                isAssignedToProject: assignedIds.has(uId) || Boolean(om.isAssignedToProject),
+                projectRole: assignedRolesMap.get(uId) || om.projectRole || "member",
+              });
+            }
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("[loadData] project members route err:", err);
+    }
+
+    // 2. Fetch from direct Server Action to PostgreSQL Database
+    try {
+      const actionRes = await getOrganizationMembersAction();
+      if (actionRes.ok && Array.isArray(actionRes.data) && actionRes.data.length > 0) {
+        actionRes.data.forEach((p: { id: string; displayName?: string; email?: string | null; githubLogin?: string | null; avatarUrl?: string | null }) => {
+          if (p && p.id) {
+            const existing = accumulatedMembers.get(p.id);
+            accumulatedMembers.set(p.id, {
+              id: p.id,
+              userId: p.id,
+              displayName: p.displayName || p.email?.split("@")[0] || "کاربر سازمان",
+              email: p.email || "",
+              avatarUrl: p.avatarUrl || existing?.avatarUrl || null,
+              githubLogin: p.githubLogin || existing?.githubLogin || null,
+              isAssignedToProject: assignedIds.has(p.id) || existing?.isAssignedToProject || false,
+              projectRole: assignedRolesMap.get(p.id) || existing?.projectRole || "member",
+            });
+          }
+        });
+      }
+    } catch (err) {
+      console.warn("[loadData] getOrganizationMembersAction err:", err);
+    }
+
+    // 3. Fallback to /api/v1/members if needed
+    try {
+      const memRes = await fetch("/api/v1/members");
+      if (memRes.ok) {
+        const memJson = await memRes.json();
+        if (Array.isArray(memJson.data)) {
+          memJson.data.forEach((p: { id: string; displayName?: string; email?: string | null; githubLogin?: string | null; avatarUrl?: string | null }) => {
+            if (p && p.id) {
+              const existing = accumulatedMembers.get(p.id);
+              accumulatedMembers.set(p.id, {
+                id: p.id,
+                userId: p.id,
+                displayName: p.displayName || p.email?.split("@")[0] || "کاربر سازمان",
+                email: p.email || "",
+                avatarUrl: p.avatarUrl || existing?.avatarUrl || null,
+                githubLogin: p.githubLogin || existing?.githubLogin || null,
+                isAssignedToProject: assignedIds.has(p.id) || existing?.isAssignedToProject || false,
+                projectRole: assignedRolesMap.get(p.id) || existing?.projectRole || "member",
+              });
+            }
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("[loadData] /api/v1/members err:", err);
+    }
+
+    // 4. Instant cache fallback from localStorage flowdeck_org_members
+    try {
+      const saved = localStorage.getItem("flowdeck_org_members");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((m: { id: string; displayName?: string; email?: string; githubLogin?: string | null; avatarUrl?: string | null }) => {
+            if (m && m.id && !accumulatedMembers.has(m.id)) {
+              accumulatedMembers.set(m.id, {
+                id: m.id,
+                userId: m.id,
+                displayName: m.displayName || m.email?.split("@")[0] || "کاربر سازمان",
+                email: m.email || "",
+                avatarUrl: m.avatarUrl || null,
+                githubLogin: m.githubLogin || null,
+                isAssignedToProject: assignedIds.has(m.id) || false,
+                projectRole: assignedRolesMap.get(m.id) || "member",
               });
             }
           });
@@ -140,14 +221,25 @@ export default function MembersPage() {
       }
     } catch {
       // ignore
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
     }
-  }, [projectKey, members, addMember]);
+
+    const finalList = Array.from(accumulatedMembers.values());
+    if (finalList.length > 0) {
+      setOrgMembers(finalList);
+      try {
+        localStorage.setItem("flowdeck_org_members", JSON.stringify(finalList));
+      } catch {
+        // ignore
+      }
+    }
+
+    setLoading(false);
+    setRefreshing(false);
+  }, [projectKey]);
 
   useEffect(() => {
     loadData(true);
+    const interval = setInterval(() => loadData(false), 4000);
 
     let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null;
     try {
@@ -163,6 +255,7 @@ export default function MembersPage() {
     }
 
     return () => {
+      clearInterval(interval);
       if (channel) {
         try {
           const supabase = createClient();

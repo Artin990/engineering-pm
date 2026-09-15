@@ -12,7 +12,8 @@ export async function GET(
 ) {
   try {
     const { key } = await params;
-    const normKey = (key || "PM").toUpperCase();
+    const rawKey = key || "PM";
+    const normKey = rawKey.toUpperCase();
 
     // 1. یافتن یا اطمینان از وجود پروژه در دیتابیس
     let [project] = await db
@@ -23,7 +24,15 @@ export async function GET(
         workspaceId: projects.workspaceId,
       })
       .from(projects)
-      .where(and(eq(projects.key, normKey), isNull(projects.deletedAt)))
+      .where(
+        and(
+          or(
+            eq(projects.key, normKey),
+            ilike(projects.key, rawKey)
+          ),
+          isNull(projects.deletedAt)
+        )
+      )
       .limit(1);
 
     if (!project) {
@@ -42,6 +51,7 @@ export async function GET(
             workspaceId: firstWs.id,
             ownerId: firstWs.ownerId,
           })
+          .onConflictDoNothing()
           .returning();
         project = created;
       }
@@ -141,7 +151,8 @@ export async function POST(
 ) {
   try {
     const { key } = await params;
-    const normKey = (key || "PM").toUpperCase();
+    const rawKey = key || "PM";
+    const normKey = rawKey.toUpperCase();
 
     // ۱. یافتن یا ایجاد پروژه
     let [project] = await db
@@ -151,7 +162,15 @@ export async function POST(
         workspaceId: projects.workspaceId,
       })
       .from(projects)
-      .where(and(eq(projects.key, normKey), isNull(projects.deletedAt)))
+      .where(
+        and(
+          or(
+            eq(projects.key, normKey),
+            ilike(projects.key, rawKey)
+          ),
+          isNull(projects.deletedAt)
+        )
+      )
       .limit(1);
 
     if (!project) {
@@ -165,6 +184,7 @@ export async function POST(
             workspaceId: firstWs.id,
             ownerId: firstWs.ownerId,
           })
+          .onConflictDoNothing()
           .returning();
         project = created;
       }
@@ -291,7 +311,8 @@ export async function DELETE(
 ) {
   try {
     const { key } = await params;
-    const normKey = (key || "PM").toUpperCase();
+    const rawKey = key || "PM";
+    const normKey = rawKey.toUpperCase();
 
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId") || searchParams.get("id");
@@ -303,7 +324,15 @@ export async function DELETE(
     const [project] = await db
       .select({ id: projects.id })
       .from(projects)
-      .where(and(eq(projects.key, normKey), isNull(projects.deletedAt)))
+      .where(
+        and(
+          or(
+            eq(projects.key, normKey),
+            ilike(projects.key, rawKey)
+          ),
+          isNull(projects.deletedAt)
+        )
+      )
       .limit(1);
 
     if (project) {
@@ -349,7 +378,8 @@ export async function PATCH(
 ) {
   try {
     const { key } = await params;
-    const normKey = (key || "PM").toUpperCase();
+    const rawKey = key || "PM";
+    const normKey = rawKey.toUpperCase();
 
     const body = await request.json();
     const { userId, role, githubLogin } = body;
@@ -361,7 +391,15 @@ export async function PATCH(
     const [project] = await db
       .select({ id: projects.id })
       .from(projects)
-      .where(and(eq(projects.key, normKey), isNull(projects.deletedAt)))
+      .where(
+        and(
+          or(
+            eq(projects.key, normKey),
+            ilike(projects.key, rawKey)
+          ),
+          isNull(projects.deletedAt)
+        )
+      )
       .limit(1);
 
     if (project && role) {

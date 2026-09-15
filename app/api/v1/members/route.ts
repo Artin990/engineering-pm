@@ -45,26 +45,61 @@ export async function GET() {
       }
     }
 
-    if (!targetWorkspaceId) {
-      return NextResponse.json({ data: [] });
+    interface MemberRow {
+      id: string;
+      displayName: string;
+      email: string | null;
+      avatarUrl?: string | null;
+      githubLogin?: string | null;
+      createdAt?: Date | null;
+      role?: string | null;
+      joinedAt?: Date | null;
     }
 
-    // بازگرداندن صرفاً اعضایی که در این ورک‌اسپیس عضویت دارند
-    const membersList = await db
-      .select({
-        id: profiles.id,
-        displayName: profiles.displayName,
-        email: profiles.email,
-        avatarUrl: profiles.avatarUrl,
-        githubLogin: profiles.githubLogin,
-        createdAt: profiles.createdAt,
-        role: workspaceMembers.role,
-        joinedAt: workspaceMembers.joinedAt,
-      })
-      .from(workspaceMembers)
-      .innerJoin(profiles, eq(workspaceMembers.userId, profiles.id))
-      .where(eq(workspaceMembers.workspaceId, targetWorkspaceId))
-      .orderBy(desc(workspaceMembers.joinedAt));
+    let membersList: MemberRow[] = [];
+
+    if (targetWorkspaceId) {
+      membersList = await db
+        .select({
+          id: profiles.id,
+          displayName: profiles.displayName,
+          email: profiles.email,
+          avatarUrl: profiles.avatarUrl,
+          githubLogin: profiles.githubLogin,
+          createdAt: profiles.createdAt,
+          role: workspaceMembers.role,
+          joinedAt: workspaceMembers.joinedAt,
+        })
+        .from(workspaceMembers)
+        .innerJoin(profiles, eq(workspaceMembers.userId, profiles.id))
+        .where(eq(workspaceMembers.workspaceId, targetWorkspaceId))
+        .orderBy(desc(workspaceMembers.joinedAt));
+    }
+
+    if (!membersList || membersList.length === 0) {
+      const allProfs = await db
+        .select({
+          id: profiles.id,
+          displayName: profiles.displayName,
+          email: profiles.email,
+          avatarUrl: profiles.avatarUrl,
+          githubLogin: profiles.githubLogin,
+          createdAt: profiles.createdAt,
+        })
+        .from(profiles)
+        .orderBy(desc(profiles.createdAt));
+
+      membersList = allProfs.map((p) => ({
+        id: p.id,
+        displayName: p.displayName || p.email?.split("@")[0] || "کاربر سازمان",
+        email: p.email,
+        avatarUrl: p.avatarUrl,
+        githubLogin: p.githubLogin,
+        createdAt: p.createdAt,
+        role: "member" as const,
+        joinedAt: p.createdAt,
+      }));
+    }
 
     const uniqueMembers = Array.from(
       new Map(membersList.map((m) => [m.id, m])).values()
