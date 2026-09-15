@@ -62,11 +62,19 @@ async function main() {
     const testRes = await sql`SELECT version();`;
     console.log("✅ Successfully connected to Supabase:", testRes[0].version);
 
-    // 1. Run initial schema
-    const schemaFile = path.resolve("./drizzle/0000_init_schema.sql");
-    if (fs.existsSync(schemaFile)) {
-      const schemaSql = fs.readFileSync(schemaFile, "utf-8");
-      await executeStatements(schemaSql, "Drizzle Schema");
+    // 1. Run all drizzle migrations in order
+    const drizzleDir = path.resolve("./drizzle");
+    if (fs.existsSync(drizzleDir)) {
+      const sqlFiles = fs
+        .readdirSync(drizzleDir)
+        .filter((f) => f.endsWith(".sql"))
+        .sort();
+
+      for (const file of sqlFiles) {
+        const schemaFile = path.join(drizzleDir, file);
+        const schemaSql = fs.readFileSync(schemaFile, "utf-8");
+        await executeStatements(schemaSql, `Drizzle Migration (${file})`);
+      }
     }
 
     // 2. Run RLS script
