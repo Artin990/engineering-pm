@@ -224,6 +224,7 @@ export async function POST(
       if (!uId) continue;
       try {
         let finalProfileId = uId;
+        const cleanTarget = String(uId).trim();
 
         // جستجوی پروفایل با id یا ایمیل
         const [prof] = await db
@@ -231,8 +232,9 @@ export async function POST(
           .from(profiles)
           .where(
             or(
-              eq(profiles.id, uId),
-              body.email ? eq(profiles.email, body.email.trim()) : sql`false`
+              eq(profiles.id, cleanTarget),
+              ilike(profiles.email, cleanTarget),
+              body.email ? ilike(profiles.email, body.email.trim()) : sql`false`
             )
           )
           .limit(1);
@@ -240,15 +242,21 @@ export async function POST(
         if (prof) {
           finalProfileId = prof.id;
         } else {
-          await db
+          // اگر پروفایلی یافت نشد، ایجاد پروفایل با شناسه معتبر
+          const targetEmail = body.email || (cleanTarget.includes("@") ? cleanTarget : null);
+          const [newProf] = await db
             .insert(profiles)
             .values({
-              id: uId,
-              displayName: body.displayName || "عضو سازمان",
-              email: body.email || null,
+              id: cleanTarget,
+              displayName: body.displayName || (targetEmail ? targetEmail.split("@")[0] : "عضو سازمان"),
+              email: targetEmail,
               githubLogin: body.githubLogin || null,
             })
-            .onConflictDoNothing();
+            .returning({ id: profiles.id });
+
+          if (newProf) {
+            finalProfileId = newProf.id;
+          }
         }
 
         // انتساب به پروژه

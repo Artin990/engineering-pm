@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { desc, isNull, eq, and } from "drizzle-orm";
+import { desc, isNull, eq, and, ilike } from "drizzle-orm";
 import { AuthError, getSession, getOptionalSession } from "@/lib/auth/session";
 import { isUserAdminEmail } from "@/lib/auth/admin-check";
 import { db } from "@/lib/db";
@@ -22,10 +22,12 @@ function errJson(err: unknown) {
   return NextResponse.json({ error: errMsg }, { status: 500 });
 }
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getOptionalSession();
-    const userEmail = session?.user?.email || "";
+    const userEmail = session?.user?.email ? session.user.email.trim().toLowerCase() : "";
     const userId = session?.profileId || session?.user?.id;
     const isAdmin = isUserAdminEmail(userEmail);
 
@@ -59,11 +61,25 @@ export async function GET(request: NextRequest) {
     }
 
     // ۲. اگر کاربر عادی / عضو زیرمجموعه است:
-    // پروژه‌هایی که عضو مستقیم پروژه است + پروژه‌های workspace که عضوش هست
-    if (userId) {
-      try {
-        // ۲.۱. پروژه‌هایی که مستقیماً عضو project_members است
-        const assignedProjects = await db
+    // تمام پروژه‌هایی که مستقیماً به کاربر اختصاص یافته‌اند بر اساس id یا email
+    try {
+      const candidateUserIds = new Set<string>();
+      if (userId) candidateUserIds.add(userId);
+
+      if (userEmail) {
+        const profRows = await db
+          .select({ id: profiles.id })
+          .from(profiles)
+          .where(ilike(profiles.email, userEmail));
+
+        for (const prof of profRows) {
+          if (prof.id) candidateUserIds.add(prof.id);
+        }
+      }
+
+      const assignedList: (typeof projects.$inferSelect)[] = [];
+      for (const cId of Array.from(candidateUserIds)) {
+        const rows = await db
           .select({
             id: projects.id,
             workspaceId: projects.workspaceId,
@@ -78,57 +94,22 @@ export async function GET(request: NextRequest) {
             teamId: projects.teamId,
             createdAt: projects.createdAt,
             updatedAt: projects.updatedAt,
+            deletedAt: projects.deletedAt,
           })
           .from(projectMembers)
           .innerJoin(projects, eq(projectMembers.projectId, projects.id))
-          .where(and(eq(projectMembers.userId, userId), isNull(projects.deletedAt)))
+          .where(and(eq(projectMembers.userId, cId), isNull(projects.deletedAt)))
           .orderBy(desc(projects.createdAt));
 
-        // ۲.۲. بررسی بر اساس ایمیل در صورت متفاوت بودن شناسه پروفایل
-        const extraProjects: typeof assignedProjects = [];
-        if (userEmail) {
-          const profRows = await db
-            .select({ id: profiles.id })
-            .from(profiles)
-            .where(eq(profiles.email, userEmail));
-
-          for (const prof of profRows) {
-            if (prof.id !== userId) {
-              const extra = await db
-                .select({
-                  id: projects.id,
-                  workspaceId: projects.workspaceId,
-                  key: projects.key,
-                  name: projects.name,
-                  description: projects.description,
-                  status: projects.status,
-                  health: projects.health,
-                  targetDate: projects.targetDate,
-                  githubRepo: projects.githubRepo,
-                  ownerId: projects.ownerId,
-                  teamId: projects.teamId,
-                  createdAt: projects.createdAt,
-                  updatedAt: projects.updatedAt,
-                })
-                .from(projectMembers)
-                .innerJoin(projects, eq(projectMembers.projectId, projects.id))
-                .where(and(eq(projectMembers.userId, prof.id), isNull(projects.deletedAt)));
-              extraProjects.push(...extra);
-            }
-          }
-        }
-
-        const combined = [...assignedProjects, ...extraProjects];
-        const unique = Array.from(new Map(combined.map((p) => [p.id, p])).values());
-
-        return NextResponse.json({ data: unique });
-      } catch (memErr) {
-        console.warn("[assigned-projects-err]", memErr);
-        return NextResponse.json({ data: [] });
+        assignedList.push(...rows);
       }
-    }
 
-    return NextResponse.json({ data: [] });
+      const unique = Array.from(new Map(assignedList.map((p) => [p.id, p])).values());
+      return NextResponse.json({ data: unique });
+    } catch (memErr) {
+      console.warn("[assigned-projects-err]", memErr);
+      return NextResponse.json({ data: [] });
+    }
   } catch (err) {
     return errJson(err);
   }

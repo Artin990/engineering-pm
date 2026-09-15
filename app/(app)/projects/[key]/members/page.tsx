@@ -107,10 +107,12 @@ export default function MembersPage() {
     const assignedRolesMap = new Map<string, "lead" | "contributor" | "viewer" | "admin" | "member" | "intern">();
 
     // 1. Fetch from Project Members API Route (gets DB project members and org members)
+    let fetchedFromApi = false;
     try {
       const res = await fetch(`/api/v1/projects/${projectKey}/members`);
       if (res.ok) {
         const json = await res.json();
+        fetchedFromApi = true;
         if (Array.isArray(json.projectMembers)) {
           json.projectMembers.forEach((pm: {
             id: string;
@@ -165,8 +167,7 @@ export default function MembersPage() {
             const isAssigned =
               assignedIds.has(p.id) ||
               (normalizedEmail ? assignedEmails.has(normalizedEmail) : false) ||
-              existing?.isAssignedToProject ||
-              false;
+              (existing ? existing.isAssignedToProject : false);
 
             accumulatedMembers.set(p.id, {
               id: p.id,
@@ -198,8 +199,7 @@ export default function MembersPage() {
               const isAssigned =
                 assignedIds.has(p.id) ||
                 (normalizedEmail ? assignedEmails.has(normalizedEmail) : false) ||
-                existing?.isAssignedToProject ||
-                false;
+                (existing ? existing.isAssignedToProject : false);
 
               accumulatedMembers.set(p.id, {
                 id: p.id,
@@ -221,7 +221,7 @@ export default function MembersPage() {
 
     // 4. Instant cache fallback from localStorage flowdeck_org_members
     try {
-      const saved = localStorage.getItem("flowdeck_org_members");
+      const saved = localStorage.getItem(`flowdeck_org_members_${projectKey}`) || localStorage.getItem("flowdeck_org_members");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
@@ -254,7 +254,24 @@ export default function MembersPage() {
     const finalList = Array.from(accumulatedMembers.values());
     if (finalList.length > 0) {
       setOrgMembers((prev) => {
-        // If we already have members assigned in prev state, preserve their assigned status!
+        // If API returned authoritative projectMembers, use assignedIds & assignedEmails strictly!
+        if (fetchedFromApi) {
+          return finalList.map((item) => {
+            const itemKey = item.userId || item.id;
+            const itemEmail = item.email ? item.email.toLowerCase().trim() : "";
+            const isAssigned =
+              assignedIds.has(itemKey) ||
+              (itemEmail ? assignedEmails.has(itemEmail) : false);
+
+            return {
+              ...item,
+              isAssignedToProject: isAssigned,
+              projectRole: assignedRolesMap.get(itemKey) || item.projectRole || "member",
+            };
+          });
+        }
+
+        // If API was temporarily unreachable, fallback to previous optimistic state
         const prevAssignedSet = new Set(
           prev.filter((p) => p.isAssignedToProject).map((p) => p.userId || p.id)
         );
@@ -275,6 +292,7 @@ export default function MembersPage() {
       });
 
       try {
+        localStorage.setItem(`flowdeck_org_members_${projectKey}`, JSON.stringify(finalList));
         localStorage.setItem("flowdeck_org_members", JSON.stringify(finalList));
       } catch {
         // ignore
