@@ -1,9 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { eq, and, isNull, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { projects, projectMembers, workspaceMembers, profiles } from "@/lib/db/schema";
-import { getOptionalSession } from "@/lib/auth/session";
-import { isUserAdminEmail } from "@/lib/auth/admin-check";
+import { projects, projectMembers, workspaceMembers, profiles, workspaces } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/client";
 
 export const dynamic = "force-dynamic";
@@ -16,8 +14,8 @@ export async function GET(
     const { key } = await params;
     const normKey = (key || "PM").toUpperCase();
 
-    // 1. یافتن پروژه بر اساس کلید
-    const [project] = await db
+    // 1. یافتن یا اطمینان از وجود پروژه در دیتابیس
+    let [project] = await db
       .select({
         id: projects.id,
         key: projects.key,
@@ -29,57 +27,92 @@ export async function GET(
       .limit(1);
 
     if (!project) {
-      return NextResponse.json({ error: "پروژه یافت نشد." }, { status: 404 });
+      // ایجاد پروژه در صورت نبودن در DB
+      const [firstWs] = await db
+        .select({ id: workspaces.id, ownerId: workspaces.ownerId })
+        .from(workspaces)
+        .limit(1);
+
+      if (firstWs) {
+        const [created] = await db
+          .insert(projects)
+          .values({
+            key: normKey,
+            name: normKey === "PM" ? "مدیریت پروژه RadarCheck" : `پروژه ${normKey}`,
+            workspaceId: firstWs.id,
+            ownerId: firstWs.ownerId,
+          })
+          .returning();
+        project = created;
+      }
     }
 
-    // ۲. اعضای این پروژه
-    const currentProjectMembers = await db
-      .select({
-        id: projectMembers.id,
-        userId: projectMembers.userId,
-        role: projectMembers.role,
-        joinedAt: projectMembers.createdAt,
-        displayName: profiles.displayName,
-        email: profiles.email,
-        avatarUrl: profiles.avatarUrl,
-        githubLogin: profiles.githubLogin,
-      })
-      .from(projectMembers)
-      .innerJoin(profiles, eq(projectMembers.userId, profiles.id))
-      .where(eq(projectMembers.projectId, project.id))
-      .orderBy(desc(projectMembers.createdAt));
+    const projectId = project?.id;
 
-    // ۳. اعضای کل سازمان (ورک‌اسپیس) جهت انتخاب و انتساب سلکتیو
-    const allOrgMembers = await db
-      .select({
-        userId: workspaceMembers.userId,
-        role: workspaceMembers.role,
-        joinedAt: workspaceMembers.joinedAt,
-        displayName: profiles.displayName,
-        email: profiles.email,
-        avatarUrl: profiles.avatarUrl,
-        githubLogin: profiles.githubLogin,
-      })
-      .from(workspaceMembers)
-      .innerJoin(profiles, eq(workspaceMembers.userId, profiles.id))
-      .where(eq(workspaceMembers.workspaceId, project.workspaceId))
-      .orderBy(desc(workspaceMembers.joinedAt));
+    // ۲. دریافت اعضای تخصیص‌یافته به این پروژه
+    let currentProjectMembers: {
+      id: string;
+      userId: string;
+      role: "lead" | "contributor" | "viewer";
+      joinedAt: Date | null;
+      displayName: string;
+      email: string | null;
+      avatarUrl: string | null;
+      githubLogin: string | null;
+    }[] = [];
+
+    if (projectId) {
+      currentProjectMembers = await db
+        .select({
+          id: projectMembers.id,
+          userId: projectMembers.userId,
+          role: projectMembers.role,
+          joinedAt: projectMembers.createdAt,
+          displayName: profiles.displayName,
+          email: profiles.email,
+          avatarUrl: profiles.avatarUrl,
+          githubLogin: profiles.githubLogin,
+        })
+        .from(projectMembers)
+        .innerJoin(profiles, eq(projectMembers.userId, profiles.id))
+        .where(eq(projectMembers.projectId, projectId))
+        .orderBy(desc(projectMembers.createdAt));
+    }
 
     const assignedUserIds = new Set(currentProjectMembers.map((m) => m.userId));
+    const projectMemberRoles = new Map(currentProjectMembers.map((m) => [m.userId, m.role]));
 
-    const mappedOrgMembers = allOrgMembers.map((om) => ({
-      id: om.userId,
-      userId: om.userId,
-      displayName: om.displayName || om.email?.split("@")[0] || "عضو سازمان",
-      email: om.email || "",
-      avatarUrl: om.avatarUrl,
-      githubLogin: om.githubLogin,
-      orgRole: om.role,
-      isAssignedToProject: assignedUserIds.has(om.userId),
-    }));
+    // ۳. دریافت کلیه اعضای ثبت‌نام شده در سامانه/سازمان جهت پیشنهاد هوشمند
+    const allProfiles = await db
+      .select({
+        id: profiles.id,
+        displayName: profiles.displayName,
+        email: profiles.email,
+        avatarUrl: profiles.avatarUrl,
+        githubLogin: profiles.githubLogin,
+        createdAt: profiles.createdAt,
+      })
+      .from(profiles)
+      .orderBy(desc(profiles.createdAt));
+
+    const mappedOrgMembers = allProfiles.map((p) => {
+      const isAssigned = assignedUserIds.has(p.id);
+      const assignedRole = projectMemberRoles.get(p.id) || "contributor";
+
+      return {
+        id: p.id,
+        userId: p.id,
+        displayName: p.displayName || p.email?.split("@")[0] || "کاربر سازمان",
+        email: p.email || "",
+        avatarUrl: p.avatarUrl,
+        githubLogin: p.githubLogin,
+        isAssignedToProject: isAssigned,
+        projectRole: assignedRole,
+      };
+    });
 
     return NextResponse.json({
-      project,
+      project: project || { id: `p-${normKey}`, key: normKey, name: normKey },
       projectMembers: currentProjectMembers.map((m) => ({
         id: m.userId,
         memberRecordId: m.id,
@@ -110,16 +143,11 @@ export async function POST(
     const { key } = await params;
     const normKey = (key || "PM").toUpperCase();
 
-    const session = await getOptionalSession();
-    const userEmail = session?.user?.email;
-    const isAdmin = isUserAdminEmail(userEmail);
-
-    // ۱. یافتن پروژه
-    const [project] = await db
+    // ۱. یافتن یا ایجاد پروژه
+    let [project] = await db
       .select({
         id: projects.id,
         key: projects.key,
-        name: projects.name,
         workspaceId: projects.workspaceId,
       })
       .from(projects)
@@ -127,12 +155,27 @@ export async function POST(
       .limit(1);
 
     if (!project) {
-      return NextResponse.json({ error: "پروژه یافت نشد." }, { status: 404 });
+      const [firstWs] = await db.select({ id: workspaces.id, ownerId: workspaces.ownerId }).from(workspaces).limit(1);
+      if (firstWs) {
+        const [created] = await db
+          .insert(projects)
+          .values({
+            key: normKey,
+            name: normKey === "PM" ? "مدیریت پروژه RadarCheck" : `پروژه ${normKey}`,
+            workspaceId: firstWs.id,
+            ownerId: firstWs.ownerId,
+          })
+          .returning();
+        project = created;
+      }
+    }
+
+    if (!project) {
+      return NextResponse.json({ error: "خطا در ایجاد یا یافتن پروژه" }, { status: 500 });
     }
 
     const body = await request.json();
 
-    // پشتیبانی از افزودن تک‌عضو یا چندین عضو همزمان (Batch assignment)
     const userIdsToAdd: string[] = Array.isArray(body.userIds)
       ? body.userIds
       : body.userId
@@ -147,7 +190,7 @@ export async function POST(
         ? "viewer"
         : "contributor";
 
-    // ۲. افزودن اعضای موجود با userId
+    // ۲. افزودن اعضای انتخاب شده به دیتابیس
     for (const uId of userIdsToAdd) {
       if (!uId) continue;
       await db
@@ -163,7 +206,7 @@ export async function POST(
         });
     }
 
-    // ۳. اگر عضو جدیدی با ایمیل/نام دعوت شده که هنوز در profiles نیست
+    // ۳. اگر عضو جدیدی با ایمیل دستی اضافه شده باشد
     if (userIdsToAdd.length === 0 && (body.email || body.displayName)) {
       let targetUserId: string | null = null;
       if (body.email) {
@@ -189,7 +232,6 @@ export async function POST(
 
         if (createdProf) {
           targetUserId = createdProf.id;
-          // عضویت در ورک‌اسپیس
           await db
             .insert(workspaceMembers)
             .values({
@@ -216,7 +258,7 @@ export async function POST(
       }
     }
 
-    // ۴. ارسال پیام Realtime در کانال‌های سراسری و پروژه
+    // ۴. Realtime Broadcast
     try {
       const supabase = createClient();
       supabase.channel("radarcheck_projects_global").send({
@@ -233,7 +275,7 @@ export async function POST(
       // ignore
     }
 
-    return NextResponse.json({ ok: true, message: "اعضا با موفقیت به پروژه افزوده شدند." });
+    return NextResponse.json({ ok: true, message: "اعضا با موفقیت به پروژه اضافه شدند." });
   } catch (err: unknown) {
     console.error("[post-project-members-error]", err);
     return NextResponse.json(
@@ -264,20 +306,17 @@ export async function DELETE(
       .where(and(eq(projects.key, normKey), isNull(projects.deletedAt)))
       .limit(1);
 
-    if (!project) {
-      return NextResponse.json({ error: "پروژه یافت نشد." }, { status: 404 });
+    if (project) {
+      await db
+        .delete(projectMembers)
+        .where(
+          and(
+            eq(projectMembers.projectId, project.id),
+            eq(projectMembers.userId, userId)
+          )
+        );
     }
 
-    await db
-      .delete(projectMembers)
-      .where(
-        and(
-          eq(projectMembers.projectId, project.id),
-          eq(projectMembers.userId, userId)
-        )
-      );
-
-    // ارسال پیام Realtime
     try {
       const supabase = createClient();
       supabase.channel("radarcheck_projects_global").send({
@@ -294,7 +333,7 @@ export async function DELETE(
       // ignore
     }
 
-    return NextResponse.json({ ok: true, message: "عضو با موفقیت از پروژه حذف گردید." });
+    return NextResponse.json({ ok: true, message: "عضو با موفقیت از پروژه خارج گردید." });
   } catch (err: unknown) {
     console.error("[delete-project-members-error]", err);
     return NextResponse.json(
@@ -325,11 +364,7 @@ export async function PATCH(
       .where(and(eq(projects.key, normKey), isNull(projects.deletedAt)))
       .limit(1);
 
-    if (!project) {
-      return NextResponse.json({ error: "پروژه یافت نشد." }, { status: 404 });
-    }
-
-    if (role) {
+    if (project && role) {
       const rawRole = String(role).toLowerCase();
       const dbRole: "lead" | "contributor" | "viewer" =
         rawRole === "admin" || rawRole === "lead"
@@ -370,7 +405,7 @@ export async function PATCH(
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "خطا در ویرایش نقش عضو" },
+      { error: err instanceof Error ? err.message : "خطا در ویرایش عضو" },
       { status: 500 }
     );
   }
