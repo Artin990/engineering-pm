@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { eq, and, isNull, desc } from "drizzle-orm";
+import { eq, and, isNull, desc, or, ilike } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { projects, projectMembers, workspaceMembers, profiles, workspaces } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/client";
