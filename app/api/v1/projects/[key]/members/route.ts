@@ -3,6 +3,7 @@ import { eq, and, isNull, desc, or, ilike, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { projects, projectMembers, workspaceMembers, profiles, workspaces } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/client";
+import { invalidateProjectSyncCache } from "@/lib/project-cache";
 
 export const dynamic = "force-dynamic";
 
@@ -329,7 +330,8 @@ export async function POST(
       }
     }
 
-    // ۴. Realtime Broadcast
+    // ۴. Realtime Broadcast & Cache Invalidation
+    invalidateProjectSyncCache(normKey);
     try {
       const supabase = createClient();
       supabase.channel("radarcheck_projects_global").send({
@@ -338,6 +340,11 @@ export async function POST(
         payload: { projectKey: normKey, action: "members_updated" },
       });
       supabase.channel(`radarcheck_project_${normKey}`).send({
+        type: "broadcast",
+        event: "project_updated",
+        payload: { key: normKey, timestamp: Date.now() },
+      });
+      supabase.channel(`radarcheck_project_${normKey}_members_ui`).send({
         type: "broadcast",
         event: "project_updated",
         payload: { key: normKey, timestamp: Date.now() },
@@ -397,6 +404,8 @@ export async function DELETE(
         );
     }
 
+    invalidateProjectSyncCache(normKey);
+
     try {
       const supabase = createClient();
       supabase.channel("radarcheck_projects_global").send({
@@ -405,6 +414,11 @@ export async function DELETE(
         payload: { projectKey: normKey, action: "member_removed", userId },
       });
       supabase.channel(`radarcheck_project_${normKey}`).send({
+        type: "broadcast",
+        event: "project_updated",
+        payload: { key: normKey, timestamp: Date.now() },
+      });
+      supabase.channel(`radarcheck_project_${normKey}_members_ui`).send({
         type: "broadcast",
         event: "project_updated",
         payload: { key: normKey, timestamp: Date.now() },

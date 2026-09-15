@@ -161,6 +161,13 @@ export default function MembersPage() {
         actionRes.data.forEach((p: { id: string; displayName?: string; email?: string | null; githubLogin?: string | null; avatarUrl?: string | null }) => {
           if (p && p.id) {
             const existing = accumulatedMembers.get(p.id);
+            const normalizedEmail = p.email?.toLowerCase().trim();
+            const isAssigned =
+              assignedIds.has(p.id) ||
+              (normalizedEmail ? assignedEmails.has(normalizedEmail) : false) ||
+              existing?.isAssignedToProject ||
+              false;
+
             accumulatedMembers.set(p.id, {
               id: p.id,
               userId: p.id,
@@ -168,7 +175,7 @@ export default function MembersPage() {
               email: p.email || "",
               avatarUrl: p.avatarUrl || existing?.avatarUrl || null,
               githubLogin: p.githubLogin || existing?.githubLogin || null,
-              isAssignedToProject: assignedIds.has(p.id) || existing?.isAssignedToProject || false,
+              isAssignedToProject: isAssigned,
               projectRole: assignedRolesMap.get(p.id) || existing?.projectRole || "member",
             });
           }
@@ -187,6 +194,13 @@ export default function MembersPage() {
           memJson.data.forEach((p: { id: string; displayName?: string; email?: string | null; githubLogin?: string | null; avatarUrl?: string | null }) => {
             if (p && p.id) {
               const existing = accumulatedMembers.get(p.id);
+              const normalizedEmail = p.email?.toLowerCase().trim();
+              const isAssigned =
+                assignedIds.has(p.id) ||
+                (normalizedEmail ? assignedEmails.has(normalizedEmail) : false) ||
+                existing?.isAssignedToProject ||
+                false;
+
               accumulatedMembers.set(p.id, {
                 id: p.id,
                 userId: p.id,
@@ -194,7 +208,7 @@ export default function MembersPage() {
                 email: p.email || "",
                 avatarUrl: p.avatarUrl || existing?.avatarUrl || null,
                 githubLogin: p.githubLogin || existing?.githubLogin || null,
-                isAssignedToProject: assignedIds.has(p.id) || existing?.isAssignedToProject || false,
+                isAssignedToProject: isAssigned,
                 projectRole: assignedRolesMap.get(p.id) || existing?.projectRole || "member",
               });
             }
@@ -211,8 +225,14 @@ export default function MembersPage() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          parsed.forEach((m: { id: string; displayName?: string; email?: string; githubLogin?: string | null; avatarUrl?: string | null }) => {
+          parsed.forEach((m: { id: string; displayName?: string; email?: string; githubLogin?: string | null; avatarUrl?: string | null; isAssignedToProject?: boolean }) => {
             if (m && m.id && !accumulatedMembers.has(m.id)) {
+              const normalizedEmail = m.email?.toLowerCase().trim();
+              const isAssigned =
+                assignedIds.has(m.id) ||
+                (normalizedEmail ? assignedEmails.has(normalizedEmail) : false) ||
+                Boolean(m.isAssignedToProject);
+
               accumulatedMembers.set(m.id, {
                 id: m.id,
                 userId: m.id,
@@ -220,7 +240,7 @@ export default function MembersPage() {
                 email: m.email || "",
                 avatarUrl: m.avatarUrl || null,
                 githubLogin: m.githubLogin || null,
-                isAssignedToProject: assignedIds.has(m.id) || false,
+                isAssignedToProject: isAssigned,
                 projectRole: assignedRolesMap.get(m.id) || "member",
               });
             }
@@ -233,7 +253,27 @@ export default function MembersPage() {
 
     const finalList = Array.from(accumulatedMembers.values());
     if (finalList.length > 0) {
-      setOrgMembers(finalList);
+      setOrgMembers((prev) => {
+        // If we already have members assigned in prev state, preserve their assigned status!
+        const prevAssignedSet = new Set(
+          prev.filter((p) => p.isAssignedToProject).map((p) => p.userId || p.id)
+        );
+        const prevAssignedEmailSet = new Set(
+          prev.filter((p) => p.isAssignedToProject && p.email).map((p) => p.email.toLowerCase().trim())
+        );
+
+        return finalList.map((item) => {
+          const itemKey = item.userId || item.id;
+          const itemEmail = item.email ? item.email.toLowerCase().trim() : "";
+          const wasAssigned = prevAssignedSet.has(itemKey) || (itemEmail ? prevAssignedEmailSet.has(itemEmail) : false);
+
+          if (wasAssigned && !item.isAssignedToProject) {
+            return { ...item, isAssignedToProject: true };
+          }
+          return item;
+        });
+      });
+
       try {
         localStorage.setItem("flowdeck_org_members", JSON.stringify(finalList));
       } catch {
@@ -281,15 +321,21 @@ export default function MembersPage() {
     if (!targetUserId) return;
 
     // 1. Instant Optimistic UI Update (Immediate visual feedback)
-    setOrgMembers((prev) =>
-      prev.map((om) =>
+    setOrgMembers((prev) => {
+      const updated = prev.map((om) =>
         om.userId === targetUserId ||
         om.id === targetUserId ||
         (om.email && orgMember.email && om.email.toLowerCase().trim() === orgMember.email.toLowerCase().trim())
           ? { ...om, isAssignedToProject: true, projectRole: customRole }
           : om
-      )
-    );
+      );
+      try {
+        localStorage.setItem("flowdeck_org_members", JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
 
     addMember({
       id: targetUserId,
@@ -330,13 +376,19 @@ export default function MembersPage() {
     setSelectedOrgUserIds([]);
 
     // 1. Instant Optimistic UI Update
-    setOrgMembers((prev) =>
-      prev.map((om) =>
+    setOrgMembers((prev) => {
+      const updated = prev.map((om) =>
         targetIds.includes(om.userId) || targetIds.includes(om.id)
           ? { ...om, isAssignedToProject: true, projectRole: bulkRole }
           : om
-      )
-    );
+      );
+      try {
+        localStorage.setItem("flowdeck_org_members", JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
 
     targetIds.forEach((uId) => {
       const found = orgMembers.find((om) => om.userId === uId || om.id === uId);
@@ -378,11 +430,17 @@ export default function MembersPage() {
     }
 
     // 1. Instant Optimistic UI Update
-    setOrgMembers((prev) =>
-      prev.map((om) =>
+    setOrgMembers((prev) => {
+      const updated = prev.map((om) =>
         om.userId === memberId || om.id === memberId ? { ...om, isAssignedToProject: false } : om
-      )
-    );
+      );
+      try {
+        localStorage.setItem("flowdeck_org_members", JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
     deleteMember(memberId);
     setActionSuccessMsg(`عضو «${displayName}» از این پروژه خارج شد.`);
     setTimeout(() => setActionSuccessMsg(""), 3000);

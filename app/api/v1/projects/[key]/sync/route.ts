@@ -2,18 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { eq, and, isNull, desc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { projects, issues, cycles, milestones, projectMembers, profiles } from "@/lib/db/schema";
-
-// Server In-Memory Cache for ultra-fast real-time synchronization between clients
-const serverProjectStateCache = new Map<string, {
-  project: unknown;
-  issues: unknown[];
-  cycles: unknown[];
-  milestones: unknown[];
-  members: unknown[];
-  activities: unknown[];
-  isDeleted?: boolean;
-  lastUpdated: number;
-}>();
+import { serverProjectStateCache } from "@/lib/project-cache";
 
 export async function GET(
   request: NextRequest,
@@ -23,15 +12,7 @@ export async function GET(
     const { key } = await params;
     const normKey = (key || "PM").toUpperCase();
 
-    const cached = serverProjectStateCache.get(normKey);
-    if (cached) {
-      return NextResponse.json({
-        data: cached,
-        timestamp: cached.lastUpdated,
-      });
-    }
-
-    // Try reading from DB
+    // Try reading fresh state from DB
     try {
       const [proj] = await db
         .select()
@@ -40,22 +21,31 @@ export async function GET(
         .limit(1);
 
       if (proj) {
-        const projIssues = await db
-          .select()
-          .from(issues)
-          .where(eq(issues.projectId, proj.id))
-          .orderBy(desc(issues.createdAt));
+        const cached = serverProjectStateCache.get(normKey);
 
-        const projCycles = await db
-          .select()
-          .from(cycles)
-          .where(and(eq(cycles.projectId, proj.id), isNull(cycles.deletedAt)));
+        const projIssues = cached && Array.isArray(cached.issues) && cached.issues.length > 0
+          ? cached.issues
+          : await db
+              .select()
+              .from(issues)
+              .where(eq(issues.projectId, proj.id))
+              .orderBy(desc(issues.createdAt));
 
-        const projMilestones = await db
-          .select()
-          .from(milestones)
-          .where(and(eq(milestones.projectId, proj.id), isNull(milestones.deletedAt)));
+        const projCycles = cached && Array.isArray(cached.cycles) && cached.cycles.length > 0
+          ? cached.cycles
+          : await db
+              .select()
+              .from(cycles)
+              .where(and(eq(cycles.projectId, proj.id), isNull(cycles.deletedAt)));
 
+        const projMilestones = cached && Array.isArray(cached.milestones) && cached.milestones.length > 0
+          ? cached.milestones
+          : await db
+              .select()
+              .from(milestones)
+              .where(and(eq(milestones.projectId, proj.id), isNull(milestones.deletedAt)));
+
+        // Always fetch authoritative members directly from Supabase project_members
         const projMembers = await db
           .select({
             id: projectMembers.id,
@@ -79,22 +69,30 @@ export async function GET(
           joinedAt: "امروز",
         }));
 
-        const initialState = {
-          project: proj,
+        const freshState = {
+          project: cached?.project || proj,
           issues: projIssues,
           cycles: projCycles,
           milestones: projMilestones,
           members: mappedMembers,
-          activities: [],
+          activities: cached?.activities || [],
           isDeleted: false,
           lastUpdated: Date.now(),
         };
 
-        serverProjectStateCache.set(normKey, initialState);
-        return NextResponse.json({ data: initialState, timestamp: initialState.lastUpdated });
+        serverProjectStateCache.set(normKey, freshState);
+        return NextResponse.json({ data: freshState, timestamp: freshState.lastUpdated });
       }
     } catch {
-      // DB not ready or using fixture fallback
+      // Fallback to cache if DB temporarily unavailable
+    }
+
+    const cached = serverProjectStateCache.get(normKey);
+    if (cached) {
+      return NextResponse.json({
+        data: cached,
+        timestamp: cached.lastUpdated,
+      });
     }
 
     return NextResponse.json({
