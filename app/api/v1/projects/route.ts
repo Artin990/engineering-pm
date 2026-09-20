@@ -4,7 +4,7 @@ import { desc, isNull, eq, and, ilike } from "drizzle-orm";
 import { AuthError, getSession, getOptionalSession } from "@/lib/auth/session";
 import { isUserAdminEmail } from "@/lib/auth/admin-check";
 import { db } from "@/lib/db";
-import { workspaces, workspaceMembers, projects, profiles, projectMembers } from "@/lib/db/schema";
+import { workspaces, workspaceMembers, projects, profiles, projectMembers, projectInvitations } from "@/lib/db/schema";
 import { listWorkspaceProjects, createProject } from "@/lib/db/queries/project";
 
 function errJson(err: unknown) {
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
     }
 
     // ۲. اگر کاربر عادی / عضو زیرمجموعه است:
-    // تمام پروژه‌هایی که مستقیماً به کاربر اختصاص یافته‌اند بر اساس id یا email
+    // تمام پروژه‌هایی که مستقیماً به کاربر اختصاص یافته‌اند بر اساس id یا email یا دعوت‌نامه
     try {
       const candidateUserIds = new Set<string>();
       if (userId) candidateUserIds.add(userId);
@@ -77,7 +77,46 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // الف) خودکارسازی و اتصال دعوت‌نامه‌های ایمیلی در انتظار
+      if (userEmail && userId) {
+        try {
+          const pendingInvites = await db
+            .select({
+              id: projectInvitations.id,
+              projectId: projectInvitations.projectId,
+              role: projectInvitations.role,
+            })
+            .from(projectInvitations)
+            .where(
+              and(
+                ilike(projectInvitations.email, userEmail),
+                isNull(projectInvitations.acceptedAt)
+              )
+            );
+
+          for (const inv of pendingInvites) {
+            await db
+              .insert(projectMembers)
+              .values({
+                projectId: inv.projectId,
+                userId: userId,
+                role: inv.role,
+              })
+              .onConflictDoNothing();
+
+            await db
+              .update(projectInvitations)
+              .set({ acceptedAt: new Date(), status: "accepted" })
+              .where(eq(projectInvitations.id, inv.id));
+          }
+        } catch (invErr) {
+          console.warn("[auto-claim-in-projects-route-warn]", invErr);
+        }
+      }
+
       const assignedList: (typeof projects.$inferSelect)[] = [];
+
+      // ب) واکشی پروژه‌ها از روی project_members
       for (const cId of Array.from(candidateUserIds)) {
         const rows = await db
           .select({
@@ -107,12 +146,22 @@ export async function GET(request: NextRequest) {
         assignedList.push(...rows);
       }
 
+      // ج) واکشی پروژه‌هایی که کاربر مالک آن است
+      for (const cId of Array.from(candidateUserIds)) {
+        const owned = await db
+          .select()
+          .from(projects)
+          .where(and(eq(projects.ownerId, cId), isNull(projects.deletedAt)));
+        assignedList.push(...owned);
+      }
+
       const unique = Array.from(new Map(assignedList.map((p) => [p.id, p])).values());
       return NextResponse.json({ data: unique });
     } catch (memErr) {
       console.warn("[assigned-projects-err]", memErr);
       return NextResponse.json({ data: [] });
     }
+
   } catch (err) {
     return errJson(err);
   }

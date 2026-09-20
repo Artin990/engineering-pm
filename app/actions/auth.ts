@@ -1,8 +1,8 @@
 "use server";
 
-import { eq, or, ilike, sql } from "drizzle-orm";
+import { eq, or, ilike, sql, and, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { profiles, workspaces, workspaceMembers } from "@/lib/db/schema";
+import { profiles, workspaces, workspaceMembers, projects, projectMembers, projectInvitations } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/server";
 import { isUserAdminEmail } from "@/lib/auth/admin-check";
 
@@ -16,6 +16,7 @@ export interface SyncUserProfileInput {
   nationalId?: string | null;
   isCeo?: boolean;
 }
+
 
 function generateRandomInviteCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -185,7 +186,65 @@ export async function syncUserProfile(input: SyncUserProfileInput) {
       }
     }
 
+    // ۵. بررسی و انتساب خودکار پروژه‌هایی که این ایمیل قبلاً به آن‌ها دعوت شده است
+    try {
+
+      const cleanEmail = input.email.trim().toLowerCase();
+      const pendingInvites = await db
+        .select({
+          id: projectInvitations.id,
+          projectId: projectInvitations.projectId,
+          role: projectInvitations.role,
+        })
+        .from(projectInvitations)
+        .where(
+          and(
+            ilike(projectInvitations.email, cleanEmail),
+            isNull(projectInvitations.acceptedAt)
+          )
+        );
+
+      for (const inv of pendingInvites) {
+        const [proj] = await db
+          .select({ workspaceId: projects.workspaceId })
+          .from(projects)
+          .where(eq(projects.id, inv.projectId))
+          .limit(1);
+
+        if (proj) {
+          await db
+            .insert(projectMembers)
+            .values({
+              projectId: inv.projectId,
+              userId: input.id,
+              role: inv.role,
+            })
+            .onConflictDoUpdate({
+              target: [projectMembers.projectId, projectMembers.userId],
+              set: { role: inv.role, updatedAt: new Date() },
+            });
+
+          await db
+            .insert(workspaceMembers)
+            .values({
+              workspaceId: proj.workspaceId,
+              userId: input.id,
+              role: "member",
+            })
+            .onConflictDoNothing();
+
+          await db
+            .update(projectInvitations)
+            .set({ acceptedAt: new Date(), status: "accepted" })
+            .where(eq(projectInvitations.id, inv.id));
+        }
+      }
+    } catch (claimErr) {
+      console.warn("[auto-claim-pending-invitations-warn]", claimErr);
+    }
+
     return { ok: true, error: null };
+
   } catch (err: unknown) {
     console.error("[syncUserProfile] Error syncing user:", err);
     return { ok: false, error: err instanceof Error ? err.message : "خطای همگام‌سازی پروفایل" };

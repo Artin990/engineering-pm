@@ -260,6 +260,28 @@ export const projectMembers = pgTable(
   ]
 );
 
+export const projectInvitations = pgTable(
+  "project_invitations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    email: varchar("email", { length: 320 }).notNull(),
+    role: projectRoleEnum("role").notNull().default("contributor"),
+    invitedBy: uuid("invited_by").references(() => profiles.id),
+    status: varchar("status", { length: 20 }).notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("project_invitations_project_email_idx").on(t.projectId, t.email),
+    index("project_invitations_email_idx").on(t.email),
+    index("project_invitations_project_idx").on(t.projectId),
+  ]
+);
+
+
 export const milestones = pgTable(
   "milestones",
   {

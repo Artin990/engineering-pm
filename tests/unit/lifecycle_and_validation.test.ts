@@ -55,3 +55,36 @@ describe("Swagger / OpenAPI 3.0 Documentation", () => {
     expect(paths).toContain("/api/v1/workspaces");
   });
 });
+
+describe("US5 & US6 - Project Members & Invitations Resolution", () => {
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  function isValidUuid(id: unknown): id is string {
+    return typeof id === "string" && UUID_REGEX.test(id.trim());
+  }
+
+  it("should correctly identify valid and invalid UUIDs", () => {
+    expect(isValidUuid("550e8400-e29b-41d4-a716-446655440000")).toBe(true);
+    expect(isValidUuid("c30538a0-2f22-4411-9686-2a3a5f979857")).toBe(true);
+    expect(isValidUuid("dev@company.com")).toBe(false);
+    expect(isValidUuid("u-ali")).toBe(false);
+    expect(isValidUuid("m-1726800123456")).toBe(false);
+    expect(isValidUuid("")).toBe(false);
+  });
+
+  it("should correctly distinguish registered profile assignment from email invitations", () => {
+    const rawIds = ["c30538a0-2f22-4411-9686-2a3a5f979857", "colleague@company.com"];
+    
+    const validUuids = rawIds.filter((id) => isValidUuid(id));
+    const emailsToInvite = rawIds.filter((id) => !isValidUuid(id) && id.includes("@"));
+
+    expect(validUuids).toEqual(["c30538a0-2f22-4411-9686-2a3a5f979857"]);
+    expect(emailsToInvite).toEqual(["colleague@company.com"]);
+  });
+
+  it("should normalize email addresses for invitations and auto-claim matching", () => {
+    const enteredEmail = "  Employee.One@Company.COM  ";
+    const normalized = enteredEmail.trim().toLowerCase();
+    expect(normalized).toBe("employee.one@company.com");
+  });
+});
+

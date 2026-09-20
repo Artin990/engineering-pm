@@ -53,6 +53,7 @@ interface OrgMemberItem {
   avatarUrl?: string | null;
   githubLogin?: string | null;
   isAssignedToProject?: boolean;
+  isPendingInvite?: boolean;
   projectRole?: "lead" | "contributor" | "viewer" | "admin" | "member" | "intern";
 }
 
@@ -119,15 +120,33 @@ export default function MembersPage() {
             userId?: string;
             displayName: string;
             email: string;
+            avatarUrl?: string | null;
             githubLogin: string | null;
             role: "lead" | "contributor" | "viewer" | "admin" | "member" | "intern";
+            isPendingInvite?: boolean;
           }) => {
             const uId = pm.userId || pm.id;
             if (uId) assignedIds.add(uId);
             if (pm.email) assignedEmails.add(pm.email.toLowerCase().trim());
             if (uId) assignedRolesMap.set(uId, pm.role);
+
+            // در صورتی که عضو دعوت‌شده هنوز در لیست سازمانی نباشد
+            if (uId && !accumulatedMembers.has(uId)) {
+              accumulatedMembers.set(uId, {
+                id: uId,
+                userId: uId,
+                displayName: pm.displayName || pm.email.split("@")[0] || "عضو دعوت‌شده",
+                email: pm.email || "",
+                avatarUrl: pm.avatarUrl || null,
+                githubLogin: pm.githubLogin || null,
+                isAssignedToProject: true,
+                isPendingInvite: Boolean(pm.isPendingInvite),
+                projectRole: pm.role || "member",
+              });
+            }
           });
         }
+
 
         if (Array.isArray(json.orgMembers)) {
           json.orgMembers.forEach((om: OrgMemberItem) => {
@@ -856,14 +875,21 @@ export default function MembersPage() {
                             {om.displayName}
                           </span>
                           {isAssigned ? (
-                            <Badge variant="outline" className="text-[10px] py-0 h-4 px-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-medium">
-                              عضو پروژه
-                            </Badge>
+                            om.isPendingInvite ? (
+                              <Badge variant="outline" className="text-[10px] py-0 h-4 px-1.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 font-medium">
+                                دعوت‌شده (در انتظار ورود)
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] py-0 h-4 px-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-medium">
+                                عضو پروژه
+                              </Badge>
+                            )
                           ) : (
                             <Badge variant="secondary" className="text-[10px] py-0 h-4 px-1.5 text-muted-foreground">
                               خارج از پروژه
                             </Badge>
                           )}
+
                         </div>
 
                         <div className="text-[11px] text-muted-foreground font-mono truncate mt-0.5" dir="ltr">

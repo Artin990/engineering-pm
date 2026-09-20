@@ -1,11 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { eq, and, isNull, desc, or, ilike, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { projects, projectMembers, workspaceMembers, profiles, workspaces } from "@/lib/db/schema";
+import { projects, projectMembers, workspaceMembers, profiles, workspaces, projectInvitations } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/client";
 import { invalidateProjectSyncCache } from "@/lib/project-cache";
 
 export const dynamic = "force-dynamic";
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidUuid(id: unknown): id is string {
+  return typeof id === "string" && UUID_REGEX.test(id.trim());
+}
 
 export async function GET(
   request: NextRequest,
@@ -34,10 +40,8 @@ export async function GET(
       .limit(1);
 
     if (project) {
-      // اگر قبلاً سافت دلیت شده بود، بازیابی شود
       await db.update(projects).set({ deletedAt: null }).where(eq(projects.id, project.id));
     } else {
-      // ایجاد پروژه در صورت نبودن در DB
       const [firstWs] = await db
         .select({ id: workspaces.id, ownerId: workspaces.ownerId })
         .from(workspaces)
@@ -72,6 +76,14 @@ export async function GET(
       githubLogin: string | null;
     }[] = [];
 
+    // دریافت دعوت‌نامه‌های در انتظار این پروژه
+    let currentInvitations: {
+      id: string;
+      email: string;
+      role: "lead" | "contributor" | "viewer";
+      createdAt: Date | null;
+    }[] = [];
+
     if (projectId) {
       currentProjectMembers = await db
         .select({
@@ -88,11 +100,34 @@ export async function GET(
         .leftJoin(profiles, eq(projectMembers.userId, profiles.id))
         .where(eq(projectMembers.projectId, projectId))
         .orderBy(desc(projectMembers.createdAt));
+
+      try {
+        currentInvitations = await db
+          .select({
+            id: projectInvitations.id,
+            email: projectInvitations.email,
+            role: projectInvitations.role,
+            createdAt: projectInvitations.createdAt,
+          })
+          .from(projectInvitations)
+          .where(
+            and(
+              eq(projectInvitations.projectId, projectId),
+              isNull(projectInvitations.acceptedAt)
+            )
+          )
+          .orderBy(desc(projectInvitations.createdAt));
+      } catch (invErr) {
+        console.warn("[get-invitations-warn]", invErr);
+      }
     }
 
     const assignedUserIds = new Set(currentProjectMembers.map((m) => m.userId));
     const assignedEmails = new Set(
-      currentProjectMembers.map((m) => m.email?.toLowerCase()).filter(Boolean) as string[]
+      currentProjectMembers.map((m) => m.email?.toLowerCase().trim()).filter(Boolean) as string[]
+    );
+    const pendingEmails = new Set(
+      currentInvitations.map((inv) => inv.email.toLowerCase().trim())
     );
     const projectMemberRoles = new Map(currentProjectMembers.map((m) => [m.userId, m.role]));
 
@@ -110,9 +145,12 @@ export async function GET(
       .orderBy(desc(profiles.createdAt));
 
     const mappedOrgMembers = allProfiles.map((p) => {
+      const normEmail = p.email ? p.email.toLowerCase().trim() : "";
       const isAssigned =
         assignedUserIds.has(p.id) ||
-        (p.email ? assignedEmails.has(p.email.toLowerCase()) : false);
+        (normEmail ? assignedEmails.has(normEmail) : false) ||
+        (normEmail ? pendingEmails.has(normEmail) : false);
+
       const assignedRole = projectMemberRoles.get(p.id) || "contributor";
 
       return {
@@ -127,9 +165,9 @@ export async function GET(
       };
     });
 
-    return NextResponse.json({
-      project: project || { id: `p-${normKey}`, key: normKey, name: normKey },
-      projectMembers: currentProjectMembers.map((m) => ({
+    // ادغام اعضای قطعی و دعوت‌نامه‌های ایمیلی
+    const membersOutput = [
+      ...currentProjectMembers.map((m) => ({
         id: m.userId,
         memberRecordId: m.id,
         userId: m.userId,
@@ -138,8 +176,30 @@ export async function GET(
         avatarUrl: m.avatarUrl,
         githubLogin: m.githubLogin,
         role: m.role,
+        isPendingInvite: false,
+        status: "active" as const,
         joinedAt: m.joinedAt ? new Date(m.joinedAt).toLocaleDateString("fa-IR") : "امروز",
       })),
+      ...currentInvitations
+        .filter((inv) => !assignedEmails.has(inv.email.toLowerCase().trim()))
+        .map((inv) => ({
+          id: `inv-${inv.id}`,
+          memberRecordId: inv.id,
+          userId: `inv-${inv.id}`,
+          displayName: inv.email.split("@")[0] || "کاربر دعوت‌شده",
+          email: inv.email,
+          avatarUrl: null,
+          githubLogin: null,
+          role: inv.role,
+          isPendingInvite: true,
+          status: "pending" as const,
+          joinedAt: inv.createdAt ? new Date(inv.createdAt).toLocaleDateString("fa-IR") : "امروز",
+        })),
+    ];
+
+    return NextResponse.json({
+      project: project || { id: `p-${normKey}`, key: normKey, name: normKey },
+      projectMembers: membersOutput,
       orgMembers: mappedOrgMembers,
     });
   } catch (err: unknown) {
@@ -219,122 +279,147 @@ export async function POST(
         ? "viewer"
         : "contributor";
 
-    // ۲. افزودن اعضای انتخاب شده به دیتابیس با تطابق هوشمند پروفایل
+    // ۲. افزودن اعضای انتخاب شده به دیتابیس با تطابق هوشمند و امن
     for (const uId of userIdsToAdd) {
       if (!uId) continue;
+      const cleanTarget = String(uId).trim();
+      const targetEmail = (body.email ? String(body.email).trim().toLowerCase() : "") || (cleanTarget.includes("@") ? cleanTarget.toLowerCase() : "");
+
       try {
-        let finalProfileId = uId;
-        const cleanTarget = String(uId).trim();
+        let existingProf: { id: string; email: string | null } | undefined;
 
-        // جستجوی پروفایل با id یا ایمیل
-        const [prof] = await db
-          .select({ id: profiles.id })
-          .from(profiles)
-          .where(
-            or(
-              eq(profiles.id, cleanTarget),
-              ilike(profiles.email, cleanTarget),
-              body.email ? ilike(profiles.email, body.email.trim()) : sql`false`
-            )
-          )
-          .limit(1);
-
-        if (prof) {
-          finalProfileId = prof.id;
-        } else {
-          // اگر پروفایلی یافت نشد، ایجاد پروفایل با شناسه معتبر
-          const targetEmail = body.email || (cleanTarget.includes("@") ? cleanTarget : null);
-          const [newProf] = await db
-            .insert(profiles)
-            .values({
-              id: cleanTarget,
-              displayName: body.displayName || (targetEmail ? targetEmail.split("@")[0] : "عضو سازمان"),
-              email: targetEmail,
-              githubLogin: body.githubLogin || null,
-            })
-            .returning({ id: profiles.id });
-
-          if (newProf) {
-            finalProfileId = newProf.id;
-          }
+        // جستجوی امن بر اساس UUID فقط در صورتی که ساختار UUID صحیح باشد
+        if (isValidUuid(cleanTarget)) {
+          const [byUuid] = await db
+            .select({ id: profiles.id, email: profiles.email })
+            .from(profiles)
+            .where(eq(profiles.id, cleanTarget))
+            .limit(1);
+          existingProf = byUuid;
         }
 
-        // انتساب به پروژه
-        await db
-          .insert(projectMembers)
-          .values({
-            projectId: project.id,
-            userId: finalProfileId,
-            role: dbRole,
-          })
-          .onConflictDoUpdate({
-            target: [projectMembers.projectId, projectMembers.userId],
-            set: { role: dbRole, updatedAt: new Date() },
-          });
+        // اگر پیدا نشد و ایمیل موجود است، جستجو بر اساس ایمیل
+        if (!existingProf && targetEmail) {
+          const [byEmail] = await db
+            .select({ id: profiles.id, email: profiles.email })
+            .from(profiles)
+            .where(ilike(profiles.email, targetEmail))
+            .limit(1);
+          existingProf = byEmail;
+        }
 
-        // همچنین اطمینان از عضویت در ورک‌اسپیس پروژه
-        await db
-          .insert(workspaceMembers)
-          .values({
-            workspaceId: project.workspaceId,
-            userId: finalProfileId,
-            role: dbRole === "lead" ? "owner" : "member",
-          })
-          .onConflictDoNothing();
+        if (existingProf) {
+          // کاربر در profiles ثبت شده است -> درج قطعی در projectMembers و workspaceMembers
+          await db
+            .insert(projectMembers)
+            .values({
+              projectId: project.id,
+              userId: existingProf.id,
+              role: dbRole,
+            })
+            .onConflictDoUpdate({
+              target: [projectMembers.projectId, projectMembers.userId],
+              set: { role: dbRole, updatedAt: new Date() },
+            });
+
+          await db
+            .insert(workspaceMembers)
+            .values({
+              workspaceId: project.workspaceId,
+              userId: existingProf.id,
+              role: dbRole === "lead" ? "owner" : "member",
+            })
+            .onConflictDoNothing();
+
+          // در صورت وجود دعوت قبلی برای این کاربر، علامت زدن به عنوان پذیرفته‌شده
+          if (existingProf.email) {
+            await db
+              .update(projectInvitations)
+              .set({ acceptedAt: new Date(), status: "accepted" })
+              .where(
+                and(
+                  eq(projectInvitations.projectId, project.id),
+                  ilike(projectInvitations.email, existingProf.email.trim().toLowerCase())
+                )
+              );
+          }
+        } else if (targetEmail) {
+          // کاربر هنوز حساب نساخته است -> درج امن در projectInvitations برای انتساب خودکار هنگام ثبت‌نام
+          await db
+            .insert(projectInvitations)
+            .values({
+              projectId: project.id,
+              email: targetEmail,
+              role: dbRole,
+              status: "pending",
+            })
+            .onConflictDoUpdate({
+              target: [projectInvitations.projectId, projectInvitations.email],
+              set: { role: dbRole, status: "pending" },
+            });
+        }
       } catch (err) {
         console.warn("[projectMembers insert error for " + uId + "]:", err);
       }
     }
 
-    // ۳. اگر عضو جدیدی با ایمیل دستی اضافه شده باشد
+    // ۳. اگر عضو جدیدی از طریق مودال با ایمیل دستی اضافه شده باشد
     if (userIdsToAdd.length === 0 && (body.email || body.displayName)) {
-      let targetUserId: string | null = null;
-      if (body.email) {
+      const cleanEmail = body.email ? String(body.email).trim().toLowerCase() : null;
+
+      if (cleanEmail) {
         const [existingProf] = await db
-          .select({ id: profiles.id })
+          .select({ id: profiles.id, email: profiles.email })
           .from(profiles)
-          .where(eq(profiles.email, body.email.trim()))
+          .where(ilike(profiles.email, cleanEmail))
           .limit(1);
-        if (existingProf) targetUserId = existingProf.id;
-      }
 
-      if (!targetUserId) {
-        const newId = `m-${Date.now()}`;
-        const [createdProf] = await db
-          .insert(profiles)
-          .values({
-            id: newId,
-            displayName: body.displayName || body.email?.split("@")[0] || "کاربر جدید",
-            email: body.email || null,
-            githubLogin: body.githubLogin || null,
-          })
-          .returning();
+        if (existingProf) {
+          await db
+            .insert(projectMembers)
+            .values({
+              projectId: project.id,
+              userId: existingProf.id,
+              role: dbRole,
+            })
+            .onConflictDoUpdate({
+              target: [projectMembers.projectId, projectMembers.userId],
+              set: { role: dbRole, updatedAt: new Date() },
+            });
 
-        if (createdProf) {
-          targetUserId = createdProf.id;
           await db
             .insert(workspaceMembers)
             .values({
               workspaceId: project.workspaceId,
-              userId: createdProf.id,
-              role: "member",
+              userId: existingProf.id,
+              role: dbRole === "lead" ? "owner" : "member",
             })
             .onConflictDoNothing();
-        }
-      }
 
-      if (targetUserId) {
-        await db
-          .insert(projectMembers)
-          .values({
-            projectId: project.id,
-            userId: targetUserId,
-            role: dbRole,
-          })
-          .onConflictDoUpdate({
-            target: [projectMembers.projectId, projectMembers.userId],
-            set: { role: dbRole, updatedAt: new Date() },
-          });
+          await db
+            .update(projectInvitations)
+            .set({ acceptedAt: new Date(), status: "accepted" })
+            .where(
+              and(
+                eq(projectInvitations.projectId, project.id),
+                ilike(projectInvitations.email, cleanEmail)
+              )
+            );
+        } else {
+          // ثبت دعوت‌نامه معتبر در دیتابیس
+          await db
+            .insert(projectInvitations)
+            .values({
+              projectId: project.id,
+              email: cleanEmail,
+              role: dbRole,
+              status: "pending",
+            })
+            .onConflictDoUpdate({
+              target: [projectInvitations.projectId, projectInvitations.email],
+              set: { role: dbRole, status: "pending" },
+            });
+        }
       }
     }
 
@@ -381,9 +466,9 @@ export async function DELETE(
     const normKey = rawKey.toUpperCase();
 
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get("userId") || searchParams.get("id");
+    const rawUserId = searchParams.get("userId") || searchParams.get("id");
 
-    if (!userId) {
+    if (!rawUserId) {
       return NextResponse.json({ error: "شناسه کاربر الزامی است." }, { status: 400 });
     }
 
@@ -402,14 +487,50 @@ export async function DELETE(
       .limit(1);
 
     if (project) {
-      await db
-        .delete(projectMembers)
-        .where(
-          and(
-            eq(projectMembers.projectId, project.id),
-            eq(projectMembers.userId, userId)
-          )
-        );
+      // بررسی آیا دعوت‌نامه است
+      if (rawUserId.startsWith("inv-")) {
+        const invId = rawUserId.replace("inv-", "");
+        if (isValidUuid(invId)) {
+          await db
+            .delete(projectInvitations)
+            .where(
+              and(
+                eq(projectInvitations.projectId, project.id),
+                eq(projectInvitations.id, invId)
+              )
+            );
+        }
+      } else if (rawUserId.includes("@")) {
+        // حذف با ایمیل
+        await db
+          .delete(projectInvitations)
+          .where(
+            and(
+              eq(projectInvitations.projectId, project.id),
+              ilike(projectInvitations.email, rawUserId.trim().toLowerCase())
+            )
+          );
+      } else if (isValidUuid(rawUserId)) {
+        // حذف عضو دیتابیس
+        await db
+          .delete(projectMembers)
+          .where(
+            and(
+              eq(projectMembers.projectId, project.id),
+              eq(projectMembers.userId, rawUserId)
+            )
+          );
+
+        // همچنین اگر دعوت‌نامه‌ای با این شناسه بود
+        await db
+          .delete(projectInvitations)
+          .where(
+            and(
+              eq(projectInvitations.projectId, project.id),
+              eq(projectInvitations.id, rawUserId)
+            )
+          );
+      }
     }
 
     invalidateProjectSyncCache(normKey);
@@ -419,7 +540,7 @@ export async function DELETE(
       supabase.channel("radarcheck_projects_global").send({
         type: "broadcast",
         event: "projects_list_changed",
-        payload: { projectKey: normKey, action: "member_removed", userId },
+        payload: { projectKey: normKey, action: "member_removed", userId: rawUserId },
       });
       supabase.channel(`radarcheck_project_${normKey}`).send({
         type: "broadcast",
@@ -484,18 +605,33 @@ export async function PATCH(
           ? "viewer"
           : "contributor";
 
-      await db
-        .update(projectMembers)
-        .set({ role: dbRole, updatedAt: new Date() })
-        .where(
-          and(
-            eq(projectMembers.projectId, project.id),
-            eq(projectMembers.userId, userId)
-          )
-        );
+      if (String(userId).startsWith("inv-")) {
+        const invId = String(userId).replace("inv-", "");
+        if (isValidUuid(invId)) {
+          await db
+            .update(projectInvitations)
+            .set({ role: dbRole })
+            .where(
+              and(
+                eq(projectInvitations.projectId, project.id),
+                eq(projectInvitations.id, invId)
+              )
+            );
+        }
+      } else if (isValidUuid(userId)) {
+        await db
+          .update(projectMembers)
+          .set({ role: dbRole, updatedAt: new Date() })
+          .where(
+            and(
+              eq(projectMembers.projectId, project.id),
+              eq(projectMembers.userId, userId)
+            )
+          );
+      }
     }
 
-    if (typeof githubLogin === "string") {
+    if (isValidUuid(userId) && typeof githubLogin === "string") {
       await db
         .update(profiles)
         .set({ githubLogin: githubLogin.trim() || null, updatedAt: new Date() })
@@ -521,3 +657,4 @@ export async function PATCH(
     );
   }
 }
+
