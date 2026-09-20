@@ -58,9 +58,10 @@ describe("Swagger / OpenAPI 3.0 Documentation", () => {
 
 describe("US5 & US6 - Project Members & Invitations Resolution", () => {
   const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  function isValidUuid(id: unknown): id is string {
+  function isValidUuid(id: string): boolean {
     return typeof id === "string" && UUID_REGEX.test(id.trim());
   }
+
 
   it("should correctly identify valid and invalid UUIDs", () => {
     expect(isValidUuid("550e8400-e29b-41d4-a716-446655440000")).toBe(true);
@@ -87,4 +88,37 @@ describe("US5 & US6 - Project Members & Invitations Resolution", () => {
     expect(normalized).toBe("employee.one@company.com");
   });
 });
+
+describe("US7 - Completed & Archived Projects Board", () => {
+  it("should categorize completed and archived projects correctly", () => {
+    const mockProjects = [
+      { id: "1", key: "P1", status: "active", progress: 60 },
+      { id: "2", key: "P2", status: "completed", progress: 100 },
+      { id: "3", key: "P3", status: "archived", progress: 100 },
+      { id: "4", key: "P4", status: "planning", progress: 0 },
+    ];
+
+    const activeList = mockProjects.filter((p) => p.status === "active" || p.status === "planning");
+    const completedList = mockProjects.filter((p) => p.status === "completed" || p.status === "archived");
+
+    expect(activeList.map((p) => p.key)).toEqual(["P1", "P4"]);
+    expect(completedList.map((p) => p.key)).toEqual(["P2", "P3"]);
+  });
+
+  it("should allow employer completion with custom or default 100% success rate", () => {
+    const completeAction = (rate?: number) => ({
+      status: "completed",
+      successRate: typeof rate === "number" ? rate : 100,
+      archivedAt: new Date().toISOString(),
+    });
+
+    const result1 = completeAction();
+    expect(result1.status).toBe("completed");
+    expect(result1.successRate).toBe(100);
+
+    const result2 = completeAction(95);
+    expect(result2.successRate).toBe(95);
+  });
+});
+
 

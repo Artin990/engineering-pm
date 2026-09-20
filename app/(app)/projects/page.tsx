@@ -15,7 +15,11 @@ import {
   Trash2,
   BookOpen,
   Archive,
+  CheckCircle2,
+  RotateCcw,
+  Award,
 } from "lucide-react";
+
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,7 +77,81 @@ export default function ProjectsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
 
+  // Project Completion State (US7 - Employer Sign-off)
+  const [projectToComplete, setProjectToComplete] = useState<Project | null>(null);
+  const [completionSuccessRate, setCompletionSuccessRate] = useState(100);
+  const [isCompleting, setIsCompleting] = useState(false);
+  const [completeSuccessMsg, setCompleteSuccessMsg] = useState("");
+  const [completeError, setCompleteError] = useState("");
+
+  const handleCompleteProject = (project: Project) => {
+    setCompleteError("");
+    setCompletionSuccessRate(100);
+    setProjectToComplete(project);
+  };
+
+  const confirmCompleteProject = async () => {
+    if (!projectToComplete) return;
+    setIsCompleting(true);
+    setCompleteError("");
+
+    try {
+      const res = await fetch(`/api/v1/projects/${encodeURIComponent(projectToComplete.key)}/archive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ successRate: Number(completionSuccessRate) || 100 }),
+      });
+
+      if (res.ok) {
+        setProjectsList((prev) =>
+          prev.map((p) =>
+            p.id === projectToComplete.id || p.key === projectToComplete.key
+              ? { ...p, status: "completed" as const }
+              : p
+          )
+        );
+        setCompleteSuccessMsg(`پروژه «${projectToComplete.name}» با موفقیت توسط کارفرما تایید شد و به بخش تکمیل‌شده‌ها منتقل گردید.`);
+        setTimeout(() => setCompleteSuccessMsg(""), 4500);
+        setProjectToComplete(null);
+        fetchProjects(true);
+      } else {
+        const json = await res.json();
+        setCompleteError(json.error || "خطا در تایید و انتقال پروژه به تکمیل‌شده‌ها.");
+      }
+    } catch {
+      setCompleteError("خطای برقراری ارتباط با سرور.");
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
+  const handleRestoreProject = async (project: Project) => {
+    try {
+      const res = await fetch(`/api/v1/projects/${encodeURIComponent(project.key)}/archive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "unarchive" }),
+      });
+
+      if (res.ok) {
+        setProjectsList((prev) =>
+          prev.map((p) =>
+            p.id === project.id || p.key === project.key
+              ? { ...p, status: "active" as const }
+              : p
+          )
+        );
+        setCompleteSuccessMsg(`پروژه «${project.name}» با موفقیت به پروژه‌های فعال بازگردانده شد.`);
+        setTimeout(() => setCompleteSuccessMsg(""), 4000);
+        fetchProjects(true);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   // New project form state
+
   const [name, setName] = useState("");
   const [key, setKey] = useState("");
   const [description, setDescription] = useState("");
@@ -392,6 +470,14 @@ export default function ProjectsPage() {
         </div>
       </header>
 
+      {/* Global Success Notification */}
+      {completeSuccessMsg && (
+        <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-3 text-sm text-emerald-600 dark:text-emerald-400 animate-in fade-in duration-200">
+          <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-500" />
+          <span className="font-medium">{completeSuccessMsg}</span>
+        </div>
+      )}
+
       {/* Quick Filter Pills (US7 completed/archived support) */}
       <div className="flex flex-wrap items-center gap-2 pt-1 pb-2">
         <button
@@ -459,82 +545,143 @@ export default function ProjectsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-[16px] md:grid-cols-2 xl:grid-cols-3">
-          {filteredProjects.map((project) => (
-            <Link
-              key={project.id}
-              href={`/projects/${project.key}`}
-              className="group rounded-[10px] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] hover:-translate-y-1 hover:shadow-md"
-            >
-              <Card className="h-full border-[var(--border)] bg-[var(--surface)] group-hover:border-[var(--primary)] transition-colors">
-                <CardHeader className="pb-[12px]">
-                  <div className="flex items-start justify-between gap-[12px]">
-                    <div className="min-w-0 flex-1">
-                      <CardTitle className="flex items-center gap-[8px] text-[16px]">
-                        <span className="rounded-[6px] bg-[var(--primary)] px-[7px] py-[2px] text-[11px] font-mono font-bold text-white uppercase">
-                          {project.key}
-                        </span>
-                        <span className="truncate">{project.name}</span>
-                      </CardTitle>
-                      <CardDescription className="mt-[6px] line-clamp-2 text-[13px]">
-                        {project.description || "بدون توضیحات ثبت‌شده"}
-                      </CardDescription>
+          {filteredProjects.map((project) => {
+            const isCompleted = project.status === "completed" || project.status === "archived";
+
+            return (
+              <Link
+                key={project.id}
+                href={`/projects/${project.key}`}
+                className="group rounded-[10px] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] hover:-translate-y-1 hover:shadow-md"
+              >
+                <Card className={`h-full border-[var(--border)] bg-[var(--surface)] group-hover:border-[var(--primary)] transition-all ${
+                  isCompleted ? "border-emerald-500/30 bg-emerald-500/[0.03]" : ""
+                }`}>
+                  <CardHeader className="pb-[12px]">
+                    <div className="flex items-start justify-between gap-[12px]">
+                      <div className="min-w-0 flex-1">
+                        <CardTitle className="flex items-center gap-[8px] text-[16px]">
+                          <span className={`rounded-[6px] px-[7px] py-[2px] text-[11px] font-mono font-bold text-white uppercase ${
+                            isCompleted ? "bg-emerald-600" : "bg-[var(--primary)]"
+                          }`}>
+                            {project.key}
+                          </span>
+                          <span className="truncate">{project.name}</span>
+                        </CardTitle>
+                        <CardDescription className="mt-[6px] line-clamp-2 text-[13px]">
+                          {project.description || "بدون توضیحات ثبت‌شده"}
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {isAdmin && (
+                          <>
+                            {isCompleted ? (
+                              <button
+                                type="button"
+                                title="بازیابی به پروژه‌های فعال (مخصوص کارفرما)"
+                                className="p-1.5 rounded-[6px] text-indigo-500 hover:text-indigo-600 hover:bg-indigo-500/10 transition-colors"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleRestoreProject(project);
+                                }}
+                              >
+                                <RotateCcw className="size-4" />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                title="تکمیل پروژه و انتقال به بایگانی توسط کارفرما (US7)"
+                                className="p-1.5 rounded-[6px] text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10 transition-colors"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleCompleteProject(project);
+                                }}
+                              >
+                                <CheckCircle2 className="size-4" />
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              title="حذف پروژه (مخصوص مدیرعامل)"
+                              className="p-1.5 rounded-[6px] text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setDeleteError("");
+                                setDeleteConfirmText("");
+                                setProjectToDelete(project);
+                              }}
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          </>
+                        )}
+                        <ProgressRing value={project.progress} size={54} strokeWidth={5} />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {isAdmin && (
+                  </CardHeader>
+                  <CardContent className="space-y-[12px]">
+                    <div className="flex flex-wrap items-center gap-[6px]">
+                      {isCompleted ? (
+                        <Badge variant="outline" className="text-[11px] gap-1 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 font-medium">
+                          <CheckCircle2 className="size-3 text-emerald-500" />
+                          تکمیل‌شده (تایید کارفرما)
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-[11px]">
+                          {PROJECT_STATUS_LABEL[project.status]}
+                        </Badge>
+                      )}
+
+                      {isAdmin && !isCompleted && (
                         <button
                           type="button"
-                          title="حذف پروژه (مخصوص مدیرعامل)"
-                          className="p-1.5 rounded-[6px] text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors"
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            setDeleteError("");
-                            setDeleteConfirmText("");
-                            setProjectToDelete(project);
+                            handleCompleteProject(project);
                           }}
+                          className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-[6px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all shadow-2xs"
                         >
-                          <Trash2 className="size-4" />
+                          <CheckCircle2 className="size-3 text-emerald-500" />
+                          <span>تکمیل پروژه (کارفرما)</span>
                         </button>
                       )}
-                      <ProgressRing value={project.progress} size={54} strokeWidth={5} />
+
+                      <Badge
+                        variant={
+                          project.health === "on_track"
+                            ? "success"
+                            : project.health === "at_risk"
+                              ? "warning"
+                              : "destructive"
+                        }
+                        className="text-[11px]"
+                      >
+                        {PROJECT_HEALTH_LABEL[project.health]}
+                      </Badge>
+                      {project.counts.blocked > 0 && (
+                        <Badge variant="destructive" className="text-[11px]">
+                          {faNumber(project.counts.blocked)} بلاک
+                        </Badge>
+                      )}
+                      {project.targetDate && (
+                        <Badge variant="outline" className="text-[11px] gap-1 border-[var(--border)] text-[var(--text-muted)]">
+                          <Calendar className="size-3 text-[var(--primary)]" />
+                          {faDate(project.targetDate)}
+                        </Badge>
+                      )}
+                      {project.githubRepo && (
+                        <Badge variant="outline" className="text-[11px] gap-1 border-[var(--border)] font-mono text-[var(--text-secondary)]">
+                          <GithubIcon size={12} />
+                          {project.githubRepo}
+                        </Badge>
+                      )}
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-[12px]">
-                  <div className="flex flex-wrap items-center gap-[6px]">
-                    <Badge variant="secondary" className="text-[11px]">
-                      {PROJECT_STATUS_LABEL[project.status]}
-                    </Badge>
-                    <Badge
-                      variant={
-                        project.health === "on_track"
-                          ? "success"
-                          : project.health === "at_risk"
-                            ? "warning"
-                            : "destructive"
-                      }
-                      className="text-[11px]"
-                    >
-                      {PROJECT_HEALTH_LABEL[project.health]}
-                    </Badge>
-                    {project.counts.blocked > 0 && (
-                      <Badge variant="destructive" className="text-[11px]">
-                        {faNumber(project.counts.blocked)} بلاک
-                      </Badge>
-                    )}
-                    {project.targetDate && (
-                      <Badge variant="outline" className="text-[11px] gap-1 border-[var(--border)] text-[var(--text-muted)]">
-                        <Calendar className="size-3 text-[var(--primary)]" />
-                        {faDate(project.targetDate)}
-                      </Badge>
-                    )}
-                    {project.githubRepo && (
-                      <Badge variant="outline" className="text-[11px] gap-1 border-[var(--border)] font-mono text-[var(--text-secondary)]">
-                        <GithubIcon size={12} />
-                        {project.githubRepo}
-                      </Badge>
-                    )}
-                  </div>
+
                   <div className="flex items-center justify-between border-t border-[var(--border)] pt-[12px] text-[12px] text-[var(--text-muted)]">
                     <span className="flex items-center gap-[4px]">
                       <CircleDot className="size-3.5 text-blue-500" />
@@ -552,8 +699,12 @@ export default function ProjectsPage() {
                 </CardContent>
               </Card>
             </Link>
-          ))}
-        </div>
+          );
+        })}
+      </div>
+
+
+
       )}
 
       {/* New Project Dialog */}
@@ -788,8 +939,91 @@ export default function ProjectsPage() {
           </div>
         </div>
       )}
+
+      {/* Employer Project Completion Modal (US7) */}
+
+      {projectToComplete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4"
+          onClick={() => !isCompleting && setProjectToComplete(null)}
+        >
+          <div
+            className="w-full max-w-[480px] rounded-[14px] border border-emerald-500/30 bg-[var(--surface)] p-[24px] shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+            dir="rtl"
+          >
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                <Award className="size-5 shrink-0" />
+                <h2 className="text-[17px] font-bold text-[var(--text-primary)]">
+                  تایید اتمام و تکمیل پروژه توسط کارفرما
+                </h2>
+              </div>
+              <button
+                type="button"
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1"
+                onClick={() => !isCompleting && setProjectToComplete(null)}
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
+              با تایید شما به عنوان کارفرما/مدیرعامل، پروژه{" "}
+              <span className="font-bold text-[var(--text-primary)]">
+                «{projectToComplete.name}» ({projectToComplete.key})
+              </span>{" "}
+              رسماً تحویل گرفته شده و به بخش{" "}
+              <span className="text-emerald-600 font-semibold">«تکمیل‌شده‌ها و بایگانی»</span>{" "}
+              منتقل می‌شود.
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[var(--text-primary)]">
+                درصد موفقیت و رضایت کارفرما (پیش‌فرض ۱۰۰٪):
+              </label>
+              <Input
+                type="number"
+                min={1}
+                max={100}
+                value={completionSuccessRate}
+                onChange={(e) => setCompletionSuccessRate(Number(e.target.value) || 100)}
+                className="bg-[var(--surface)] font-mono text-left"
+                dir="ltr"
+              />
+            </div>
+
+            {completeError && (
+              <div className="rounded-lg bg-red-500/10 border border-red-500/30 p-2.5 text-xs text-red-500">
+                {completeError}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--border)]">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isCompleting}
+                onClick={() => setProjectToComplete(null)}
+              >
+                انصراف
+              </Button>
+              <Button
+                type="button"
+                disabled={isCompleting}
+                onClick={confirmCompleteProject}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 shadow-sm"
+              >
+                <CheckCircle2 className="size-4" />
+                {isCompleting ? "در حال ثبت اتمام..." : "تایید نهایی و انتقال به تکمیل‌شده‌ها"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
+
 
 
