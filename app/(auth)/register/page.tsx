@@ -53,6 +53,10 @@ function RegisterForm() {
     if (roleParam === "ceo" || roleParam === "admin") {
       setIsCeo(true);
     }
+    const errParam = searchParams.get("error");
+    if (errParam) {
+      setError(decodeURIComponent(errParam));
+    }
     const codeParam = searchParams.get("code") || searchParams.get("invite") || searchParams.get("ref");
     if (codeParam) {
       setInviteCode(codeParam.toUpperCase());
