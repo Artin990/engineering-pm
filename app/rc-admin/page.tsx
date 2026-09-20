@@ -16,6 +16,7 @@ import {
   ExternalLink,
   ArrowRight,
   Lock,
+  Unlock,
   Sparkles,
   Copy,
   Check,
@@ -137,7 +138,16 @@ export default function RcAdminPage() {
 
   // Initial load
   useEffect(() => {
-    loadAdminData(DEFAULT_MASTER_KEY);
+    let initialKey = DEFAULT_MASTER_KEY;
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlKey = urlParams.get("key");
+      if (urlKey) {
+        initialKey = urlKey;
+        setPasskey(urlKey);
+      }
+    }
+    loadAdminData(initialKey);
   }, [loadAdminData]);
 
   // Handle CEO Verification Toggle
@@ -301,28 +311,43 @@ export default function RcAdminPage() {
       <main className="max-w-7xl mx-auto py-6 space-y-6">
         {/* Passkey Gate if locked */}
         {!isUnlocked && (
-          <Card className="border-rose-500/30 bg-rose-950/20 text-slate-200 p-6 rounded-2xl max-w-lg mx-auto my-12 text-center space-y-4">
-            <div className="size-12 rounded-full bg-rose-500/20 text-rose-400 mx-auto flex items-center justify-center">
-              <Lock className="size-6" />
+          <Card className="border-indigo-500/30 bg-slate-900/90 text-slate-200 p-8 rounded-2xl max-w-lg mx-auto my-12 text-center space-y-5 shadow-2xl shadow-indigo-500/10 border">
+            <div className="size-14 rounded-2xl bg-indigo-500/20 text-indigo-400 mx-auto flex items-center justify-center border border-indigo-500/30">
+              <Lock className="size-7" />
             </div>
-            <h2 className="text-lg font-bold text-white">ورود با کلید ارشد سوپر ادمین</h2>
-            <p className="text-xs text-slate-400">
-              این بخش صرفاً برای مالک پلتفرم مجاز است. لطفاً مستر کی اختصاصی را وارد نمایید.
-            </p>
-            <div className="flex gap-2">
+            <div className="space-y-1.5">
+              <h2 className="text-xl font-black text-white">ورود به پنل سوپر ادمین RadarCheck</h2>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                لطفاً کلید ارشد (Master Key) پلتفرم را وارد کنید تا به داشبورد کنترل مرکزی دسترسی پیدا کنید.
+              </p>
+            </div>
+            <div className="space-y-3 pt-2">
               <Input
-                type="password"
+                type="text"
                 value={passkey}
                 onChange={(e) => setPasskey(e.target.value)}
-                placeholder="کلید امنیتی سوپرادمین"
-                className="bg-slate-900 border-slate-800 text-center font-mono text-white"
+                placeholder="RC-SUPERADMIN-2026"
+                className="bg-slate-950 border-slate-800 text-center font-mono text-sm tracking-wider text-indigo-300 h-11"
                 dir="ltr"
               />
-              <Button onClick={() => loadAdminData(passkey)} className="bg-indigo-600 text-white shrink-0">
-                تایید
+              <Button
+                onClick={() => loadAdminData(passkey)}
+                disabled={loading}
+                className="w-full h-11 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 gap-2 cursor-pointer"
+              >
+                {loading ? <RefreshCw size={16} className="animate-spin" /> : <Unlock size={16} />}
+                ورود به کنترل تاور
               </Button>
             </div>
-            {error && <p className="text-xs text-rose-400">{error}</p>}
+            <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 text-xs text-slate-400 text-start space-y-1.5">
+              <span className="font-bold text-slate-300 block">نحوه ورود:</span>
+              <p>• مستر کی پیش‌فرض: <code className="text-indigo-400 font-mono font-bold">RC-SUPERADMIN-2026</code></p>
+              <p>• یا کلیک مستقیم روی لینک زیر:</p>
+              <Link href="/rc-admin?key=RC-SUPERADMIN-2026" className="text-indigo-400 hover:underline font-mono block text-[11px] truncate" dir="ltr">
+                /rc-admin?key=RC-SUPERADMIN-2026
+              </Link>
+            </div>
+            {error && <p className="text-xs text-rose-400 font-medium">{error}</p>}
           </Card>
         )}
 
