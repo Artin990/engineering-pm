@@ -61,12 +61,30 @@ export async function POST(
 
     const isRestore = action === "unarchive";
 
+    let approverId: string | null = null;
+    if (!isRestore && session.profileId) {
+      try {
+        const [existingProf] = await db
+          .select({ id: profiles.id })
+          .from(profiles)
+          .where(eq(profiles.id, session.profileId))
+          .limit(1);
+        if (existingProf) {
+          approverId = existingProf.id;
+        } else if (project.ownerId) {
+          approverId = project.ownerId;
+        }
+      } catch {
+        approverId = project.ownerId || null;
+      }
+    }
+
     const [updated] = await db
       .update(projects)
       .set({
         status: isRestore ? "active" : "completed",
         archivedAt: isRestore ? null : new Date(),
-        approvedBy: isRestore ? null : session.profileId,
+        approvedBy: isRestore ? null : approverId,
         successRate: isRestore ? null : successRate,
         updatedAt: new Date(),
       })

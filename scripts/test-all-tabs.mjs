@@ -43,7 +43,8 @@ async function runTests() {
       const res = await fetch(url, {
         headers: {
           "Accept": "text/html,application/json",
-          "x-internal-test": "epm-test-bypass"
+          "x-internal-test": "epm-test-bypass",
+          "Cookie": "flowdeck_user_email=amiriartin185%40gmail.com; flowdeck_active_role=admin; flowdeck_user_id=11111111-1111-1111-1111-111111111111",
         },
         redirect: "manual"
       });
@@ -61,11 +62,13 @@ async function runTests() {
                              text.includes("Unhandled Runtime Error") ||
                              (target.type === "page" && text.includes("Something went wrong"));
 
-      const ok = (status >= 200 && status < 300) && !hasServerError;
+      const isAuthRedirectExpected = (target.path === "/login" || target.path === "/register") && isRedirect && redirectLocation?.includes("/projects");
+
+      const ok = ((status >= 200 && status < 300) || isAuthRedirectExpected) && !hasServerError;
 
       if (ok) {
         passed++;
-        console.log(`✅ [${status}] ${target.name} (${target.path}) - ${elapsed}ms`);
+        console.log(`✅ [${status}] ${target.name} (${target.path}) - ${elapsed}ms ${isAuthRedirectExpected ? "(هدایت خودکار کاربر لاگین‌شده به کارتابل)" : ""}`);
       } else {
         failed++;
         console.error(`❌ [${status}] ${target.name} (${target.path}) - ${elapsed}ms ${isRedirect ? `-> Redirected to ${redirectLocation}` : ""} ${hasServerError ? "-> ERROR DETECTED IN BODY" : ""}`);

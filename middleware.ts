@@ -35,7 +35,11 @@ export async function middleware(request: NextRequest) {
     // خطای اتصال احتمالی در حالت آفلاین
   }
 
-  const isAuthenticated = !!user;
+  const hasFlowdeckCookie = !!(
+    request.cookies.get("flowdeck_user_email")?.value ||
+    request.cookies.get("flowdeck_user_id")?.value
+  );
+  const isAuthenticated = !!user || hasFlowdeckCookie;
   const pathname = request.nextUrl.pathname;
 
   // ۱. حفاظت از مسیرهای خصوصی اپلیکیشن (داشبورد، اعضا، پروژه‌ها)

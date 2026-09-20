@@ -9,6 +9,7 @@ import {
   type projectRoleEnum,
 } from "@/lib/db/schema";
 import { AuthError, getSession } from "./session";
+import { isUserAdminEmail } from "./admin-check";
 
 export type WorkspaceRole = typeof workspaceRoleEnum.enumValues[number];
 export type ProjectRole = typeof projectRoleEnum.enumValues[number];
@@ -80,7 +81,13 @@ export async function requireWorkspaceRole(
   workspaceId: string,
   minRole: WorkspaceRole = "viewer"
 ): Promise<{ userId: string; role: WorkspaceRole }> {
-  const { profileId: userId } = await getSession();
+  const { profileId: userId, user } = await getSession();
+
+  const userEmail = user?.email?.toLowerCase() || "";
+  if (isUserAdminEmail(userEmail)) {
+    return { userId, role: "owner" };
+  }
+
   const role = await getWorkspaceRole(userId, workspaceId);
 
   if (!role) {
@@ -99,7 +106,12 @@ export async function requireProjectRole(
   projectId: string,
   minRole: ProjectRole = "viewer"
 ): Promise<{ userId: string; role: ProjectRole }> {
-  const { profileId: userId } = await getSession();
+  const { profileId: userId, user } = await getSession();
+
+  const userEmail = user?.email?.toLowerCase() || "";
+  if (isUserAdminEmail(userEmail)) {
+    return { userId, role: "lead" };
+  }
 
   const direct = await getProjectRole(userId, projectId);
   if (direct) {

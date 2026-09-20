@@ -4,6 +4,9 @@ import { db } from "@/lib/db";
 import { projects, projectMembers, workspaceMembers, profiles, workspaces, projectInvitations } from "@/lib/db/schema";
 import { createClient } from "@/lib/supabase/client";
 import { invalidateProjectSyncCache } from "@/lib/project-cache";
+import { getOptionalSession, AuthError } from "@/lib/auth/session";
+import { isUserAdminEmail } from "@/lib/auth/admin-check";
+import { getProjectRole } from "@/lib/auth/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +14,22 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 
 function isValidUuid(id: unknown): id is string {
   return typeof id === "string" && UUID_REGEX.test(id.trim());
+}
+
+async function verifyCanManageMembers(projectDbId: string) {
+  const session = await getOptionalSession();
+  if (!session) {
+    throw new AuthError("احراز هویت الزامی است.", 401);
+  }
+  const userEmail = session.user.email?.toLowerCase() || "";
+  const isAdmin = isUserAdminEmail(userEmail);
+  if (isAdmin) return session;
+
+  const role = await getProjectRole(session.profileId, projectDbId);
+  if (role !== "lead") {
+    throw new AuthError("دسترسی غیرمجاز: تنها مدیرعامل یا لید پروژه مجاز به مدیریت اعضا هستند.", 403);
+  }
+  return session;
 }
 
 export async function GET(
@@ -259,6 +278,8 @@ export async function POST(
       return NextResponse.json({ error: "خطا در ایجاد یا یافتن پروژه" }, { status: 500 });
     }
 
+    await verifyCanManageMembers(project.id);
+
     const body = await request.json();
 
     const rawUserIds = Array.isArray(body.userIds)
@@ -344,19 +365,33 @@ export async function POST(
               );
           }
         } else if (targetEmail) {
-          // کاربر هنوز حساب نساخته است -> درج امن در projectInvitations برای انتساب خودکار هنگام ثبت‌نام
-          await db
-            .insert(projectInvitations)
-            .values({
-              projectId: project.id,
-              email: targetEmail,
-              role: dbRole,
-              status: "pending",
-            })
-            .onConflictDoUpdate({
-              target: [projectInvitations.projectId, projectInvitations.email],
-              set: { role: dbRole, status: "pending" },
-            });
+          // کاربر هنوز حساب نساخته است -> درج یا بروزرسانی امن در projectInvitations
+          const [existingInv] = await db
+            .select({ id: projectInvitations.id })
+            .from(projectInvitations)
+            .where(
+              and(
+                eq(projectInvitations.projectId, project.id),
+                ilike(projectInvitations.email, targetEmail)
+              )
+            )
+            .limit(1);
+
+          if (existingInv) {
+            await db
+              .update(projectInvitations)
+              .set({ role: dbRole, status: "pending" })
+              .where(eq(projectInvitations.id, existingInv.id));
+          } else {
+            await db
+              .insert(projectInvitations)
+              .values({
+                projectId: project.id,
+                email: targetEmail,
+                role: dbRole,
+                status: "pending",
+              });
+          }
         }
       } catch (err) {
         console.warn("[projectMembers insert error for " + uId + "]:", err);
@@ -406,19 +441,33 @@ export async function POST(
               )
             );
         } else {
-          // ثبت دعوت‌نامه معتبر در دیتابیس
-          await db
-            .insert(projectInvitations)
-            .values({
-              projectId: project.id,
-              email: cleanEmail,
-              role: dbRole,
-              status: "pending",
-            })
-            .onConflictDoUpdate({
-              target: [projectInvitations.projectId, projectInvitations.email],
-              set: { role: dbRole, status: "pending" },
-            });
+          // ثبت یا بروزرسانی دعوت‌نامه معتبر در دیتابیس
+          const [existingInv] = await db
+            .select({ id: projectInvitations.id })
+            .from(projectInvitations)
+            .where(
+              and(
+                eq(projectInvitations.projectId, project.id),
+                ilike(projectInvitations.email, cleanEmail)
+              )
+            )
+            .limit(1);
+
+          if (existingInv) {
+            await db
+              .update(projectInvitations)
+              .set({ role: dbRole, status: "pending" })
+              .where(eq(projectInvitations.id, existingInv.id));
+          } else {
+            await db
+              .insert(projectInvitations)
+              .values({
+                projectId: project.id,
+                email: cleanEmail,
+                role: dbRole,
+                status: "pending",
+              });
+          }
         }
       }
     }
@@ -448,6 +497,9 @@ export async function POST(
 
     return NextResponse.json({ ok: true, message: "اعضا با موفقیت به پروژه اضافه شدند." });
   } catch (err: unknown) {
+    if (err instanceof AuthError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("[post-project-members-error]", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "خطا در افزودن عضو به پروژه" },
@@ -486,8 +538,13 @@ export async function DELETE(
       )
       .limit(1);
 
-    if (project) {
-      // بررسی آیا دعوت‌نامه است
+    if (!project) {
+      return NextResponse.json({ error: "پروژه یافت نشد." }, { status: 404 });
+    }
+
+    await verifyCanManageMembers(project.id);
+
+    // بررسی آیا دعوت‌نامه است
       if (rawUserId.startsWith("inv-")) {
         const invId = rawUserId.replace("inv-", "");
         if (isValidUuid(invId)) {
@@ -531,7 +588,6 @@ export async function DELETE(
             )
           );
       }
-    }
 
     invalidateProjectSyncCache(normKey);
 
@@ -558,6 +614,9 @@ export async function DELETE(
 
     return NextResponse.json({ ok: true, message: "عضو با موفقیت از پروژه خارج گردید." });
   } catch (err: unknown) {
+    if (err instanceof AuthError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     console.error("[delete-project-members-error]", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "خطا در حذف عضو از پروژه" },
@@ -596,7 +655,13 @@ export async function PATCH(
       )
       .limit(1);
 
-    if (project && role) {
+    if (!project) {
+      return NextResponse.json({ error: "پروژه یافت نشد." }, { status: 404 });
+    }
+
+    await verifyCanManageMembers(project.id);
+
+    if (role) {
       const rawRole = String(role).toLowerCase();
       const dbRole: "lead" | "contributor" | "viewer" =
         rawRole === "admin" || rawRole === "lead"
@@ -651,6 +716,9 @@ export async function PATCH(
 
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {
+    if (err instanceof AuthError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "خطا در ویرایش عضو" },
       { status: 500 }
