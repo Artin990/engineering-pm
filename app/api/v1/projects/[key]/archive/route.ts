@@ -2,8 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { isUserAdminEmail } from "@/lib/auth/admin-check";
 import { db } from "@/lib/db";
-import { projects } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { projects, profiles } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/client";
 import { invalidateProjectSyncCache } from "@/lib/project-cache";
 
