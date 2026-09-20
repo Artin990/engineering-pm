@@ -53,3 +53,58 @@ CREATE POLICY "Project leads can manage project invitations"
         AND project_members.role = 'lead'
     )
   );
+
+-- ============================================================
+-- Auto-Claim Trigger & Function for Pending Project Invitations
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.claim_project_invitations()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_inv RECORD;
+BEGIN
+  IF NEW.email IS NULL OR TRIM(NEW.email) = '' THEN
+    RETURN NEW;
+  END IF;
+
+  -- بررسی و تبدیل تمام دعوت‌نامه‌های معلق برای ایمیل ثبت‌نام شده
+  FOR v_inv IN
+    SELECT pi.id, pi.project_id, pi.role, p.workspace_id
+    FROM public.project_invitations pi
+    JOIN public.projects p ON p.id = pi.project_id
+    WHERE LOWER(pi.email) = LOWER(NEW.email)
+      AND pi.accepted_at IS NULL
+  LOOP
+    -- ۱. افزودن کاربر به ورک‌اسپیس پروژه در صورت عدم عضویت
+    INSERT INTO public.workspace_members (workspace_id, user_id, role)
+    VALUES (v_inv.workspace_id, NEW.id, 'member'::public.workspace_role)
+    ON CONFLICT (workspace_id, user_id) DO NOTHING;
+
+    -- ۲. افزودن به اعضای پروژه با نقش مشخص‌شده در دعوت‌نامه
+    INSERT INTO public.project_members (project_id, user_id, role)
+    VALUES (v_inv.project_id, NEW.id, v_inv.role)
+    ON CONFLICT (project_id, user_id) DO UPDATE
+    SET role = EXCLUDED.role;
+
+    -- ۳. به‌روزرسانی وضعیت دعوت‌نامه به پذیرفته‌شده
+    UPDATE public.project_invitations
+    SET status = 'accepted',
+        accepted_at = now()
+    WHERE id = v_inv.id;
+  END LOOP;
+
+  RETURN NEW;
+END;
+$$;
+
+-- اتصال تریگر خودکار به جدول profiles
+DROP TRIGGER IF EXISTS on_profile_claim_project_invitations ON public.profiles;
+CREATE TRIGGER on_profile_claim_project_invitations
+  AFTER INSERT OR UPDATE OF email ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.claim_project_invitations();
+
