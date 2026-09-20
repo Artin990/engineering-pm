@@ -2,11 +2,26 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { requireProjectRole } from "@/lib/auth/rbac";
 import { AuthError } from "@/lib/auth/session";
+import { db } from "@/lib/db";
+import { projects } from "@/lib/db/schema";
+import { eq, or, ilike } from "drizzle-orm";
 import {
   listProjectIssues,
   getIssueById,
   updateIssue,
 } from "@/lib/db/queries";
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveProjectId(keyOrId: string): Promise<string> {
+  if (UUID_REGEX.test(keyOrId)) return keyOrId;
+  const [proj] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(or(eq(projects.key, keyOrId.toUpperCase()), ilike(projects.key, keyOrId)))
+    .limit(1);
+  return proj?.id || keyOrId;
+}
 
 function errJson(err: unknown) {
   if (err instanceof AuthError) {
@@ -24,10 +39,11 @@ function errJson(err: unknown) {
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
+  { params }: { params: Promise<{ key: string }> }
 ) {
   try {
-    const { projectId } = await params;
+    const { key } = await params;
+    const projectId = await resolveProjectId(key);
     await requireProjectRole(projectId, "viewer");
     const issues = await listProjectIssues(projectId);
     return NextResponse.json({ data: issues });
@@ -38,10 +54,11 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
+  { params }: { params: Promise<{ key: string }> }
 ) {
   try {
-    const { projectId } = await params;
+    const { key } = await params;
+    const projectId = await resolveProjectId(key);
     await requireProjectRole(projectId, "contributor");
 
     const body = await request.json();
