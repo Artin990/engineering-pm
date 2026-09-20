@@ -13,6 +13,8 @@ export interface SyncUserProfileInput {
   avatarUrl?: string | null;
   githubLogin?: string | null;
   inviteCode?: string | null;
+  nationalId?: string | null;
+  isCeo?: boolean;
 }
 
 function generateRandomInviteCode(): string {
@@ -31,6 +33,7 @@ export async function syncUserProfile(input: SyncUserProfileInput) {
   try {
     const displayName = input.name?.trim() || input.email.split("@")[0] || "کاربر RadarCheck";
     const isAdmin = isUserAdminEmail(input.email);
+    const verificationStatus = isAdmin ? "verified" : (input.isCeo ? "pending" : "verified");
 
     // ۱. ذخیره/بروزرسانی پروفایل در جدول profiles
     await db
@@ -41,6 +44,8 @@ export async function syncUserProfile(input: SyncUserProfileInput) {
         displayName: displayName,
         avatarUrl: input.avatarUrl ?? null,
         githubLogin: input.githubLogin ?? null,
+        nationalId: input.nationalId ?? null,
+        verificationStatus: verificationStatus,
       })
       .onConflictDoUpdate({
         target: profiles.id,
@@ -49,6 +54,8 @@ export async function syncUserProfile(input: SyncUserProfileInput) {
           displayName: displayName,
           avatarUrl: input.avatarUrl ?? null,
           githubLogin: input.githubLogin ?? null,
+          nationalId: input.nationalId ?? null,
+          verificationStatus: verificationStatus,
           updatedAt: new Date(),
         },
       });
@@ -268,3 +275,30 @@ export async function deleteUserAccountAction(targetUserId?: string) {
     return { ok: false, error: err instanceof Error ? err.message : "خطا در حذف حساب کاربری" };
   }
 }
+
+/**
+ * تایید یا رد کد ملی مدیرعامل توسط پلتفرم / ادمین
+ */
+export async function verifyNationalIdAction(userId: string, approve: boolean = true) {
+  try {
+    const session = await getCurrentUser();
+    const email = session?.user?.email || session?.profile?.email || "";
+    if (!session || !isUserAdminEmail(email)) {
+      return { ok: false, error: "تنها مدیران ارشد مجاز به تایید مدارک هویتی هستند." };
+    }
+
+    const status = approve ? "verified" : "rejected";
+    await db
+      .update(profiles)
+      .set({
+        verificationStatus: status,
+        updatedAt: new Date(),
+      })
+      .where(eq(profiles.id, userId));
+
+    return { ok: true, status };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : "خطای تایید مدارک" };
+  }
+}
+

@@ -95,6 +95,9 @@ export async function GET(request: NextRequest) {
             createdAt: projects.createdAt,
             updatedAt: projects.updatedAt,
             deletedAt: projects.deletedAt,
+            archivedAt: projects.archivedAt,
+            approvedBy: projects.approvedBy,
+            successRate: projects.successRate,
           })
           .from(projectMembers)
           .innerJoin(projects, eq(projectMembers.projectId, projects.id))
@@ -187,17 +190,34 @@ export async function POST(request: NextRequest) {
 
     // 3. ثبت پروژه در دیتابیس
     try {
+      const cleanRepo = body.githubRepo ? String(body.githubRepo).trim().replace(/^https?:\/\/github\.com\//i, "").replace(/\/$/, "") : null;
       const project = await createProject(workspaceId, session.profileId, {
         workspaceId,
         name: body.name.trim(),
         key: cleanKey,
         description: body.description?.trim() || null,
         targetDate: body.targetDate || null,
+        githubRepo: cleanRepo,
       });
+
+      // افزودن سازنده به عنوان Lead پروژه
+      try {
+        await db
+          .insert(projectMembers)
+          .values({
+            projectId: project.id,
+            userId: session.profileId,
+            role: "lead",
+          })
+          .onConflictDoNothing();
+      } catch {
+        // ignore
+      }
 
       return NextResponse.json({ data: project }, { status: 201 });
     } catch (createErr) {
       console.warn("[project-insert-warn]", createErr);
+      const cleanRepo = body.githubRepo ? String(body.githubRepo).trim().replace(/^https?:\/\/github\.com\//i, "").replace(/\/$/, "") : null;
       const [existingPrj] = await db
         .select()
         .from(projects)
@@ -216,8 +236,25 @@ export async function POST(request: NextRequest) {
           key: cleanKey,
           name: body.name.trim(),
           description: body.description?.trim() || null,
+          targetDate: body.targetDate || null,
+          githubRepo: cleanRepo,
         })
         .returning();
+
+      if (directCreated) {
+        try {
+          await db
+            .insert(projectMembers)
+            .values({
+              projectId: directCreated.id,
+              userId: session.profileId,
+              role: "lead",
+            })
+            .onConflictDoNothing();
+        } catch {
+          // ignore
+        }
+      }
 
       return NextResponse.json({ data: directCreated }, { status: 201 });
     }

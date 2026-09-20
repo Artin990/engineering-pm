@@ -51,6 +51,7 @@ export async function createProject(workspaceId: string, ownerId: string, input:
       description: input.description ?? null,
       targetDate: input.targetDate ?? null,
       teamId: input.teamId ?? null,
+      githubRepo: input.githubRepo ?? null,
     })
     .returning();
 
@@ -83,10 +84,16 @@ export async function updateProject(projectId: string, input: UpdateProjectField
   return updated ?? null;
 }
 
-export async function archiveProject(projectId: string) {
+export async function archiveProject(projectId: string, approvedBy?: string, successRate: number = 100) {
   const [archived] = await db
     .update(projects)
-    .set({ deletedAt: new Date() })
+    .set({
+      status: "archived",
+      archivedAt: new Date(),
+      approvedBy: approvedBy || null,
+      successRate: successRate,
+      updatedAt: new Date(),
+    })
     .where(eq(projects.id, projectId))
     .returning();
   return archived ?? null;

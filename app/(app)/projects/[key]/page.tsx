@@ -55,6 +55,7 @@ import {
 } from "@/components/features/types";
 import { faNumber, faPercent, faDate } from "@/lib/format";
 import BurndownChart from "./burndown-chart";
+import { ProjectArchiveBanner } from "@/components/features/projects/project-archive-banner";
 
 /* ============================================================
    Page — Server Component
@@ -95,6 +96,11 @@ export default async function ProjectOverviewPage({
         project={project}
         owner={project.owner ?? null}
         teamName={project.teamName ?? null}
+      />
+      <ProjectArchiveBanner
+        projectKey={key}
+        status={project.status}
+        progress={project.progress}
       />
       <HealthRow health={project.health} reason={project.healthReason} />
 

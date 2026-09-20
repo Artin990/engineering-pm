@@ -942,4 +942,57 @@ CREATE POLICY "Allow authenticated delete workspace_members"
   TO authenticated
   USING (true);
 
+-- ============================================================
+-- 14. CHAT ENHANCEMENTS & CODE ROTATION
+-- ============================================================
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_messages' AND column_name = 'reply_to') THEN 
+    ALTER TABLE public.chat_messages ADD COLUMN reply_to jsonb DEFAULT NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_messages' AND column_name = 'reactions') THEN 
+    ALTER TABLE public.chat_messages ADD COLUMN reactions jsonb DEFAULT '{}'::jsonb;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_messages' AND column_name = 'is_edited') THEN 
+    ALTER TABLE public.chat_messages ADD COLUMN is_edited boolean DEFAULT false;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chat_messages' AND column_name = 'updated_at') THEN 
+    ALTER TABLE public.chat_messages ADD COLUMN updated_at timestamptz DEFAULT NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'workspaces' AND column_name = 'invite_code_expires_at') THEN 
+    ALTER TABLE public.workspaces ADD COLUMN invite_code_expires_at timestamptz DEFAULT (now() + interval '10 minutes');
+  END IF;
+END $$;
+
+-- ============================================================
+-- 15. CEO NATIONAL ID & ARCHIVED PROJECTS (US1 & US7)
+-- ============================================================
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'national_id') THEN 
+    ALTER TABLE public.profiles ADD COLUMN national_id varchar(10);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'profiles' AND column_name = 'verification_status') THEN 
+    ALTER TABLE public.profiles ADD COLUMN verification_status varchar(20) NOT NULL DEFAULT 'verified';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'projects' AND column_name = 'archived_at') THEN 
+    ALTER TABLE public.projects ADD COLUMN archived_at timestamp with time zone;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'projects' AND column_name = 'approved_by') THEN 
+    ALTER TABLE public.projects ADD COLUMN approved_by uuid REFERENCES public.profiles(id);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'projects' AND column_name = 'success_rate') THEN 
+    ALTER TABLE public.projects ADD COLUMN success_rate integer DEFAULT 100;
+  END IF;
+END $$;
+
+UPDATE public.profiles
+SET verification_status = 'verified'
+WHERE email ILIKE '%amiriartin185%' OR email ILIKE '%artinamiri185%';
+
+
 

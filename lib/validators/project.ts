@@ -19,6 +19,7 @@ export const createProjectSchema = z.object({
   description: z.string().max(5000).nullish(),
   targetDate: isoDate.nullish(),
   teamId: z.string().uuid().nullish(),
+  githubRepo: z.string().max(255).nullish(),
 });
 
 export const updateProjectSchema = z.object({
@@ -29,6 +30,7 @@ export const updateProjectSchema = z.object({
   health: z.enum(projectHealthEnum.enumValues).optional(),
   targetDate: isoDate.nullish(),
   teamId: z.string().uuid().nullish(),
+  githubRepo: z.string().max(255).nullish(),
 });
 
 export type CreateProjectInput = z.infer<typeof createProjectSchema>;

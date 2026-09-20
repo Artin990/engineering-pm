@@ -13,6 +13,8 @@ import {
   AlertCircle,
   Calendar,
   Trash2,
+  BookOpen,
+  Archive,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -201,7 +203,14 @@ export default function ProjectsPage() {
         p.key.toLowerCase().includes(search.toLowerCase()) ||
         (p.description && p.description.toLowerCase().includes(search.toLowerCase()));
 
-      const matchStatus = statusFilter === "all" || p.status === statusFilter;
+      const matchStatus =
+        statusFilter === "all"
+          ? true
+          : statusFilter === "archived"
+          ? p.status === "archived" || p.status === "completed"
+          : statusFilter === "active"
+          ? p.status === "active" || p.status === "planning"
+          : p.status === statusFilter;
       return matchSearch && matchStatus;
     });
   }, [projectsList, search, statusFilter]);
@@ -285,6 +294,7 @@ export default function ProjectsPage() {
           key: cleanKey,
           description: description.trim() || undefined,
           targetDate: targetDate || undefined,
+          githubRepo: cleanRepo || undefined,
         }),
       });
 
@@ -367,6 +377,12 @@ export default function ProjectsPage() {
               ))}
             </SelectContent>
           </Select>
+          <Link href="/docs" target="_blank">
+            <Button variant="outline" className="gap-1.5 shadow-xs border-[var(--border)]">
+              <BookOpen className="size-4 text-emerald-500" />
+              مستندات API (Swagger)
+            </Button>
+          </Link>
           {isAdmin && (
             <Button onClick={() => setCreateOpen(true)} className="gap-1.5 shadow-sm">
               <Plus className="size-4" />
@@ -375,6 +391,44 @@ export default function ProjectsPage() {
           )}
         </div>
       </header>
+
+      {/* Quick Filter Pills (US7 completed/archived support) */}
+      <div className="flex flex-wrap items-center gap-2 pt-1 pb-2">
+        <button
+          type="button"
+          onClick={() => setStatusFilter("all")}
+          className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+            statusFilter === "all"
+              ? "bg-[var(--primary)] text-white shadow-xs"
+              : "bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border)]"
+          }`}
+        >
+          همه پروژه‌ها ({faNumber(projectsList.length)})
+        </button>
+        <button
+          type="button"
+          onClick={() => setStatusFilter("active")}
+          className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+            statusFilter === "active"
+              ? "bg-emerald-600 text-white shadow-xs"
+              : "bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border)]"
+          }`}
+        >
+          پروژه‌های فعال ({faNumber(projectsList.filter((p) => p.status === "active" || p.status === "planning").length)})
+        </button>
+        <button
+          type="button"
+          onClick={() => setStatusFilter("archived")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+            statusFilter === "archived" || statusFilter === "completed"
+              ? "bg-indigo-600 text-white shadow-xs"
+              : "bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text-primary)] border border-[var(--border)]"
+          }`}
+        >
+          <Archive className="size-3.5" />
+          پروژه‌های بایگانی / تکمیل‌شده (US7) ({faNumber(projectsList.filter((p) => p.status === "archived" || p.status === "completed").length)})
+        </button>
+      </div>
 
       {/* Grid */}
       {loading ? (

@@ -114,7 +114,8 @@ export async function archiveProjectAction(input: unknown): Promise<ActionResult
     const project = await getProjectById(projectId);
     if (!project) throw new AuthError("پروژه یافت نشد.", 404);
 
-    await archiveProject(projectId);
+    const session = await getSession();
+    await archiveProject(projectId, session.profileId);
 
     await logActivity({
       workspaceId: project.workspaceId,

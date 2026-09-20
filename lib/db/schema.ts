@@ -108,6 +108,8 @@ export const profiles = pgTable("profiles", {
   avatarUrl: text("avatar_url"),
   githubLogin: varchar("github_login", { length: 255 }),
   email: varchar("email", { length: 320 }),
+  nationalId: varchar("national_id", { length: 10 }),
+  verificationStatus: varchar("verification_status", { length: 20 }).notNull().default("verified"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
@@ -219,6 +221,9 @@ export const projects = pgTable(
     githubRepo: varchar("github_repo", { length: 255 }),
     ownerId: uuid("owner_id").references(() => profiles.id),
     teamId: uuid("team_id").references(() => teams.id, { onDelete: "set null" }),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    approvedBy: uuid("approved_by").references(() => profiles.id),
+    successRate: integer("success_rate").default(100),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()

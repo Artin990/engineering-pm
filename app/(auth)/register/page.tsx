@@ -24,6 +24,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { createClient } from "@/lib/supabase/client";
 import { useUserRole } from "@/lib/role-context";
 import { syncUserProfile } from "@/app/actions/auth";
+import { isValidIranianNationalId } from "@/lib/validators/national-id";
+import { isUserAdminEmail } from "@/lib/auth/admin-check";
 
 function RegisterForm() {
   const router = useRouter();
@@ -31,6 +33,8 @@ function RegisterForm() {
   const supabase = createClient();
   const { setUserSession } = useUserRole();
 
+  const [isCeo, setIsCeo] = useState(false);
+  const [nationalId, setNationalId] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -42,8 +46,13 @@ function RegisterForm() {
   const [error, setError] = useState("");
   const [registeredEmail, setRegisteredEmail] = useState("");
   const [isEmailConfirmationPending, setIsEmailConfirmationPending] = useState(false);
+  const [isCeoPendingVerification, setIsCeoPendingVerification] = useState(false);
 
   useEffect(() => {
+    const roleParam = searchParams.get("role") || searchParams.get("type");
+    if (roleParam === "ceo" || roleParam === "admin") {
+      setIsCeo(true);
+    }
     const codeParam = searchParams.get("code") || searchParams.get("invite") || searchParams.get("ref");
     if (codeParam) {
       setInviteCode(codeParam.toUpperCase());
@@ -83,6 +92,14 @@ function RegisterForm() {
       return;
     }
 
+    if (isCeo) {
+      const cleanNationalId = nationalId.replace(/\D/g, "");
+      if (!isValidIranianNationalId(cleanNationalId)) {
+        setError("کد ملی ۱۰ رقمی مدیرعامل نامعتبر است. لطفاً کد ملی معتبر وارد نمایید.");
+        return;
+      }
+    }
+
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")) {
       setError("متغیرهای محیطی اتصال به Supabase در پنل ورسل تنظیم نشده‌اند (NEXT_PUBLIC_SUPABASE_URL).");
       return;
@@ -100,7 +117,9 @@ function RegisterForm() {
             name: trimmedName,
             full_name: trimmedName,
             display_name: trimmedName,
-            invite_code: trimmedCode || undefined,
+            invite_code: isCeo ? undefined : (trimmedCode || undefined),
+            national_id: isCeo ? nationalId.trim() : undefined,
+            role: isCeo ? "admin" : "member",
           },
         },
       });
@@ -124,13 +143,25 @@ function RegisterForm() {
       }
 
       if (data?.user) {
-        // همگام‌سازی کاربر و اتصال به سازمان مدیرعامل
+        const isAdmin = isUserAdminEmail(trimmedEmail);
+
+        // همگام‌سازی کاربر و احراز هویت در دیتابیس
         await syncUserProfile({
           id: data.user.id,
           email: trimmedEmail,
           name: trimmedName,
-          inviteCode: trimmedCode || null,
+          inviteCode: isCeo ? null : (trimmedCode || null),
+          nationalId: isCeo ? nationalId.trim() : null,
+          isCeo: isCeo,
         });
+
+        // اگر ثبت‌نام به عنوان مدیرعامل جدید است و ایمیل در لیست سوپرادمین‌ها نیست: وضعیت در انتظار تایید
+        if (isCeo && !isAdmin) {
+          setRegisteredEmail(trimmedEmail);
+          setIsCeoPendingVerification(true);
+          setLoading(false);
+          return;
+        }
 
         // اگر سشن بلافاصله فعال است
         if (data.session) {
@@ -216,7 +247,29 @@ function RegisterForm() {
           </p>
         </div>
 
-        {isEmailConfirmationPending ? (
+        {isCeoPendingVerification ? (
+          <div className="space-y-4 rounded-[12px] bg-amber-500/10 border border-amber-500/20 p-5 text-center animate-in fade-in">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400">
+              <ShieldCheck className="size-6" />
+            </div>
+            <h2 className="text-[16px] font-bold text-[var(--text-primary)]">
+              مدارک در انتظار تایید هویت پلتفرم (US1)
+            </h2>
+            <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
+              اطلاعات حساب کاربری و کد ملی شما با موفقیت ثبت شد. حساب‌های مدیرعامل پس از تایید هویت توسط تیم پشتیبانی فعال می‌شوند.
+            </p>
+            <div className="p-3 bg-[var(--surface)] rounded-lg text-xs text-muted-foreground border font-mono" dir="ltr">
+              {registeredEmail}
+            </div>
+            <div className="pt-3">
+              <Link href="/login">
+                <Button className="w-full">
+                  بازگشت به صفحه ورود
+                </Button>
+              </Link>
+            </div>
+          </div>
+        ) : isEmailConfirmationPending ? (
           <div className="space-y-4 rounded-[12px] bg-emerald-500/10 border border-emerald-500/20 p-5 text-center animate-in fade-in">
             <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
               <CheckCircle2 className="size-6" />
@@ -237,6 +290,32 @@ function RegisterForm() {
           </div>
         ) : (
           <>
+            {/* Role / Onboarding Selector (US1 & US2) */}
+            <div className="flex rounded-xl bg-[var(--background)] p-1 border mb-4">
+              <button
+                type="button"
+                onClick={() => { setIsCeo(false); setError(""); }}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  !isCeo
+                    ? "bg-[var(--surface)] text-[var(--text-primary)] shadow-xs"
+                    : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                }`}
+              >
+                عضو تیم (با کد دعوت)
+              </button>
+              <button
+                type="button"
+                onClick={() => { setIsCeo(true); setError(""); }}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  isCeo
+                    ? "bg-[var(--surface)] text-[var(--primary)] shadow-xs"
+                    : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                }`}
+              >
+                مدیرعامل / کارفرما (با کد ملی)
+              </button>
+            </div>
+
             {/* GitHub OAuth Button */}
             <Button
               type="button"
@@ -308,26 +387,56 @@ function RegisterForm() {
                 </div>
               </div>
 
-              <div>
-                <label htmlFor="reg-code" className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
-                  کد زیرمجموعه‌گیری مدیرعامل (اختیاری)
-                </label>
-                <div className="relative">
-                  <Building2 className="absolute end-3 top-1/2 -translate-y-1/2 size-4 text-[var(--text-muted)] pointer-events-none" />
-                  <Input
-                    id="reg-code"
-                    name="inviteCode"
-                    dir="ltr"
-                    value={inviteCode}
-                    onChange={(e) => { setInviteCode(e.target.value.toUpperCase()); if (error) setError(""); }}
-                    placeholder="مثال: RADAR-185"
-                    className="pe-9 text-start font-mono uppercase bg-[var(--background)]"
-                  />
+              {/* Conditional Field: National ID for CEO vs Invite Code for Member */}
+              {isCeo ? (
+                <div>
+                  <label htmlFor="reg-national-id" className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
+                    کد ملی ۱۰ رقمی مدیرعامل (جهت احراز هویت الزامی است)
+                  </label>
+                  <div className="relative">
+                    <ShieldCheck className="absolute end-3 top-1/2 -translate-y-1/2 size-4 text-[var(--text-muted)] pointer-events-none" />
+                    <Input
+                      id="reg-national-id"
+                      name="nationalId"
+                      dir="ltr"
+                      maxLength={10}
+                      value={nationalId}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "");
+                        setNationalId(val);
+                        if (error) setError("");
+                      }}
+                      placeholder="0012345678"
+                      className="pe-9 text-start font-mono tracking-widest bg-[var(--background)]"
+                      required
+                    />
+                  </div>
+                  <p className="text-[11px] text-[var(--text-muted)] mt-1">
+                    احراز هویت مدیرعامل طبق استاندارد الگوریتم ریاضی کشور بررسی می‌گردد.
+                  </p>
                 </div>
-                <p className="text-[11px] text-[var(--text-muted)] mt-1">
-                  در صورت دریافت کد از مدیرعامل، اینجا وارد نمایید تا مستقیماً به پروژه‌ها متصل شوید.
-                </p>
-              </div>
+              ) : (
+                <div>
+                  <label htmlFor="reg-code" className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
+                    کد زیرمجموعه‌گیری مدیرعامل (اختیاری)
+                  </label>
+                  <div className="relative">
+                    <Building2 className="absolute end-3 top-1/2 -translate-y-1/2 size-4 text-[var(--text-muted)] pointer-events-none" />
+                    <Input
+                      id="reg-code"
+                      name="inviteCode"
+                      dir="ltr"
+                      value={inviteCode}
+                      onChange={(e) => { setInviteCode(e.target.value.toUpperCase()); if (error) setError(""); }}
+                      placeholder="مثال: RADAR-185"
+                      className="pe-9 text-start font-mono uppercase bg-[var(--background)]"
+                    />
+                  </div>
+                  <p className="text-[11px] text-[var(--text-muted)] mt-1">
+                    در صورت دریافت کد از مدیرعامل، اینجا وارد نمایید تا مستقیماً به پروژه‌ها متصل شوید.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label htmlFor="reg-password" className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
