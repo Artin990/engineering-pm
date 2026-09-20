@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { projects, profiles, workspaces, issues, projectMembers, workspaceMembers } from "@/lib/db/schema";
-import { eq, desc, isNull, count, sql } from "drizzle-orm";
+import { projects, profiles, workspaces, issues } from "@/lib/db/schema";
+import { eq, desc, isNull, count } from "drizzle-orm";
 import { isUserAdminEmail } from "@/lib/auth/admin-check";
 import { getSession } from "@/lib/auth/session";
 import { serverProjectStateCache } from "@/lib/project-cache";

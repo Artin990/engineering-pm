@@ -13,13 +13,9 @@ import {
   RefreshCw,
   CheckCircle2,
   XCircle,
-  Clock,
   ExternalLink,
-  Archive,
   ArrowRight,
-  Database,
   Lock,
-  Unlock,
   Sparkles,
   Copy,
   Check,
@@ -78,7 +74,7 @@ interface AdminUser {
 const DEFAULT_MASTER_KEY = "RC-SUPERADMIN-2026";
 
 export default function RcAdminPage() {
-  const { isAdmin, role, setRole, profile } = useUserRole();
+  const { role, setRole } = useUserRole();
 
   const [passkey, setPasskey] = useState(DEFAULT_MASTER_KEY);
   const [isUnlocked, setIsUnlocked] = useState(false);

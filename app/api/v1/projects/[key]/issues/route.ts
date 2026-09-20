@@ -136,7 +136,7 @@ export async function POST(
     const issue = await createIssue(
       proj.id,
       proj.key,
-      session.profileId,
+      session.userId,
       {
         id: validated.id,
         projectId: proj.id,

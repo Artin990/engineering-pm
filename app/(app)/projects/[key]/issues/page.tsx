@@ -169,7 +169,7 @@ export default function IssuesPage() {
     if (priorityFilter !== "all")
       out = out.filter((i) => i.priority === (priorityFilter as IssuePriority));
     return out;
-  }, [issues, search, statusFilter, priorityFilter, scopeFilter, profile.name, isMember]);
+  }, [issues, search, statusFilter, priorityFilter, scopeFilter, profile.name, profile.email, profile.github, profile.id, isMember]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
