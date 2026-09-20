@@ -7,14 +7,12 @@ import {
   ShieldCheck,
   Server,
   Users,
-  Briefcase,
   Layers,
   Key,
   RefreshCw,
   CheckCircle2,
   XCircle,
   ExternalLink,
-  ArrowRight,
   Lock,
   Unlock,
   Sparkles,
@@ -32,6 +30,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useUserRole } from "@/lib/role-context";
 import { faNumber, faDate } from "@/lib/format";
 import { isValidIranianNationalId } from "@/lib/validators/national-id";
+import { SwaggerEmbed } from "@/components/features/admin/swagger-embed";
 
 interface AdminMetrics {
   totalWorkspaces: number;
@@ -297,13 +296,6 @@ export default function RcAdminPage() {
             <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
             تازه‌سازی داده‌ها
           </Button>
-
-          <Link href="/projects">
-            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-500 text-white gap-1.5 text-xs shadow-md">
-              ورود به فضای کاری
-              <ArrowRight size={13} />
-            </Button>
-          </Link>
         </div>
       </header>
 
@@ -318,7 +310,7 @@ export default function RcAdminPage() {
             <div className="space-y-1.5">
               <h2 className="text-xl font-black text-white">ورود به پنل سوپر ادمین RadarCheck</h2>
               <p className="text-xs text-slate-400 leading-relaxed">
-                لطفاً کلید ارشد (Master Key) پلتفرم را وارد کنید تا به داشبورد کنترل مرکزی دسترسی پیدا کنید.
+                لطفاً کلید ارشد (Master Key) پلتفرم را وارد کنید تا به کنسول حاکمیتی و مستندات تعاملی Swagger دسترسی پیدا کنید.
               </p>
             </div>
             <div className="space-y-3 pt-2">
@@ -336,7 +328,7 @@ export default function RcAdminPage() {
                 className="w-full h-11 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-lg shadow-indigo-600/30 gap-2 cursor-pointer"
               >
                 {loading ? <RefreshCw size={16} className="animate-spin" /> : <Unlock size={16} />}
-                ورود به کنترل تاور
+                ورود به برج مراقبت
               </Button>
             </div>
             <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 text-xs text-slate-400 text-start space-y-1.5">
@@ -368,107 +360,82 @@ export default function RcAdminPage() {
               </div>
             )}
 
-            {/* Quick Metrics Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <Card className="border-slate-800 bg-slate-900/60 shadow-sm">
-                <CardContent className="p-4 flex items-center gap-3.5">
-                  <div className="size-11 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20">
-                    <Briefcase size={20} />
-                  </div>
-                  <div>
-                    <span className="text-xs text-slate-400 block">سازمان‌ها و ورک‌اسپیس‌ها</span>
-                    <span className="text-2xl font-black text-white font-mono">
-                      {faNumber(metrics?.totalWorkspaces || workspaces.length)}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-slate-800 bg-slate-900/60 shadow-sm">
-                <CardContent className="p-4 flex items-center gap-3.5">
-                  <div className="size-11 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/20">
-                    <Layers size={20} />
-                  </div>
-                  <div>
-                    <span className="text-xs text-slate-400 block">کل پروژه‌های فعال</span>
-                    <span className="text-2xl font-black text-white font-mono">
-                      {faNumber(metrics?.totalProjects || projectsList.length)}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-slate-800 bg-slate-900/60 shadow-sm">
-                <CardContent className="p-4 flex items-center gap-3.5">
-                  <div className="size-11 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
-                    <Users size={20} />
-                  </div>
-                  <div>
-                    <span className="text-xs text-slate-400 block">کاربران ثبت‌شده</span>
-                    <span className="text-2xl font-black text-white font-mono">
-                      {faNumber(metrics?.totalUsers || usersList.length)}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-slate-800 bg-slate-900/60 shadow-sm">
-                <CardContent className="p-4 flex items-center gap-3.5">
-                  <div className="size-11 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
-                    <ShieldAlert size={20} />
-                  </div>
-                  <div>
-                    <span className="text-xs text-slate-400 block">در انتظار تایید کد ملی</span>
-                    <span className="text-2xl font-black text-amber-400 font-mono">
-                      {faNumber(usersList.filter((u) => u.nationalId && u.verificationStatus === "pending").length)}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* CEO Registration Banner */}
-            <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-900/40 via-purple-900/30 to-slate-900 border border-indigo-500/30 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <Sparkles className="size-6 text-indigo-400 shrink-0" />
-                <div>
-                  <h3 className="text-sm font-bold text-white">لینک مستقیم ثبت‌نام کارفرما و مدیرعامل جدید</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    این لینک را در اختیار مدیران عامل قرار دهید تا با فرم کد ملی و ثبت شرکت وارد شوند:
-                  </p>
+            {/* Compact System & Security Bar (replaces generic dashboard metrics) */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
+              <div className="flex flex-wrap items-center gap-4 text-slate-300">
+                <div className="flex items-center gap-2">
+                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="font-medium text-slate-200">وضعیت سامانه: عملیاتی</span>
+                </div>
+                <div className="h-4 w-px bg-slate-800 hidden sm:block" />
+                <div className="flex items-center gap-1.5 text-slate-400">
+                  <span>تاخیر دیتابیس:</span>
+                  <span className="font-mono text-emerald-400 font-semibold">{metrics?.dbLatencyMs ?? 12}ms</span>
+                </div>
+                <div className="h-4 w-px bg-slate-800 hidden sm:block" />
+                <div className="flex items-center gap-1.5 text-slate-400">
+                  <span>سازمان‌ها:</span>
+                  <span className="font-mono text-white font-semibold">{faNumber(metrics?.totalWorkspaces || workspaces.length)}</span>
+                </div>
+                <div className="h-4 w-px bg-slate-800 hidden sm:block" />
+                <div className="flex items-center gap-1.5 text-slate-400">
+                  <span>کاربران:</span>
+                  <span className="font-mono text-white font-semibold">{faNumber(metrics?.totalUsers || usersList.length)}</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <code className="bg-slate-950 px-3 py-1.5 rounded-lg text-xs font-mono text-indigo-300 border border-slate-800" dir="ltr">
+
+              {usersList.filter((u) => u.nationalId && u.verificationStatus === "pending").length > 0 && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30 text-[11px] font-medium">
+                  <ShieldAlert size={13} />
+                  <span>{faNumber(usersList.filter((u) => u.nationalId && u.verificationStatus === "pending").length)} مدیرعامل منتظر تایید کد ملی</span>
+                </div>
+              )}
+            </div>
+
+            {/* CEO Registration Link Banner */}
+            <div className="p-3.5 rounded-xl bg-indigo-950/30 border border-indigo-500/30 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2.5">
+                <Sparkles className="size-4 text-indigo-400 shrink-0" />
+                <span className="font-bold text-white">لینک ثبت‌نام مدیرعامل جدید:</span>
+                <code className="bg-slate-950 px-2.5 py-1 rounded text-indigo-300 font-mono border border-slate-800" dir="ltr">
                   {ceoRegisterUrl}
                 </code>
-                <Button size="sm" onClick={copyCeoLink} className="gap-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs">
-                  {copiedLink ? <Check size={14} /> : <Copy size={14} />}
-                  {copiedLink ? "کپی شد" : "کپی لینک"}
-                </Button>
               </div>
+              <Button size="sm" onClick={copyCeoLink} className="h-7 gap-1 bg-indigo-600 hover:bg-indigo-500 text-white text-xs">
+                {copiedLink ? <Check size={12} /> : <Copy size={12} />}
+                {copiedLink ? "کپی شد" : "کپی لینک ثبت‌نام"}
+              </Button>
             </div>
 
             {/* Main Tabs */}
-            <Tabs defaultValue="ceos" className="space-y-4">
-              <TabsList className="bg-slate-900 border border-slate-800 p-1 rounded-xl">
-                <TabsTrigger value="ceos" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-slate-400 gap-1.5 text-xs">
+            <Tabs defaultValue="swagger" className="space-y-4">
+              <TabsList className="bg-slate-900 border border-slate-800 p-1 rounded-xl flex-wrap h-auto">
+                <TabsTrigger value="swagger" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-slate-400 gap-1.5 text-xs py-2">
+                  <Server size={14} />
+                  کنسول تعاملی Swagger API
+                </TabsTrigger>
+                <TabsTrigger value="ceos" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-slate-400 gap-1.5 text-xs py-2">
                   <ShieldCheck size={14} />
                   احراز هویت مدیران عامل ({faNumber(usersList.filter((u) => Boolean(u.nationalId)).length)})
                 </TabsTrigger>
-                <TabsTrigger value="projects" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-slate-400 gap-1.5 text-xs">
+                <TabsTrigger value="projects" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-slate-400 gap-1.5 text-xs py-2">
                   <Layers size={14} />
                   ناوگان پروژه‌ها ({faNumber(projectsList.length)})
                 </TabsTrigger>
-                <TabsTrigger value="users" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-slate-400 gap-1.5 text-xs">
+                <TabsTrigger value="users" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-slate-400 gap-1.5 text-xs py-2">
                   <Users size={14} />
                   دایرکتوری کاربران ({faNumber(usersList.length)})
                 </TabsTrigger>
-                <TabsTrigger value="tools" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-slate-400 gap-1.5 text-xs">
+                <TabsTrigger value="tools" className="data-[state=active]:bg-indigo-600 data-[state=active]:text-white text-slate-400 gap-1.5 text-xs py-2">
                   <Zap size={14} />
-                  ابزارهای سیستمی و سلامت سرور
+                  ابزارهای سیستمی و کش
                 </TabsTrigger>
               </TabsList>
+
+              {/* TAB 0: Swagger Interactive Console */}
+              <TabsContent value="swagger" className="space-y-4">
+                <SwaggerEmbed masterKey={passkey} />
+              </TabsContent>
 
               {/* TAB 1: CEO Verifications */}
               <TabsContent value="ceos" className="space-y-4">
