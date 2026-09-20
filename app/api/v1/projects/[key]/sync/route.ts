@@ -22,14 +22,79 @@ export async function GET(
 
       if (proj) {
         const cached = serverProjectStateCache.get(normKey);
+        // Fetch authoritative issues from DB table `issues` joined with `profiles` for assignees
+        const dbIssues = await db
+          .select({
+            id: issues.id,
+            key: issues.key,
+            title: issues.title,
+            description: issues.description,
+            status: issues.status,
+            priority: issues.priority,
+            type: issues.type,
+            estimate: issues.estimate,
+            dueDate: issues.dueDate,
+            cycleId: issues.cycleId,
+            milestoneId: issues.milestoneId,
+            assigneeId: issues.assigneeId,
+            createdAt: issues.createdAt,
+            updatedAt: issues.updatedAt,
+            assigneeName: profiles.displayName,
+            assigneeEmail: profiles.email,
+            assigneeAvatar: profiles.avatarUrl,
+            assigneeGithub: profiles.githubLogin,
+          })
+          .from(issues)
+          .leftJoin(profiles, eq(issues.assigneeId, profiles.id))
+          .where(and(eq(issues.projectId, proj.id), isNull(issues.deletedAt)))
+          .orderBy(desc(issues.createdAt));
 
-        const projIssues = cached && Array.isArray(cached.issues) && cached.issues.length > 0
-          ? cached.issues
-          : await db
-              .select()
-              .from(issues)
-              .where(eq(issues.projectId, proj.id))
-              .orderBy(desc(issues.createdAt));
+        const mappedDbIssues = dbIssues.map((iss) => ({
+          id: iss.id,
+          key: iss.key,
+          title: iss.title,
+          description: iss.description || undefined,
+          status: iss.status,
+          priority: iss.priority,
+          type: iss.type,
+          estimate: iss.estimate || 1,
+          dueDate: iss.dueDate || undefined,
+          cycleId: iss.cycleId || undefined,
+          milestoneId: iss.milestoneId || undefined,
+          assignee: iss.assigneeId
+            ? {
+                id: iss.assigneeId,
+                displayName: iss.assigneeName || iss.assigneeEmail?.split("@")[0] || "عضو تیم",
+                email: iss.assigneeEmail || "",
+                avatarUrl: iss.assigneeAvatar || null,
+                githubLogin: iss.assigneeGithub || null,
+                role: "member" as const,
+                status: "active" as const,
+                joinedAt: "امروز",
+              }
+            : null,
+          labels: [
+            {
+              id: `lbl-${iss.type}`,
+              name: iss.type === "bug" ? "باگ" : iss.type === "feature" ? "ویژگی" : "وظیفه",
+              color: iss.type === "bug" ? "#ef4444" : iss.type === "feature" ? "#3b82f6" : "#8b5cf6",
+            },
+          ],
+          createdAt: iss.createdAt ? iss.createdAt.toISOString() : new Date().toISOString(),
+          updatedAt: iss.updatedAt ? iss.updatedAt.toISOString() : new Date().toISOString(),
+          prCount: 0,
+          prOpenCount: 0,
+        }));
+
+        // Merge DB issues with in-memory cached issues
+        const issueMap = new Map<string, typeof mappedDbIssues[number]>();
+        mappedDbIssues.forEach((i) => issueMap.set(i.id, i));
+        if (cached && Array.isArray(cached.issues)) {
+          (cached.issues as typeof mappedDbIssues).forEach((i) => {
+            if (i && i.id) issueMap.set(i.id, i);
+          });
+        }
+        const projIssues = Array.from(issueMap.values());
 
         const projCycles = cached && Array.isArray(cached.cycles) && cached.cycles.length > 0
           ? cached.cycles
@@ -194,6 +259,84 @@ export async function POST(
         }
       } catch {
         // Ignore DB update note
+      }
+    }
+
+    // Persist issues to DB table `issues` if project exists in DB
+    if (Array.isArray(body.issues) && body.issues.length > 0) {
+      try {
+        const [proj] = await db
+          .select({ id: projects.id })
+          .from(projects)
+          .where(and(eq(projects.key, normKey), isNull(projects.deletedAt)))
+          .limit(1);
+
+        if (proj) {
+          const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          const validStatuses = ["backlog", "todo", "in_progress", "in_review", "blocked", "done", "cancelled"] as const;
+          const validPriorities = ["urgent", "high", "medium", "low", "none"] as const;
+          const validTypes = ["task", "bug", "feature", "improvement", "chore", "research"] as const;
+
+          for (const iss of body.issues) {
+            if (!iss || !iss.title) continue;
+            try {
+              const issueId = iss.id && UUID_REGEX.test(iss.id) ? iss.id : crypto.randomUUID();
+              const status = validStatuses.includes(iss.status) ? iss.status : "todo";
+              const priority = validPriorities.includes(iss.priority) ? iss.priority : "medium";
+              const type = validTypes.includes(iss.type) ? iss.type : "feature";
+
+              let targetAssigneeId: string | null = null;
+              if (iss.assignee?.id && UUID_REGEX.test(iss.assignee.id)) {
+                targetAssigneeId = iss.assignee.id;
+              } else if (iss.assignee?.email) {
+                const [prof] = await db
+                  .select({ id: profiles.id })
+                  .from(profiles)
+                  .where(eq(profiles.email, iss.assignee.email.toLowerCase()))
+                  .limit(1);
+                if (prof) targetAssigneeId = prof.id;
+              }
+
+              await db
+                .insert(issues)
+                .values({
+                  id: issueId,
+                  projectId: proj.id,
+                  key: iss.key || `${normKey}-1`,
+                  title: String(iss.title).slice(0, 500),
+                  description: iss.description ? String(iss.description).slice(0, 10000) : null,
+                  status,
+                  priority,
+                  type,
+                  estimate: Number(iss.estimate) || 1,
+                  dueDate: iss.dueDate ? String(iss.dueDate).slice(0, 10) : null,
+                  assigneeId: targetAssigneeId,
+                  cycleId: iss.cycleId && UUID_REGEX.test(iss.cycleId) ? iss.cycleId : null,
+                  milestoneId: iss.milestoneId && UUID_REGEX.test(iss.milestoneId) ? iss.milestoneId : null,
+                })
+                .onConflictDoUpdate({
+                  target: [issues.id],
+                  set: {
+                    title: String(iss.title).slice(0, 500),
+                    description: iss.description ? String(iss.description).slice(0, 10000) : null,
+                    status,
+                    priority,
+                    type,
+                    estimate: Number(iss.estimate) || 1,
+                    dueDate: iss.dueDate ? String(iss.dueDate).slice(0, 10) : null,
+                    assigneeId: targetAssigneeId,
+                    cycleId: iss.cycleId && UUID_REGEX.test(iss.cycleId) ? iss.cycleId : null,
+                    milestoneId: iss.milestoneId && UUID_REGEX.test(iss.milestoneId) ? iss.milestoneId : null,
+                    updatedAt: new Date(),
+                  },
+                });
+            } catch (singleIssueErr) {
+              console.warn("[sync] issue insert/update error:", singleIssueErr);
+            }
+          }
+        }
+      } catch (issueSyncErr) {
+        console.warn("[sync] batch issues sync error:", issueSyncErr);
       }
     }
 

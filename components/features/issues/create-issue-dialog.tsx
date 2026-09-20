@@ -36,7 +36,7 @@ export function CreateIssueDialog({
   projectKey,
   onCreate,
 }: CreateIssueDialogProps) {
-  const { members, milestones, cycles } = useProjectStore();
+  const { members, milestones, cycles, issues } = useProjectStore();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<IssueType>("feature");
@@ -59,12 +59,20 @@ export function CreateIssueDialog({
     }
 
     const assignedMember = members.find((m) => m.id === assigneeId) || null;
-    const randId = `i-${Date.now()}`;
-    const randNum = Math.floor(100 + Math.random() * 900);
+    const randId = typeof crypto !== "undefined" && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0")}`;
+
+    const nextNum = issues && issues.length > 0
+      ? Math.max(...issues.map((i) => {
+          const m = i.key.match(/-(\d+)$/);
+          return m ? parseInt(m[1], 10) : 0;
+        }), 0) + 1
+      : 1;
 
     const newIssue: Issue = {
       id: randId,
-      key: `${projectKey.toUpperCase()}-${randNum}`,
+      key: `${projectKey.toUpperCase()}-${nextNum}`,
       title: title.trim(),
       description: description.trim() || undefined,
       type,

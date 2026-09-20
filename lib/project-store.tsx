@@ -143,7 +143,21 @@ export function ProjectStoreProvider({
             }
 
             setState((prev) => {
-              const serverIssues = Array.isArray(json.data.issues) && json.data.issues.length > 0 ? json.data.issues : prev.issues;
+              let serverIssues = prev.issues;
+              if (Array.isArray(json.data.issues)) {
+                if (json.data.issues.length > 0) {
+                  const issueMap = new Map<string, Issue>();
+                  (json.data.issues as Issue[]).forEach((i) => {
+                    if (i && i.id) issueMap.set(i.id, i);
+                  });
+                  prev.issues.forEach((i) => {
+                    if (i && i.id && !issueMap.has(i.id)) issueMap.set(i.id, i);
+                  });
+                  serverIssues = Array.from(issueMap.values());
+                } else if (prev.issues.length === 0) {
+                  serverIssues = [];
+                }
+              }
               const serverCycles = Array.isArray(json.data.cycles) && json.data.cycles.length > 0 ? json.data.cycles : prev.cycles;
               const serverMilestones = Array.isArray(json.data.milestones) && json.data.milestones.length > 0 ? json.data.milestones : prev.milestones;
               const serverMembers = Array.isArray(json.data.members) && json.data.members.length > 0 ? json.data.members : prev.members;

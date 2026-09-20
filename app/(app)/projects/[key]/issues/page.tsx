@@ -148,11 +148,14 @@ export default function IssuesPage() {
 
     // Filter by My Tasks if selected
     if (scopeFilter === "my") {
-      out = out.filter(
-        (i) =>
-          i.assignee?.displayName.includes(profile.name) ||
-          (isMember && i.assignee?.id === "m1")
-      );
+      out = out.filter((i) => {
+        if (!i.assignee) return false;
+        if (profile.id && i.assignee.id === profile.id) return true;
+        if (profile.email && i.assignee.email && i.assignee.email.toLowerCase() === profile.email.toLowerCase()) return true;
+        if (profile.name && i.assignee.displayName && (i.assignee.displayName.includes(profile.name) || profile.name.includes(i.assignee.displayName))) return true;
+        if (profile.github && i.assignee.githubLogin && i.assignee.githubLogin.toLowerCase() === profile.github.toLowerCase()) return true;
+        return false;
+      });
     }
 
     if (search.trim()) {
