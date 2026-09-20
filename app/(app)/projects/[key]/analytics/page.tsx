@@ -178,27 +178,37 @@ function buildIndividualProfile(member: Member, issues: Issue[]): IndividualProf
   const qaLevel = hasTasks ? Math.min(95, Math.max(60, 70 + (qaTasks.length * 5))) : 50;
   const gitLevel = hasTasks ? Math.min(99, Math.max(70, 75 + (doneIssues.length * 4))) : 50;
 
+  const completionPct = hasTasks ? Math.round((doneIssues.length / assigned.length) * 100) : 0;
+  const growthText = (pct: number) => pct > 0 ? `+${toPersianDigits(pct)}٪` : "۰٪";
+  const feGrowth = growthText(Math.round(feLevel > 65 ? (feLevel - 65) / 2 : (doneIssues.length * 3)));
+  const beGrowth = growthText(Math.round(beLevel > 65 ? (beLevel - 65) / 2 : (doneIssues.length * 3)));
+  const qaGrowth = growthText(Math.round(qaLevel > 70 ? (qaLevel - 70) / 2 : (doneIssues.length * 2)));
+  const gitGrowth = growthText(Math.round(gitLevel > 75 ? (gitLevel - 75) / 2 : (doneIssues.length * 4)));
+
   const skills: SkillRating[] = isIntern
     ? [
-        { name: "آشنایی با Git و فرآیند PR", category: "Core", level: gitLevel, growth: hasTasks ? "+۱۵٪" : "۰٪" },
-        { name: "طراحی کامپوننت و رابط کاربری", category: "Frontend", level: feLevel, growth: hasTasks ? "+۲۰٪" : "۰٪" },
-        { name: "درک نیازمندی‌های تسک و تخمین", category: "Process", level: hasTasks ? Math.min(90, 60 + doneIssues.length * 5) : 50, growth: hasTasks ? "+۱۰٪" : "۰٪" },
-        { name: "تست و بررسی باگ‌ها", category: "QA", level: qaLevel, growth: hasTasks ? "+۱۸٪" : "۰٪" },
+        { name: "آشنایی با Git و فرآیند PR", category: "Core", level: gitLevel, growth: gitGrowth },
+        { name: "طراحی کامپوننت و رابط کاربری", category: "Frontend", level: feLevel, growth: feGrowth },
+        { name: "درک نیازمندی‌های تسک و تخمین", category: "Process", level: hasTasks ? Math.min(90, 60 + doneIssues.length * 5) : 50, growth: growthText(completionPct > 0 ? Math.round(completionPct / 5) : 0) },
+        { name: "تست و بررسی باگ‌ها", category: "QA", level: qaLevel, growth: qaGrowth },
       ]
     : [
-        { name: "معماری نرم‌افزار و کدنویسی", category: "Engineering", level: beLevel, growth: hasTasks ? "+۶٪" : "۰٪" },
-        { name: "کیفیت کد و پایداری", category: "Quality", level: qualityScore, growth: hasTasks ? "+۴٪" : "۰٪" },
-        { name: "مدیریت تسک‌ها و تحویل به‌موقع", category: "Agile", level: hasTasks ? onTimeDeliveryRate : 50, growth: hasTasks ? "+۵٪" : "۰٪" },
-        { name: "یکپارچه‌سازی و ابزارهای توسعه", category: "DevOps", level: gitLevel, growth: hasTasks ? "+۸٪" : "۰٪" },
+        { name: "معماری نرم‌افزار و کدنویسی", category: "Engineering", level: beLevel, growth: beGrowth },
+        { name: "کیفیت کد و پایداری", category: "Quality", level: qualityScore, growth: growthText(Math.round((qualityScore - 50) / 5)) },
+        { name: "مدیریت تسک‌ها و تحویل به‌موقع", category: "Agile", level: hasTasks ? onTimeDeliveryRate : 50, growth: growthText(Math.round(onTimeDeliveryRate / 10)) },
+        { name: "یکپارچه‌سازی و ابزارهای توسعه", category: "DevOps", level: gitLevel, growth: gitGrowth },
       ];
 
   // Dynamic OKRs derived from assigned issues
   const okrs = hasTasks
-    ? assigned.slice(0, 3).map((iss) => ({
-        title: iss.title,
-        progress: iss.status === "done" ? 100 : iss.status === "in_progress" ? 65 : iss.status === "in_review" ? 85 : 20,
-        dueDate: iss.dueDate ? faDate(iss.dueDate) : "اسپرینت جاری",
-      }))
+    ? assigned.slice(0, 3).map((iss) => {
+        const p = iss.status === "done" ? 100 : iss.status === "in_review" ? 85 : iss.status === "in_progress" ? 50 : iss.status === "todo" ? 15 : 0;
+        return {
+          title: iss.title,
+          progress: p,
+          dueDate: iss.dueDate ? faDate(iss.dueDate) : "اسپرینت جاری",
+        };
+      })
     : [
         {
           title: "در انتظار تخصیص تسک‌های اولیه اسپرینت",
@@ -294,8 +304,12 @@ function buildIndividualProfile(member: Member, issues: Issue[]): IndividualProf
     type: isIntern ? "intern" : "employee",
     avatar: member.avatarUrl || member.displayName.trim().charAt(0) || "ک",
     mentorName: isIntern ? "مدیر فنی" : undefined,
-    onboardingProgress: isIntern ? (hasTasks ? 90 : 30) : 100,
-    learningCurveScore: isIntern ? (hasTasks ? 88 : 50) : 96,
+    onboardingProgress: isIntern
+      ? Math.min(100, Math.round(20 + (assigned.length * 15) + (doneIssues.length * 20)))
+      : 100,
+    learningCurveScore: isIntern
+      ? Math.min(99, Math.round(50 + (doneIssues.length * 8) + (qualityScore * 0.4)))
+      : Math.min(99, Math.round(75 + (qualityScore * 0.2))),
     timeSpentHours,
     estimatedHours,
     onTimeDeliveryRate,
@@ -1103,8 +1117,9 @@ export default function AnalyticsPage({
           ======================================================== */}
       {isAdmin && activeTab === "project" && (
         <div className="space-y-6 no-print">
+          {/* Top KPI Cards */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Card>
+            <Card className="border-[var(--border)] bg-[var(--surface)] shadow-xs">
               <CardHeader className="pb-2">
                 <CardTitle className="text-[15px]">نرخ تکمیل وزنی کل پروژه</CardTitle>
                 <CardDescription className="text-[12px]">محاسبه بر اساس استوری پوینت‌ها</CardDescription>
@@ -1113,13 +1128,19 @@ export default function AnalyticsPage({
                 <p className="text-[32px] font-black text-[var(--primary)] font-mono">
                   {faPercent(completionRate / 100, 1)}
                 </p>
-                <p className="text-[12px] text-[var(--text-muted)] mt-1">
+                <div className="w-full bg-[var(--surface-raised)] rounded-full h-2 mt-2 overflow-hidden border border-[var(--border)]">
+                  <div
+                    className="bg-[var(--primary)] h-full rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, Math.max(0, completionRate))}%` }}
+                  />
+                </div>
+                <p className="text-[12px] text-[var(--text-muted)] mt-2">
                   {faNumber(totalDonePoints)} از {faNumber(totalProjectWeight)} استوری‌پوینت انجام شده
                 </p>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-[var(--border)] bg-[var(--surface)] shadow-xs">
               <CardHeader className="pb-2">
                 <CardTitle className="text-[15px]">توزیع حجم کار در تیم</CardTitle>
                 <CardDescription className="text-[12px]">تعادل وظایف بین اعضا و کارآموزان</CardDescription>
@@ -1137,14 +1158,26 @@ export default function AnalyticsPage({
                     {faNumber(members.filter((m) => m.role === "intern").length)} نفر
                   </Badge>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center pt-1 border-t border-[var(--border)]">
                   <span>وضعیت توزیع کار</span>
-                  <span className="text-emerald-500 font-medium">متعادل و شفاف</span>
+                  <span className={`font-medium ${
+                    scopedIssues.filter((i) => !i.assignee).length > 0
+                      ? "text-amber-500"
+                      : scopedIssues.filter((i) => i.status === "blocked").length > 0
+                      ? "text-rose-500"
+                      : "text-emerald-500"
+                  }`}>
+                    {scopedIssues.filter((i) => !i.assignee).length > 0
+                      ? `${faNumber(scopedIssues.filter((i) => !i.assignee).length)} تسک بدون مسئول`
+                      : scopedIssues.filter((i) => i.status === "blocked").length > 0
+                      ? "دارای ایشوی مسدود"
+                      : "متعادل و شفاف"}
+                  </span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-[var(--border)] bg-[var(--surface)] shadow-xs">
               <CardHeader className="pb-2">
                 <CardTitle className="text-[15px]">شاخص کیفیت و عدم شکست</CardTitle>
                 <CardDescription className="text-[12px]">بررسی سلامت ایشوها و کیفیت تحویل</CardDescription>
@@ -1160,15 +1193,178 @@ export default function AnalyticsPage({
                     {faNumber(scopedIssues.filter((i) => i.status === "done").length)}
                   </strong>
                 </div>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center pt-1 border-t border-[var(--border)]">
                   <span>شاخص سلامت کل</span>
-                  <Badge variant={project?.health === "at_risk" ? "warning" : "success"}>
-                    {project?.health === "at_risk" ? "نیازمند توجه" : "عالی (On Track)"}
+                  <Badge variant={project?.health === "at_risk" || scopedIssues.filter((i) => i.status === "blocked").length > 0 ? "warning" : "success"}>
+                    {scopedIssues.filter((i) => i.status === "blocked").length > 0
+                      ? `${faNumber(scopedIssues.filter((i) => i.status === "blocked").length)} مسدود (نیازمند توجه)`
+                      : project?.health === "at_risk"
+                      ? "نیازمند توجه"
+                      : "عالی (On Track)"}
                   </Badge>
                 </div>
               </CardContent>
             </Card>
           </div>
+
+          {/* Status and Type Dynamic Breakdowns */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Status Breakdown */}
+            <Card className="border-[var(--border)] bg-[var(--surface)] shadow-xs">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-[15px] flex items-center justify-between">
+                  <span>تفکیک وضعیت ایشوهای پروژه</span>
+                  <Badge variant="outline" className="font-mono text-[11px]">
+                    {faNumber(scopedIssues.length)} کل
+                  </Badge>
+                </CardTitle>
+                <CardDescription className="text-[12px]">وضعیت لحظه‌ای تسک‌ها در چرخه توسعه</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-[12px]">
+                {[
+                  { label: "انجام شده (Done)", count: scopedIssues.filter((i) => i.status === "done").length, color: "bg-emerald-500", text: "text-emerald-500" },
+                  { label: "در حال بازبینی (In Review)", count: scopedIssues.filter((i) => i.status === "in_review").length, color: "bg-indigo-500", text: "text-indigo-500" },
+                  { label: "در دست اقدام (In Progress)", count: scopedIssues.filter((i) => i.status === "in_progress").length, color: "bg-blue-500", text: "text-blue-500" },
+                  { label: "برای انجام (Todo)", count: scopedIssues.filter((i) => i.status === "todo").length, color: "bg-slate-400", text: "text-slate-400" },
+                  { label: "مسدود شده (Blocked)", count: scopedIssues.filter((i) => i.status === "blocked").length, color: "bg-rose-500", text: "text-rose-500" },
+                  { label: "بک‌لاگ (Backlog)", count: scopedIssues.filter((i) => i.status === "backlog").length, color: "bg-zinc-500", text: "text-zinc-500" },
+                ].map((s) => {
+                  const pct = scopedIssues.length > 0 ? Math.round((s.count / scopedIssues.length) * 100) : 0;
+                  return (
+                    <div key={s.label} className="space-y-1">
+                      <div className="flex justify-between items-center text-[12px]">
+                        <span className="flex items-center gap-1.5">
+                          <span className={`size-2 rounded-full ${s.color}`} />
+                          {s.label}
+                        </span>
+                        <span className="font-mono">
+                          {faNumber(s.count)} <span className="text-[var(--text-muted)] text-[10px]">({faNumber(pct)}٪)</span>
+                        </span>
+                      </div>
+                      <div className="w-full bg-[var(--surface-raised)] rounded-full h-1.5 overflow-hidden">
+                        <div className={`${s.color} h-full rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+
+            {/* Type Breakdown & Workload Matrix */}
+            <Card className="border-[var(--border)] bg-[var(--surface)] shadow-xs">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-[15px] flex items-center justify-between">
+                  <span>تفکیک بر اساس نوع نیازمندی و باگ</span>
+                  <Badge variant="outline" className="font-mono text-[11px]">
+                    {faNumber(scopedIssues.filter((i) => i.type === "bug").length)} باگ گزارش‌شده
+                  </Badge>
+                </CardTitle>
+                <CardDescription className="text-[12px]">توزیع وظایف، فیچرها و خطاهای فنی</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-[12px]">
+                {[
+                  { label: "ویژگی جدید (Feature)", count: scopedIssues.filter((i) => i.type === "feature").length, color: "bg-blue-500" },
+                  { label: "وظیفه فنی (Task / Chore)", count: scopedIssues.filter((i) => i.type === "task" || i.type === "chore").length, color: "bg-purple-500" },
+                  { label: "رفع خطا و باگ (Bug)", count: scopedIssues.filter((i) => i.type === "bug").length, color: "bg-rose-500" },
+                  { label: "بهبود و تحقیق (Improvement)", count: scopedIssues.filter((i) => i.type === "improvement" || i.type === "research").length, color: "bg-emerald-500" },
+                ].map((t) => {
+                  const pct = scopedIssues.length > 0 ? Math.round((t.count / scopedIssues.length) * 100) : 0;
+                  return (
+                    <div key={t.label} className="space-y-1">
+                      <div className="flex justify-between items-center text-[12px]">
+                        <span className="flex items-center gap-1.5">
+                          <span className={`size-2 rounded-full ${t.color}`} />
+                          {t.label}
+                        </span>
+                        <span className="font-mono">
+                          {faNumber(t.count)} <span className="text-[var(--text-muted)] text-[10px]">({faNumber(pct)}٪)</span>
+                        </span>
+                      </div>
+                      <div className="w-full bg-[var(--surface-raised)] rounded-full h-1.5 overflow-hidden">
+                        <div className={`${t.color} h-full rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <div className="mt-4 pt-3 border-t border-[var(--border)]">
+                  <div className="flex justify-between items-center text-[12px]">
+                    <span className="text-[var(--text-muted)]">نسبت سلامت کیفی (بدون باگ):</span>
+                    <strong className="text-emerald-500 font-mono">
+                      {scopedIssues.length > 0
+                        ? faPercent((scopedIssues.length - scopedIssues.filter((i) => i.type === "bug").length) / scopedIssues.length)
+                        : "۱۰۰٪"}
+                    </strong>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Member Workload Table */}
+          <Card className="border-[var(--border)] bg-[var(--surface)] shadow-xs">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-[15px] flex items-center justify-between">
+                <span>ماتریس بار کاری و وضعیت سلامت اعضای تیم</span>
+                <span className="text-[12px] text-[var(--text-muted)] font-normal">
+                  {faNumber(dynamicProfiles.length)} عضو فعال
+                </span>
+              </CardTitle>
+              <CardDescription className="text-[12px]">
+                پایش لحظه‌ای تعداد تسک‌ها، استوری‌پوینت‌ها و ریسک فرسودگی شغلی (Burnout Risk) پرسنل
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {dynamicProfiles.length === 0 ? (
+                <p className="text-center text-[var(--text-muted)] text-sm py-4">هنوز عضوی ثبت نشده است.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[12px] border-collapse" dir="rtl">
+                    <thead>
+                      <tr className="border-b border-[var(--border)] text-[var(--text-muted)] text-start">
+                        <th className="pb-2 font-medium text-start">عضو تیم</th>
+                        <th className="pb-2 font-medium text-center">نقش</th>
+                        <th className="pb-2 font-medium text-center">تسک‌های تخصیص‌یافته</th>
+                        <th className="pb-2 font-medium text-center">تکمیل‌شده</th>
+                        <th className="pb-2 font-medium text-center">نرخ تحویل</th>
+                        <th className="pb-2 font-medium text-center">نمره کیفیت</th>
+                        <th className="pb-2 font-medium text-center">سطح ریسک تراکم</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border)]">
+                      {dynamicProfiles.map((p) => (
+                        <tr key={p.id} className="hover:bg-[var(--surface-raised)] transition-colors">
+                          <td className="py-2.5 flex items-center gap-2">
+                            <span className="size-6 rounded-full bg-[var(--primary)] text-white text-[10px] font-bold flex items-center justify-center">
+                              {p.name.charAt(0)}
+                            </span>
+                            <span className="font-bold text-[var(--text-primary)]">{p.name}</span>
+                          </td>
+                          <td className="py-2.5 text-center">
+                            <Badge variant={p.type === "intern" ? "success" : "secondary"} className="text-[10px] py-0 px-1.5">
+                              {p.type === "intern" ? "کارآموز" : "کارمند"}
+                            </Badge>
+                          </td>
+                          <td className="py-2.5 text-center font-mono">{faNumber(p.assignedIssuesCount)}</td>
+                          <td className="py-2.5 text-center font-mono text-emerald-500 font-bold">{faNumber(p.doneIssuesCount)}</td>
+                          <td className="py-2.5 text-center font-mono">{faNumber(p.taskCompletionRate)}٪</td>
+                          <td className="py-2.5 text-center font-mono text-[var(--primary)] font-bold">{faNumber(p.qualityScore)}٪</td>
+                          <td className="py-2.5 text-center">
+                            <Badge
+                              variant={p.burnoutRisk === "high" ? "destructive" : p.burnoutRisk === "medium" ? "warning" : "success"}
+                              className="text-[10px] py-0 px-1.5"
+                            >
+                              {p.burnoutRisk === "high" ? "بالا (تراکم زیاد)" : p.burnoutRisk === "medium" ? "متوسط" : "پایدار و نرمال"}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
 
