@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import {
   Eye,
@@ -15,7 +15,6 @@ import {
   Loader2,
   ShieldCheck,
   Building2,
-  Sparkles,
 } from "lucide-react";
 import { GithubIcon } from "@/components/ui/github-icon";
 import { Button } from "@/components/ui/button";
@@ -28,7 +27,6 @@ import { isValidIranianNationalId } from "@/lib/validators/national-id";
 import { isUserAdminEmail } from "@/lib/auth/admin-check";
 
 function RegisterForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
   const { setUserSession } = useUserRole();

@@ -86,13 +86,11 @@ export default function OrganizationMembersPage() {
 
   // Load from API & localStorage
   const fetchMembers = async () => {
-    let localList: Member[] = [];
     try {
       const saved = localStorage.getItem("flowdeck_org_members");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          localList = parsed;
           setMembers(parsed);
         }
       }

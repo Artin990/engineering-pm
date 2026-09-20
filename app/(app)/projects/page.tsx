@@ -272,6 +272,7 @@ export default function ProjectsPage() {
         }
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filteredProjects = useMemo(() => {

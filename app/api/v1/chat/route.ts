@@ -322,7 +322,7 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE() {
   try {
     const session = await getSession().catch(() => null);
     const userEmail = session?.user?.email;

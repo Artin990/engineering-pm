@@ -63,7 +63,7 @@ export default function IssuesPage() {
   const params = useParams<{ key: string }>();
   const projectKey = (params?.key || "PM").toUpperCase();
 
-  const { isMember, isAdmin, profile } = useUserRole();
+  const { isAdmin, profile } = useUserRole();
   const { issues, addIssue, updateIssue, deleteIssue } = useProjectStore();
 
   const [view, setView] = useState("board");
@@ -178,7 +178,7 @@ export default function IssuesPage() {
     if (priorityFilter !== "all")
       out = out.filter((i) => i.priority === (priorityFilter as IssuePriority));
     return out;
-  }, [issues, search, statusFilter, priorityFilter, scopeFilter, profile.name, profile.email, profile.github, profile.id, isMember]);
+  }, [issues, search, statusFilter, priorityFilter, scopeFilter, profile.name, profile.email, profile.github, profile.id]);
 
   const sorted = useMemo(() => {
     const arr = [...filtered];

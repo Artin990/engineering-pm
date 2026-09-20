@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, Archive, Sparkles, Loader2, Award, Calendar } from "lucide-react";
+import { CheckCircle2, Sparkles, Loader2, Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useUserRole } from "@/lib/role-context";

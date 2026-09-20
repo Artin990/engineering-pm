@@ -1,7 +1,6 @@
 /**
  * Comprehensive dual-role audit script for all project tabs & Super Admin
  */
-import assert from "node:assert";
 
 const BASE_URL = "http://localhost:3000";
 

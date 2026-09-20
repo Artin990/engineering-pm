@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Eye, EyeOff, Mail, Lock, AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
 import { GithubIcon } from "@/components/ui/github-icon";
@@ -14,7 +14,6 @@ import { useUserRole } from "@/lib/role-context";
 import { syncUserProfile } from "@/app/actions/auth";
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirectTo") || "/projects";
   const urlError = searchParams.get("error");
