@@ -61,7 +61,7 @@ export async function PATCH(
   try {
     const { key } = await params;
     const projectId = await resolveProjectId(key);
-    await requireProjectRole(projectId, "contributor");
+    const { role } = await requireProjectRole(projectId, "contributor");
 
     const body = await request.json();
     const { issueId, status } = z
@@ -82,6 +82,23 @@ export async function PATCH(
     const issue = await getIssueById(issueId);
     if (!issue || issue.projectId !== projectId) {
       throw new AuthError("ایشو در این پروژه یافت نشد.", 404);
+    }
+
+    // Role check: Normal contributors (members) cannot move to done/cancelled
+    const isEmployerOrLead = role === "lead";
+    if (!isEmployerOrLead && (status === "done" || status === "cancelled")) {
+      throw new AuthError(
+        "تأیید نهایی و بستن تسک‌ها فقط در صلاحیت کارفرما است. لطفاً تسک را در وضعیت «در بازبینی» قرار دهید.",
+        403
+      );
+    }
+
+    // Role check: Normal contributors cannot modify an issue that is already in_review, done, or cancelled
+    if (!isEmployerOrLead && (issue.status === "in_review" || issue.status === "done" || issue.status === "cancelled")) {
+      throw new AuthError(
+        "این تسک در مرحله بازبینی کارفرما قرار دارد و تعیین تکلیف مجدد آن فقط توسط کارفرما امکان‌پذیر است.",
+        403
+      );
     }
 
     const updated = await updateIssue(issueId, { status });

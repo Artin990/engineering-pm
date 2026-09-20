@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { GitBranch, GitPullRequest, MessageSquare, Send, Trash2 } from "lucide-react";
+import { GitBranch, GitPullRequest, MessageSquare, Send, Trash2, Lock, CheckCircle2, RotateCcw, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,7 +63,7 @@ export function IssueDetailPanel({
   onUpdateIssue?: (updated: Issue) => void;
   onDeleteIssue?: (issueId: string) => void;
 }) {
-  const { profile } = useUserRole();
+  const { profile, isAdmin } = useUserRole();
   const [comments, setComments] = useState<IssueCommentItem[]>([]);
   const [newComment, setNewComment] = useState("");
 
@@ -193,21 +193,73 @@ export function IssueDetailPanel({
           </p>
         )}
 
+        {/* Employer Review Box for In-Review Issues */}
+        {issue.status === "in_review" && (
+          <div className="mt-[16px] rounded-[10px] border border-amber-500/40 bg-amber-500/10 p-[14px]">
+            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 font-semibold text-[13px]">
+              <ShieldAlert className="size-4 shrink-0" />
+              <span>این تسک در مرحله بازبینی کارفرما قرار دارد</span>
+            </div>
+            <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+              {isAdmin
+                ? "به عنوان کارفرما می‌توانید نتیجه کار را بررسی کرده و تسک را تأیید نهایی کنید یا برای بازنگری به تیم ارجاع دهید."
+                : "تسک توسط شما یا هم‌تیمی‌ها جهت بررسی ارسال شده است. تعیین وضعیت نهایی صرفاً در اختیار کارفرما می‌باشد."}
+            </p>
+
+            {isAdmin && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => handleStatusChange("done")}
+                  className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs h-8"
+                >
+                  <CheckCircle2 size={14} />
+                  تأیید نهایی کارفرما (اتمام تسک)
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleStatusChange("in_progress")}
+                  className="gap-1.5 text-amber-600 border-amber-500/40 hover:bg-amber-500/10 text-xs h-8"
+                >
+                  <RotateCcw size={13} />
+                  ارجاع جهت تکمیل (در حال انجام)
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Meta Grid */}
         <div className="my-[20px] grid grid-cols-2 gap-[16px] rounded-[10px] bg-[var(--surface-raised)] p-[16px]">
           <MetaRow label="وضعیت">
-            <Select value={issue.status} onValueChange={(val) => handleStatusChange(val as IssueStatus)}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(ISSUE_STATUS_LABEL).map(([val, label]) => (
-                  <SelectItem key={val} value={val} className="text-xs">
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {(!isAdmin && (issue.status === "in_review" || issue.status === "done" || issue.status === "cancelled")) ? (
+              <div className="flex items-center gap-1.5 rounded-[6px] border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-700 dark:text-amber-300 font-medium">
+                <Lock size={12} className="shrink-0" />
+                <span>{ISSUE_STATUS_LABEL[issue.status]} (قفل کارفرما)</span>
+              </div>
+            ) : (
+              <Select value={issue.status} onValueChange={(val) => handleStatusChange(val as IssueStatus)}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(ISSUE_STATUS_LABEL).map(([val, label]) => {
+                    const isRestrictedForMember = !isAdmin && (val === "done" || val === "cancelled");
+                    return (
+                      <SelectItem
+                        key={val}
+                        value={val}
+                        disabled={isRestrictedForMember}
+                        className="text-xs"
+                      >
+                        {label} {isRestrictedForMember ? "(مخصوص کارفرما 🔒)" : ""}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            )}
           </MetaRow>
 
           <MetaRow label="اولویت">

@@ -63,7 +63,7 @@ export default function IssuesPage() {
   const params = useParams<{ key: string }>();
   const projectKey = (params?.key || "PM").toUpperCase();
 
-  const { isMember, profile } = useUserRole();
+  const { isMember, isAdmin, profile } = useUserRole();
   const { issues, addIssue, updateIssue, deleteIssue } = useProjectStore();
 
   const [view, setView] = useState("board");
@@ -83,6 +83,15 @@ export default function IssuesPage() {
 
   // Handle status changes (drag and drop or menu)
   const handleStatusChange = (issueId: string, nextStatus: IssueStatus) => {
+    // Normal members cannot move to done/cancelled, nor move cards out of review
+    if (!isAdmin && (nextStatus === "done" || nextStatus === "cancelled")) {
+      return;
+    }
+    const current = issues?.find((i) => i.id === issueId);
+    if (!isAdmin && current && (current.status === "in_review" || current.status === "done" || current.status === "cancelled")) {
+      return;
+    }
+
     updateIssue(issueId, { status: nextStatus });
     if (selected && selected.id === issueId) {
       setSelected({ ...selected, status: nextStatus });
@@ -202,9 +211,9 @@ export default function IssuesPage() {
             ایشوها و بورد کاری — {projectKey}
           </h1>
           <p className="mt-1 text-[13px] text-[var(--text-muted)]">
-            {isMember
-              ? `نمای وظایف برای ${profile.name} (ثبت پیشرفت و گزارش موانع)`
-              : "مدیریت تسک‌ها، تخصیص منابع و پایش وضعیت پیشرفت"}
+            {isAdmin
+              ? "مدیریت و کنترل تسک‌ها، بازبینی کارهای آماده و تعیین وضعیت نهایی توسط کارفرما"
+              : `نمای وظایف برای ${profile.name} (انتقال تسک‌ها تا ستون در حال بازبینی جهت بررسی و تأیید نهایی کارفرما)`}
           </p>
         </div>
 
