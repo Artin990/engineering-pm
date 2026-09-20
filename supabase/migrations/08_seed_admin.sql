@@ -27,7 +27,7 @@ BEGIN
 
     IF v_workspace_id IS NULL THEN
       INSERT INTO public.workspaces (name, slug, owner_id)
-      VALUES ('ورک‌اسپیس مهندسی Flowdeck', 'engineering-workspace', v_user_id)
+      VALUES ('ورک‌اسپیس مهندسی RadarCheck', 'engineering-workspace', v_user_id)
       RETURNING id INTO v_workspace_id;
 
       INSERT INTO public.workspace_members (workspace_id, user_id, role)
@@ -40,7 +40,7 @@ BEGIN
 
     IF v_project_id IS NULL THEN
       INSERT INTO public.projects (workspace_id, key, name, description, status, health, owner_id)
-      VALUES (v_workspace_id, 'PM', 'سامانه مدیریت مهندسی Flowdeck', 'پروژه اصلی مدیریت و هوش مهندسی تیم', 'active', 'on_track', v_user_id)
+      VALUES (v_workspace_id, 'PM', 'سامانه مدیریت مهندسی RadarCheck', 'پروژه اصلی مدیریت و هوش مهندسی تیم', 'active', 'on_track', v_user_id)
       RETURNING id INTO v_project_id;
 
       INSERT INTO public.project_members (project_id, user_id, role)

@@ -182,7 +182,7 @@ function LoginForm() {
           <div className="relative h-12 w-48 mb-2">
             <Image
               src="/Flow-Deck-Logo.png"
-              alt="FlowDeck"
+              alt="RadarCheck"
               fill
               sizes="200px"
               className="object-contain dark:hidden"
@@ -190,7 +190,7 @@ function LoginForm() {
             />
             <Image
               src="/Flow-Deck-Logo-for-dark-mode.png"
-              alt="FlowDeck"
+              alt="RadarCheck"
               fill
               sizes="200px"
               className="object-contain hidden dark:block"
@@ -315,7 +315,7 @@ function LoginForm() {
                 در حال احراز هویت…
               </span>
             ) : (
-              "ورود به Flowdeck"
+              "ورود به RadarCheck"
             )}
           </Button>
         </form>

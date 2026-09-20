@@ -79,7 +79,7 @@ export default function ProjectSettingsPage({
   const [copied, setCopied] = useState(false);
   const inviteLink = typeof window !== "undefined"
     ? `${window.location.origin}/register?invite=${project.key.toLowerCase()}&role=${inviteRole}`
-    : `https://flowdeck.dev/invite?project=${project.key.toLowerCase()}&role=${inviteRole}`;
+    : `https://radarcheck.dev/invite?project=${project.key.toLowerCase()}&role=${inviteRole}`;
 
   const handleCopyInvite = () => {
     navigator.clipboard.writeText(inviteLink);

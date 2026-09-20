@@ -104,10 +104,10 @@ export async function GET(request: NextRequest) {
       }
 
       // 3. Set persistent role and user cookies
-      response.cookies.set("flowdeck_active_role", userRole, { path: "/", maxAge: 2592000 });
-      response.cookies.set("flowdeck_user_email", encodeURIComponent(userEmail), { path: "/", maxAge: 2592000 });
-      response.cookies.set("flowdeck_user_id", authUser.id, { path: "/", maxAge: 2592000 });
-      response.cookies.set("flowdeck_user_name", encodeURIComponent(userName), { path: "/", maxAge: 2592000 });
+      response.cookies.set("radarcheck_active_role", userRole, { path: "/", maxAge: 2592000 });
+      response.cookies.set("radarcheck_user_email", encodeURIComponent(userEmail), { path: "/", maxAge: 2592000 });
+      response.cookies.set("radarcheck_user_id", authUser.id, { path: "/", maxAge: 2592000 });
+      response.cookies.set("radarcheck_user_name", encodeURIComponent(userName), { path: "/", maxAge: 2592000 });
 
       return response;
     }

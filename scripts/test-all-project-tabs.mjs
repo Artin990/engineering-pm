@@ -5,15 +5,15 @@
 const BASE_URL = "http://localhost:3000";
 
 const CEO_COOKIES = [
-  "flowdeck_active_role=admin",
-  "flowdeck_user_email=amiriartin185%40gmail.com",
-  "flowdeck_user_name=Artin%20Amiri",
+  "radarcheck_active_role=admin",
+  "radarcheck_user_email=amiriartin185%40gmail.com",
+  "radarcheck_user_name=Artin%20Amiri",
 ].join("; ");
 
 const MEMBER_COOKIES = [
-  "flowdeck_active_role=member",
-  "flowdeck_user_email=subordinate.employee%40company.com",
-  "flowdeck_user_name=Mohammad%20Rezaei",
+  "radarcheck_active_role=member",
+  "radarcheck_user_email=subordinate.employee%40company.com",
+  "radarcheck_user_name=Mohammad%20Rezaei",
 ].join("; ");
 
 const TABS = [

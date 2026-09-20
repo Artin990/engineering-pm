@@ -5,18 +5,18 @@ const BASE_URL = "http://localhost:3000";
 
 // کوکی‌های شبیه‌سازی مدیرعامل
 const CEO_COOKIES = [
-  "flowdeck_user_email=amiriartin185%40gmail.com",
-  "flowdeck_active_role=admin",
-  "flowdeck_user_id=11111111-1111-1111-1111-111111111111",
-  "flowdeck_user_name=%D8%A2%D8%B1%D8%AA%DB%8C%D9%86%20%D8%A7%D9%85%DB%8C%D8%B1%DB%8C",
+  "radarcheck_user_email=amiriartin185%40gmail.com",
+  "radarcheck_active_role=admin",
+  "radarcheck_user_id=11111111-1111-1111-1111-111111111111",
+  "radarcheck_user_name=%D8%A2%D8%B1%D8%AA%DB%8C%D9%86%20%D8%A7%D9%85%DB%8C%D8%B1%DB%8C",
 ].join("; ");
 
 // کوکی‌های شبیه‌سازی کارمند عادی زیرمجموعه
 const STAFF_COOKIES = [
-  "flowdeck_user_email=staff.developer%40radarcheck.dev",
-  "flowdeck_active_role=member",
-  "flowdeck_user_id=22222222-2222-2222-2222-222222222222",
-  "flowdeck_user_name=%DA%A9%D8%A7%D8%B1%D9%85%D9%86%D8%AF%20%D8%AA%D9%88%D8%B3%D8%B9%D9%87%E2%80%8C%D8%AF%D9%87%D9%86%D8%AF%D9%87",
+  "radarcheck_user_email=staff.developer%40radarcheck.dev",
+  "radarcheck_active_role=member",
+  "radarcheck_user_id=22222222-2222-2222-2222-222222222222",
+  "radarcheck_user_name=%DA%A9%D8%A7%D8%B1%D9%85%D9%86%D8%AF%20%D8%AA%D9%88%D8%B3%D8%B9%D9%87%E2%80%8C%D8%AF%D9%87%D9%86%D8%AF%D9%87",
 ].join("; ");
 
 async function req(path, options = {}) {

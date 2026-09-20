@@ -17,7 +17,7 @@ export class AuthError extends Error {
 }
 
 /**
- * دریافت نشست کاربر فعلی — از روی کوکی توکن Supabase یا کوکی‌های معتبر سشن Flowdeck.
+ * دریافت نشست کاربر فعلی — از روی کوکی توکن Supabase یا کوکی‌های معتبر سشن RadarCheck.
  * در صورت نبود نشست، AuthError(401) پرتاب می‌کند.
  */
 export async function getSession(): Promise<SessionResult> {
@@ -38,24 +38,24 @@ export async function getSession(): Promise<SessionResult> {
 
   // ۲. بررسی کوکی‌های احراز هویت سشن
   const cookieStore = await cookies();
-  const flowdeckEmail = cookieStore.get("flowdeck_user_email")?.value;
-  const flowdeckRole = cookieStore.get("flowdeck_active_role")?.value;
-  const flowdeckId = cookieStore.get("flowdeck_user_id")?.value;
-  const flowdeckName = cookieStore.get("flowdeck_user_name")?.value;
+  const radarcheckEmail = cookieStore.get("radarcheck_user_email")?.value;
+  const radarcheckRole = cookieStore.get("radarcheck_active_role")?.value;
+  const radarcheckId = cookieStore.get("radarcheck_user_id")?.value;
+  const radarcheckName = cookieStore.get("radarcheck_user_name")?.value;
 
-  if (flowdeckEmail || flowdeckId) {
-    const profileId = flowdeckId || "00000000-0000-0000-0000-000000000001";
-    const displayName = flowdeckName ? decodeURIComponent(flowdeckName) : (flowdeckEmail ? decodeURIComponent(flowdeckEmail).split("@")[0] : "کاربر Flowdeck");
+  if (radarcheckEmail || radarcheckId) {
+    const profileId = radarcheckId || "00000000-0000-0000-0000-000000000001";
+    const displayName = radarcheckName ? decodeURIComponent(radarcheckName) : (radarcheckEmail ? decodeURIComponent(radarcheckEmail).split("@")[0] : "کاربر RadarCheck");
 
     const sessionUser: User = {
       id: profileId,
       app_metadata: {},
       user_metadata: {
         name: displayName,
-        role: flowdeckRole || "admin",
+        role: radarcheckRole || "admin",
       },
       aud: "authenticated",
-      email: flowdeckEmail ? decodeURIComponent(flowdeckEmail) : "user@flowdeck.dev",
+      email: radarcheckEmail ? decodeURIComponent(radarcheckEmail) : "user@radarcheck.dev",
       created_at: new Date().toISOString(),
     };
 

@@ -56,7 +56,7 @@ export function ProjectStoreProvider({
   children: React.ReactNode;
 }) {
   const normalizedKey = (projectKey || "PM").toUpperCase();
-  const storageKey = `flowdeck_project_store_${normalizedKey}`;
+  const storageKey = `radarcheck_project_store_${normalizedKey}`;
 
   const [state, setState] = useState<ProjectStoreState>(() => {
     return {
@@ -298,18 +298,18 @@ export function ProjectStoreProvider({
     };
   }, [state]);
 
-  // Sync updated project state to general flowdeck_projects_list
+  // Sync updated project state to general radarcheck_projects_list
   useEffect(() => {
     try {
-      const listSaved = localStorage.getItem("flowdeck_projects_list");
+      const listSaved = localStorage.getItem("radarcheck_projects_list");
       const list: Project[] = listSaved ? JSON.parse(listSaved) : [];
       const idx = list.findIndex((p) => p.key === computedState.project.key);
       if (idx >= 0) {
         list[idx] = { ...list[idx], ...computedState.project };
-        localStorage.setItem("flowdeck_projects_list", JSON.stringify(list));
+        localStorage.setItem("radarcheck_projects_list", JSON.stringify(list));
       } else if (list.length > 0) {
         list.unshift(computedState.project);
-        localStorage.setItem("flowdeck_projects_list", JSON.stringify(list));
+        localStorage.setItem("radarcheck_projects_list", JSON.stringify(list));
       }
     } catch {
       // ignore
@@ -598,10 +598,10 @@ export function removeProjectFromLocalStorage(projectKey: string) {
   if (typeof window === "undefined") return;
   const normKey = (projectKey || "").toUpperCase();
   try {
-    localStorage.removeItem(`flowdeck_project_store_${normKey}`);
+    localStorage.removeItem(`radarcheck_project_store_${normKey}`);
     localStorage.removeItem(`radarcheck_project_store_${normKey}`);
 
-    const keys = ["flowdeck_projects_list", "radarcheck_projects_list"];
+    const keys = ["radarcheck_projects_list", "radarcheck_projects_list"];
     for (const k of keys) {
       const saved = localStorage.getItem(k);
       if (saved) {

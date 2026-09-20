@@ -89,22 +89,22 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
           setProfile(userProf);
           setRoleState(userRole);
 
-          setCookie("flowdeck_active_role", userRole);
-          setCookie("flowdeck_user_email", userEmail);
-          setCookie("flowdeck_user_id", session.user.id);
-          setCookie("flowdeck_user_name", userName);
-          localStorage.setItem("flowdeck_user_session", JSON.stringify(userProf));
-          localStorage.setItem("flowdeck_active_role", userRole);
+          setCookie("radarcheck_active_role", userRole);
+          setCookie("radarcheck_user_email", userEmail);
+          setCookie("radarcheck_user_id", session.user.id);
+          setCookie("radarcheck_user_name", userName);
+          localStorage.setItem("radarcheck_user_session", JSON.stringify(userProf));
+          localStorage.setItem("radarcheck_active_role", userRole);
           setIsLoading(false);
           return;
         } else if (mounted) {
           // در صورتی که نشستی در سوپابیس وجود ندارد، سشن لوکال را پاک کن
-          localStorage.removeItem("flowdeck_user_session");
-          localStorage.removeItem("flowdeck_active_role");
-          deleteCookie("flowdeck_active_role");
-          deleteCookie("flowdeck_user_email");
-          deleteCookie("flowdeck_user_id");
-          deleteCookie("flowdeck_user_name");
+          localStorage.removeItem("radarcheck_user_session");
+          localStorage.removeItem("radarcheck_active_role");
+          deleteCookie("radarcheck_active_role");
+          deleteCookie("radarcheck_user_email");
+          deleteCookie("radarcheck_user_id");
+          deleteCookie("radarcheck_user_name");
           setProfile(DEFAULT_MEMBER_PROFILE);
           setRoleState("member");
         }
@@ -143,12 +143,12 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
 
         setProfile(userProf);
         setRoleState(userRole);
-        localStorage.setItem("flowdeck_user_session", JSON.stringify(userProf));
-        localStorage.setItem("flowdeck_active_role", userRole);
-        setCookie("flowdeck_active_role", userRole);
-        setCookie("flowdeck_user_email", userEmail);
-        setCookie("flowdeck_user_id", session.user.id);
-        setCookie("flowdeck_user_name", userName);
+        localStorage.setItem("radarcheck_user_session", JSON.stringify(userProf));
+        localStorage.setItem("radarcheck_active_role", userRole);
+        setCookie("radarcheck_active_role", userRole);
+        setCookie("radarcheck_user_email", userEmail);
+        setCookie("radarcheck_user_id", session.user.id);
+        setCookie("radarcheck_user_name", userName);
       }
     });
 
@@ -163,8 +163,8 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     if (!isUserAdminEmail(profile.email)) return; // کاربران عادی اجازه تغییر نقش به ادمین را ندارند
 
     setRoleState(newRole);
-    localStorage.setItem("flowdeck_active_role", newRole);
-    setCookie("flowdeck_active_role", newRole);
+    localStorage.setItem("radarcheck_active_role", newRole);
+    setCookie("radarcheck_active_role", newRole);
 
     setProfile((prev) => {
       const updated: UserProfile = {
@@ -172,7 +172,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         role: newRole,
         roleTitle: newRole === "admin" || newRole === "owner" ? "مدیرعامل و ادمین ارشد" : "توسعه‌دهنده / کاربر عادی",
       };
-      localStorage.setItem("flowdeck_user_session", JSON.stringify(updated));
+      localStorage.setItem("radarcheck_user_session", JSON.stringify(updated));
       return updated;
     });
   }, [profile.email]);
@@ -195,13 +195,13 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     setRoleState(activeRole);
     setProfile(newProfile);
 
-    localStorage.setItem("flowdeck_active_role", activeRole);
-    localStorage.setItem("flowdeck_user_session", JSON.stringify(newProfile));
+    localStorage.setItem("radarcheck_active_role", activeRole);
+    localStorage.setItem("radarcheck_user_session", JSON.stringify(newProfile));
 
-    setCookie("flowdeck_active_role", activeRole);
-    setCookie("flowdeck_user_email", newProfile.email);
-    setCookie("flowdeck_user_id", newProfile.id);
-    setCookie("flowdeck_user_name", newProfile.name);
+    setCookie("radarcheck_active_role", activeRole);
+    setCookie("radarcheck_user_email", newProfile.email);
+    setCookie("radarcheck_user_id", newProfile.id);
+    setCookie("radarcheck_user_name", newProfile.name);
   }, []);
 
   const updateProfile = useCallback(async (updates: Partial<UserProfile>): Promise<{ ok: boolean; error?: string }> => {
@@ -211,8 +211,8 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         ...updates,
       };
       setProfile(updatedProfile);
-      localStorage.setItem("flowdeck_user_session", JSON.stringify(updatedProfile));
-      if (updates.name) setCookie("flowdeck_user_name", updates.name);
+      localStorage.setItem("radarcheck_user_session", JSON.stringify(updatedProfile));
+      if (updates.name) setCookie("radarcheck_user_name", updates.name);
 
       const metaUpdates: Record<string, string | null> = {};
       if (updates.name !== undefined) {
@@ -261,12 +261,12 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ادامه پاک‌سازی حتی در خطای شبکه
     }
-    localStorage.removeItem("flowdeck_active_role");
-    localStorage.removeItem("flowdeck_user_session");
-    deleteCookie("flowdeck_active_role");
-    deleteCookie("flowdeck_user_email");
-    deleteCookie("flowdeck_user_id");
-    deleteCookie("flowdeck_user_name");
+    localStorage.removeItem("radarcheck_active_role");
+    localStorage.removeItem("radarcheck_user_session");
+    deleteCookie("radarcheck_active_role");
+    deleteCookie("radarcheck_user_email");
+    deleteCookie("radarcheck_user_id");
+    deleteCookie("radarcheck_user_name");
     setProfile(DEFAULT_MEMBER_PROFILE);
     setRoleState("member");
   }, [supabase]);

@@ -89,7 +89,7 @@ export default function MembersPage() {
   const inviteLink =
     typeof window !== "undefined"
       ? `${window.location.origin}/register?invite=${projectKey.toLowerCase()}-${Date.now().toString(36)}`
-      : `https://flowdeck.dev/register?invite=${projectKey.toLowerCase()}`;
+      : `https://radarcheck.dev/register?invite=${projectKey.toLowerCase()}`;
 
   const copyInviteLink = () => {
     navigator.clipboard.writeText(inviteLink);
@@ -238,9 +238,9 @@ export default function MembersPage() {
       console.warn("[loadData] /api/v1/members err:", err);
     }
 
-    // 4. Instant cache fallback from localStorage flowdeck_org_members
+    // 4. Instant cache fallback from localStorage radarcheck_org_members
     try {
-      const saved = localStorage.getItem(`flowdeck_org_members_${projectKey}`) || localStorage.getItem("flowdeck_org_members");
+      const saved = localStorage.getItem(`radarcheck_org_members_${projectKey}`) || localStorage.getItem("radarcheck_org_members");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
@@ -311,8 +311,8 @@ export default function MembersPage() {
       });
 
       try {
-        localStorage.setItem(`flowdeck_org_members_${projectKey}`, JSON.stringify(finalList));
-        localStorage.setItem("flowdeck_org_members", JSON.stringify(finalList));
+        localStorage.setItem(`radarcheck_org_members_${projectKey}`, JSON.stringify(finalList));
+        localStorage.setItem("radarcheck_org_members", JSON.stringify(finalList));
       } catch {
         // ignore
       }
@@ -367,7 +367,7 @@ export default function MembersPage() {
           : om
       );
       try {
-        localStorage.setItem("flowdeck_org_members", JSON.stringify(updated));
+        localStorage.setItem("radarcheck_org_members", JSON.stringify(updated));
       } catch {
         // ignore
       }
@@ -420,7 +420,7 @@ export default function MembersPage() {
           : om
       );
       try {
-        localStorage.setItem("flowdeck_org_members", JSON.stringify(updated));
+        localStorage.setItem("radarcheck_org_members", JSON.stringify(updated));
       } catch {
         // ignore
       }
@@ -472,7 +472,7 @@ export default function MembersPage() {
         om.userId === memberId || om.id === memberId ? { ...om, isAssignedToProject: false } : om
       );
       try {
-        localStorage.setItem("flowdeck_org_members", JSON.stringify(updated));
+        localStorage.setItem("radarcheck_org_members", JSON.stringify(updated));
       } catch {
         // ignore
       }

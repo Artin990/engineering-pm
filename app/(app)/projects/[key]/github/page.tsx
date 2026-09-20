@@ -67,7 +67,7 @@ export default function GithubPage() {
 
   const inviteLink = typeof window !== "undefined"
     ? `${window.location.origin}/register?invite=${projectKey.toLowerCase()}-gh`
-    : `https://flowdeck.dev/register?invite=${projectKey.toLowerCase()}`;
+    : `https://radarcheck.dev/register?invite=${projectKey.toLowerCase()}`;
 
   const copyInvite = () => {
     navigator.clipboard.writeText(inviteLink);

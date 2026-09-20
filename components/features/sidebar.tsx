@@ -149,14 +149,14 @@ export function Sidebar() {
             <div className="relative size-9 shrink-0 overflow-hidden rounded-[8px] bg-transparent p-1 shadow-xs border border-[var(--border)]">
               <Image
                 src="/Flow-Deck-Logo.png"
-                alt="FlowDeck"
+                alt="RadarCheck"
                 fill
                 sizes="36px"
                 className="object-contain object-left dark:hidden"
               />
               <Image
                 src="/Flow-Deck-Logo-for-dark-mode.png"
-                alt="FlowDeck"
+                alt="RadarCheck"
                 fill
                 sizes="36px"
                 className="object-contain object-left hidden dark:block"
@@ -167,7 +167,7 @@ export function Sidebar() {
               <div className="relative h-8 w-32 shrink-0">
                 <Image
                   src="/Flow-Deck-Logo.png"
-                  alt="FlowDeck Logo"
+                  alt="RadarCheck Logo"
                   fill
                   sizes="130px"
                   className="object-contain object-right dark:hidden"
@@ -175,7 +175,7 @@ export function Sidebar() {
                 />
                 <Image
                   src="/Flow-Deck-Logo-for-dark-mode.png"
-                  alt="FlowDeck Logo"
+                  alt="RadarCheck Logo"
                   fill
                   sizes="130px"
                   className="object-contain object-right hidden dark:block"
@@ -456,14 +456,14 @@ export function Sidebar() {
             <div className="relative h-6 w-24">
               <Image
                 src="/Flow-Deck-Logo.png"
-                alt="FlowDeck"
+                alt="RadarCheck"
                 fill
                 sizes="100px"
                 className="object-contain object-right dark:hidden"
               />
               <Image
                 src="/Flow-Deck-Logo-for-dark-mode.png"
-                alt="FlowDeck"
+                alt="RadarCheck"
                 fill
                 sizes="100px"
                 className="object-contain object-right hidden dark:block"
