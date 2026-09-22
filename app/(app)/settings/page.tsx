@@ -20,6 +20,7 @@ import {
   Users,
   ArrowRightLeft,
   Loader2,
+  Languages,
 } from "lucide-react";
 import { GithubIcon } from "@/components/ui/github-icon";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useUserRole } from "@/lib/role-context";
+import { useI18n } from "@/lib/i18n/context";
 import { createClient } from "@/lib/supabase/client";
 import { deleteUserAccountAction } from "@/app/actions/auth";
 import {
@@ -38,6 +40,7 @@ import {
 
 export default function UserSettingsPage() {
   const { profile, isAdmin, updateProfile, logout } = useUserRole();
+  const { t, locale, setLocale } = useI18n();
   const supabase = createClient();
 
   // Profile Form State
@@ -594,6 +597,62 @@ export default function UserSettingsPage() {
               </form>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Language & Regional Settings */}
+      <Card className="border-[var(--border)]">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Languages className="size-4 text-[var(--primary)]" />
+            {t.settings.languageTab}
+          </CardTitle>
+          <CardDescription>
+            {locale === "fa"
+              ? "زبان مورد نظر خود را برای نمایش کل سامانه انتخاب کنید."
+              : "Choose your preferred language for the application interface."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setLocale("fa")}
+              className={`flex items-center justify-between p-4 rounded-xl border transition-all text-start cursor-pointer ${
+                locale === "fa"
+                  ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--text-primary)] ring-1 ring-[var(--primary)]"
+                  : "border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:border-[var(--primary)]/50"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-xl">🇮🇷</span>
+                <div>
+                  <div className="text-sm font-bold">فارسی (Persian)</div>
+                  <div className="text-xs text-[var(--text-muted)]">راست‌چین (RTL)</div>
+                </div>
+              </div>
+              {locale === "fa" && <Check className="size-4 text-[var(--primary)]" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setLocale("en")}
+              className={`flex items-center justify-between p-4 rounded-xl border transition-all text-start cursor-pointer ${
+                locale === "en"
+                  ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--text-primary)] ring-1 ring-[var(--primary)]"
+                  : "border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-secondary)] hover:border-[var(--primary)]/50"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-xl">🌐</span>
+                <div>
+                  <div className="text-sm font-bold">English (US/UK)</div>
+                  <div className="text-xs text-[var(--text-muted)]">Left-to-Right (LTR)</div>
+                </div>
+              </div>
+              {locale === "en" && <Check className="size-4 text-[var(--primary)]" />}
+            </button>
+          </div>
         </CardContent>
       </Card>
 

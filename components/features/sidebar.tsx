@@ -26,11 +26,13 @@ import {
 } from "lucide-react";
 import { GithubIcon } from "@/components/ui/github-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguageToggle } from "@/components/language-toggle";
 import { useUserRole } from "@/lib/role-context";
+import { useI18n } from "@/lib/i18n/context";
 import { getProjectByKey } from "@/components/features/__fixtures__/mock-data";
 
 /**
- * Sidebar اصلی اپلیکیشن FlowDeck — RTL (سمت راست) با ریسپانسیو کامل و همبرگر منو در موبایل.
+ * Sidebar اصلی اپلیکیشن FlowDeck — واکنش‌گرا و دوزبانه (FA/EN).
  */
 export function Sidebar() {
   const pathname = usePathname();
@@ -39,6 +41,7 @@ export function Sidebar() {
   const currentProject = getProjectByKey(currentKey);
 
   const { profile, logout, isAdmin } = useUserRole();
+  const { t, locale, dir } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [chatUnreadCount, setChatUnreadCount] = useState<number>(0);
@@ -102,17 +105,17 @@ export function Sidebar() {
 
   const chatBadgeText =
     chatUnreadCount > 0
-      ? `${chatUnreadCount} جدید`
+      ? `${chatUnreadCount} ${locale === "fa" ? "جدید" : "New"}`
       : chatTotalCount > 0
-      ? `${chatTotalCount} پیام`
-      : "زنده";
+      ? `${chatTotalCount} ${locale === "fa" ? "پیام" : "msgs"}`
+      : locale === "fa" ? "زنده" : "Live";
 
   const navLinks = [
-    { href: "/projects", label: "همه پروژه‌ها", icon: FolderKanban, exact: true },
-    ...(isAdmin ? [{ href: "/members", label: "اعضای کل سازمان", icon: Users, exact: true }] : []),
+    { href: "/projects", label: t.nav.projects, icon: FolderKanban, exact: true },
+    ...(isAdmin ? [{ href: "/members", label: t.nav.members, icon: Users, exact: true }] : []),
     {
       href: "/chat",
-      label: "اتاق گفتگوی زنده تیم",
+      label: t.nav.chat,
       icon: MessageSquare,
       badge: chatBadgeText,
       hasUnread: chatUnreadCount > 0,
@@ -122,16 +125,16 @@ export function Sidebar() {
 
   const projectLinks = params?.key
     ? [
-        { href: `/projects/${currentKey}`, label: "نمای کلی", icon: Layers3, exact: true },
-        { href: `/projects/${currentKey}/issues`, label: "ایشوها و بورد", icon: CheckSquare },
-        { href: `/projects/${currentKey}/cycles`, label: "سایکل‌ها", icon: Layers },
-        { href: `/projects/${currentKey}/roadmap`, label: "رودمپ", icon: Map },
-        { href: `/projects/${currentKey}/milestones`, label: "مایلستون‌ها", icon: Target },
-        { href: `/projects/${currentKey}/github`, label: "گیت‌هاب", icon: GithubIcon },
-        { href: `/projects/${currentKey}/members`, label: "اعضا و دسترسی‌ها", icon: Users },
-        { href: `/projects/${currentKey}/activity`, label: "فعالیت", icon: Activity },
-        { href: `/projects/${currentKey}/analytics`, label: "آنالیتیکس و ارزیابی", icon: BarChart3 },
-        { href: `/projects/${currentKey}/settings`, label: "تنظیمات پروژه", icon: Settings },
+        { href: `/projects/${currentKey}`, label: locale === "fa" ? "نمای کلی" : "Overview", icon: Layers3, exact: true },
+        { href: `/projects/${currentKey}/issues`, label: t.nav.tasks, icon: CheckSquare },
+        { href: `/projects/${currentKey}/cycles`, label: locale === "fa" ? "سایکل‌ها" : "Cycles", icon: Layers },
+        { href: `/projects/${currentKey}/roadmap`, label: locale === "fa" ? "رودمپ" : "Roadmap", icon: Map },
+        { href: `/projects/${currentKey}/milestones`, label: locale === "fa" ? "مایلستون‌ها" : "Milestones", icon: Target },
+        { href: `/projects/${currentKey}/github`, label: "GitHub", icon: GithubIcon },
+        { href: `/projects/${currentKey}/members`, label: t.nav.members, icon: Users },
+        { href: `/projects/${currentKey}/activity`, label: locale === "fa" ? "فعالیت" : "Activity", icon: Activity },
+        { href: `/projects/${currentKey}/analytics`, label: t.nav.analytics, icon: BarChart3 },
+        { href: `/projects/${currentKey}/settings`, label: t.nav.settings, icon: Settings },
       ]
     : [];
 
@@ -142,7 +145,7 @@ export function Sidebar() {
         <Link
           href="/projects"
           className="flex items-center gap-[10px] text-[15px] font-bold text-[var(--text-primary)] transition-opacity hover:opacity-85"
-          title="FlowDeck — سامانه مدیریت مهندسی"
+          title={`FlowDeck — ${t.common.tagline}`}
           onClick={() => isMobile && setMobileOpen(false)}
         >
           {!isMobile && collapsed ? (
@@ -191,7 +194,7 @@ export function Sidebar() {
               onClick={toggleCollapsed}
               type="button"
               className="flex size-8 items-center justify-center rounded-[8px] text-[var(--text-muted)] hover:bg-[var(--surface-raised)] hover:text-[var(--text-primary)] transition-colors"
-              title={collapsed ? "باز کردن سایدبار" : "بستن سایدبار"}
+              title={collapsed ? (locale === "fa" ? "باز کردن سایدبار" : "Expand sidebar") : (locale === "fa" ? "بستن سایدبار" : "Collapse sidebar")}
             >
               {collapsed ? <PanelRightOpen size={16} /> : <PanelRightClose size={16} />}
             </button>
@@ -205,7 +208,12 @@ export function Sidebar() {
               <X size={18} />
             </button>
           )}
-          {(isMobile || !collapsed) && <ThemeToggle />}
+          {(isMobile || !collapsed) && (
+            <>
+              <LanguageToggle />
+              <ThemeToggle />
+            </>
+          )}
         </div>
       </div>
 
@@ -215,7 +223,7 @@ export function Sidebar() {
           <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] mb-1.5">
             <span className="flex items-center gap-1">
               {isAdmin ? <Shield size={12} className="text-amber-500" /> : <User size={12} className="text-blue-500" />}
-              سطح دسترسی
+              {locale === "fa" ? "سطح دسترسی" : "Access Level"}
             </span>
             <span
               className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
@@ -224,7 +232,7 @@ export function Sidebar() {
                   : "bg-blue-500/10 text-blue-500 border border-blue-500/20"
               }`}
             >
-              {isAdmin ? "مدیرعامل" : "عضو عادی"}
+              {isAdmin ? (locale === "fa" ? "مدیرعامل" : "Super Admin") : (locale === "fa" ? "عضو عادی" : "Member")}
             </span>
           </div>
           <div className="flex items-center justify-between">
@@ -394,7 +402,7 @@ export function Sidebar() {
               <Link
                 href="/settings"
                 onClick={() => isMobile && setMobileOpen(false)}
-                title="تنظیمات پروفایل"
+                title={locale === "fa" ? "تنظیمات پروفایل" : "Profile Settings"}
                 className="p-1.5 rounded text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--surface)] transition-colors"
               >
                 <Settings size={14} />
@@ -407,7 +415,7 @@ export function Sidebar() {
                 }}
                 className="text-[11px] text-[var(--primary)] hover:underline cursor-pointer"
               >
-                خروج
+                {t.nav.logout}
               </button>
             </div>
           </div>
@@ -416,22 +424,22 @@ export function Sidebar() {
             <Link
               href="/settings"
               className={`flex size-8 items-center justify-center rounded-full text-white text-[12px] font-bold overflow-hidden border border-[var(--border)] hover:ring-2 hover:ring-[var(--primary)] transition-all ${isAdmin ? "bg-[var(--primary)]" : "bg-blue-600"}`}
-              title={`تنظیمات حساب: ${profile.name} (${profile.roleTitle})`}
+              title={`${t.nav.settings}: ${profile.name} (${profile.roleTitle})`}
             >
               {profile.avatar && profile.avatar.startsWith("http") ? (
                 <img src={profile.avatar} alt={profile.name} className="size-full object-cover" />
               ) : (
-                profile.name?.charAt(0) || "ک"
+                profile.name?.charAt(0) || "U"
               )}
             </Link>
           </div>
         )}
         {(isMobile || !collapsed) && (
           <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] px-[4px]">
-            <span>FlowDeck v1.0</span>
+            <span>{t.nav.version}</span>
             <span className="inline-flex items-center gap-1">
               <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              متصل به سوپابیس
+              {locale === "fa" ? "متصل به سوپابیس" : "Supabase Connected"}
             </span>
           </div>
         )}
@@ -448,7 +456,7 @@ export function Sidebar() {
             type="button"
             onClick={() => setMobileOpen(true)}
             className="flex size-9 items-center justify-center rounded-[8px] border border-[var(--border)] bg-[var(--surface-raised)] text-[var(--text-primary)] hover:bg-[var(--surface)] transition-colors"
-            title="باز کردن منو"
+            title={locale === "fa" ? "باز کردن منو" : "Open menu"}
           >
             <Menu size={20} />
           </button>
@@ -473,17 +481,18 @@ export function Sidebar() {
         </div>
 
         <div className="flex items-center gap-2">
+          <LanguageToggle />
           <ThemeToggle />
           <Link
             href="/settings"
             className="flex size-8 items-center justify-center rounded-full bg-[var(--primary)] text-white text-[11px] font-bold"
           >
-            {profile.name?.charAt(0) || "ک"}
+            {profile.name?.charAt(0) || "U"}
           </Link>
         </div>
       </header>
 
-      {/* 2. Mobile Drawer (Slide-Over from Right side / RTL) */}
+      {/* 2. Mobile Drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           {/* Backdrop overlay */}
@@ -492,11 +501,11 @@ export function Sidebar() {
             onClick={() => setMobileOpen(false)}
           />
 
-          {/* Drawer Sidebar explicitly anchored to the Right (راست) */}
+          {/* Drawer Sidebar */}
           <aside
-            className="fixed inset-y-0 right-0 z-50 w-[285px] h-full flex flex-col border-l border-[var(--border)] bg-[var(--surface)] p-[16px] text-start shadow-2xl animate-in slide-in-from-right duration-200 overflow-y-auto"
+            className={`fixed inset-y-0 ${dir === "rtl" ? "right-0 border-l" : "left-0 border-r"} z-50 w-[285px] h-full flex flex-col border-[var(--border)] bg-[var(--surface)] p-[16px] text-start shadow-2xl animate-in ${dir === "rtl" ? "slide-in-from-right" : "slide-in-from-left"} duration-200 overflow-y-auto`}
             onClick={(e) => e.stopPropagation()}
-            dir="rtl"
+            dir={dir}
           >
             {renderNavContent(true)}
           </aside>
@@ -505,7 +514,7 @@ export function Sidebar() {
 
       {/* 3. Desktop Sidebar (hidden on mobile, flex on lg) */}
       <aside
-        className={`hidden lg:flex sticky top-0 h-screen shrink-0 flex-col border-l border-[var(--border)] bg-[var(--surface)] text-start z-30 transition-all duration-300 ease-in-out ${
+        className={`hidden lg:flex sticky top-0 h-screen shrink-0 flex-col ${dir === "rtl" ? "border-l" : "border-r"} border-[var(--border)] bg-[var(--surface)] text-start z-30 transition-all duration-300 ease-in-out ${
           collapsed ? "w-[72px] p-[10px]" : "w-[260px] p-[16px]"
         }`}
       >

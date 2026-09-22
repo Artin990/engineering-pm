@@ -9,8 +9,10 @@ import { GithubIcon } from "@/components/ui/github-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguageToggle } from "@/components/language-toggle";
 import { createClient } from "@/lib/supabase/client";
 import { useUserRole } from "@/lib/role-context";
+import { useI18n } from "@/lib/i18n/context";
 import { syncUserProfile } from "@/app/actions/auth";
 
 function LoginForm() {
@@ -20,6 +22,7 @@ function LoginForm() {
 
   const supabase = createClient();
   const { setUserSession } = useUserRole();
+  const { t, locale, dir } = useI18n();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -171,8 +174,9 @@ function LoginForm() {
   };
 
   return (
-    <main className="flex min-h-screen w-full items-center justify-center p-4 bg-[var(--background)] relative">
+    <main className="flex min-h-screen w-full items-center justify-center p-4 bg-[var(--background)] relative" dir={dir}>
       <div className="absolute top-6 start-6 flex items-center gap-2">
+        <LanguageToggle />
         <ThemeToggle />
       </div>
 
@@ -198,10 +202,10 @@ function LoginForm() {
             />
           </div>
           <h1 className="text-[20px] font-bold text-[var(--text-primary)]">
-            ورود به سامانه
+            {t.auth.loginTitle}
           </h1>
           <p className="mt-1 text-[13px] text-[var(--text-muted)]">
-            مدیریت پروژه + مدیریت مهندسی + هوش گیت‌هاب
+            {t.auth.loginSubtitle}
           </p>
         </div>
 
@@ -214,7 +218,7 @@ function LoginForm() {
           className="flex w-full items-center justify-center gap-2.5 rounded-[10px] border-[var(--border)] bg-[var(--background)] px-4 py-2.5 text-[14px] font-medium text-[var(--text-primary)] hover:bg-[var(--surface-raised)] transition-colors shadow-xs"
         >
           {oauthLoading ? <Loader2 className="size-4 animate-spin" /> : <GithubIcon size={18} />}
-          ورود با حساب GitHub
+          {locale === "fa" ? "ورود با حساب GitHub" : "Continue with GitHub"}
         </Button>
 
         <div className="relative my-6 text-center text-[12px] text-[var(--text-muted)]">
@@ -222,7 +226,7 @@ function LoginForm() {
             <span className="w-full border-t border-[var(--border)]" />
           </div>
           <span className="relative bg-[var(--surface)] px-3">
-            یا با ایمیل و رمز عبور
+            {locale === "fa" ? "یا با ایمیل و رمز عبور" : "Or with email & password"}
           </span>
         </div>
 
@@ -237,7 +241,7 @@ function LoginForm() {
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-[13px] font-medium text-[var(--text-primary)] mb-1">
-              ایمیل سازمانی
+              {t.auth.emailLabel}
             </label>
             <div className="relative">
               <Mail className="absolute end-3 top-1/2 -translate-y-1/2 size-4 text-[var(--text-muted)] pointer-events-none" />
@@ -249,7 +253,7 @@ function LoginForm() {
                 autoComplete="username email"
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); if (error) setError(""); }}
-                placeholder="name@company.com"
+                placeholder={t.auth.emailPlaceholder}
                 className="pe-9 text-start bg-[var(--background)]"
                 autoFocus
                 required
@@ -260,14 +264,14 @@ function LoginForm() {
           <div>
             <div className="flex items-center justify-between mb-1">
               <label htmlFor="password" className="block text-[13px] font-medium text-[var(--text-primary)]">
-                رمز عبور
+                {t.auth.passwordLabel}
               </label>
               <button
                 type="button"
                 onClick={() => { setShowForgotModal(true); setForgotSuccess(false); setForgotError(""); }}
                 className="text-[12px] text-[var(--primary)] hover:underline focus:outline-hidden cursor-pointer"
               >
-                فراموشی رمز؟
+                {locale === "fa" ? "فراموشی رمز؟" : "Forgot password?"}
               </button>
             </div>
             <div className="relative">
@@ -276,7 +280,7 @@ function LoginForm() {
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute end-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                 tabIndex={-1}
-                aria-label={showPassword ? "مخفی کردن رمز" : "نمایش رمز"}
+                aria-label={showPassword ? (locale === "fa" ? "مخفی کردن رمز" : "Hide password") : (locale === "fa" ? "نمایش رمز" : "Show password")}
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -288,7 +292,7 @@ function LoginForm() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); if (error) setError(""); }}
-                placeholder="••••••••"
+                placeholder={t.auth.passwordPlaceholder}
                 className="pe-9 text-start bg-[var(--background)]"
                 required
               />
@@ -304,7 +308,7 @@ function LoginForm() {
               className="size-4 rounded border-[var(--border)] accent-[var(--primary)]"
             />
             <label htmlFor="remember" className="text-[13px] text-[var(--text-secondary)] cursor-pointer select-none">
-              مرا به خاطر بسپار
+              {locale === "fa" ? "مرا به خاطر بسپار" : "Remember me"}
             </label>
           </div>
 
@@ -312,18 +316,18 @@ function LoginForm() {
             {loading ? (
               <span className="flex items-center justify-center gap-2">
                 <Loader2 className="size-4 animate-spin" />
-                در حال احراز هویت…
+                {t.common.loading}
               </span>
             ) : (
-              "ورود به FlowDeck"
+              t.auth.loginButton
             )}
           </Button>
         </form>
 
         <p className="mt-6 text-center text-[13px] text-[var(--text-muted)]">
-          حساب کاربری ندارید؟{" "}
+          {t.auth.noAccount}{" "}
           <Link href="/register" className="font-semibold text-[var(--primary)] hover:underline">
-            ثبت‌نام در سامانه
+            {t.auth.createAccountLink}
           </Link>
         </p>
       </div>

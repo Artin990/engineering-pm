@@ -5,6 +5,7 @@ import { peyda } from "./fonts";
 import "./globals.css";
 
 import { RoleProvider } from "@/lib/role-context";
+import { I18nProvider } from "@/lib/i18n/context";
 
 export const metadata: Metadata = {
   title: "FlowDeck — سامانه مدیریت مهندسی و هوش پروژه",
@@ -23,7 +24,9 @@ export default function RootLayout({
     <html lang="fa" dir="rtl" className={`${peyda.variable} ${peyda.className}`} suppressHydrationWarning>
       <body className={`${peyda.className} antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <RoleProvider>{children}</RoleProvider>
+          <I18nProvider>
+            <RoleProvider>{children}</RoleProvider>
+          </I18nProvider>
         </ThemeProvider>
       </body>
     </html>

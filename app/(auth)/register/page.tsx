@@ -17,11 +17,11 @@ import {
   Building2,
 } from "lucide-react";
 import { GithubIcon } from "@/components/ui/github-icon";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguageToggle } from "@/components/language-toggle";
 import { createClient } from "@/lib/supabase/client";
 import { useUserRole } from "@/lib/role-context";
+import { useI18n } from "@/lib/i18n/context";
 import { syncUserProfile } from "@/app/actions/auth";
 import { isValidIranianNationalId } from "@/lib/validators/national-id";
 import { isUserAdminEmail } from "@/lib/auth/admin-check";
@@ -30,6 +30,7 @@ function RegisterForm() {
   const searchParams = useSearchParams();
   const supabase = createClient();
   const { setUserSession } = useUserRole();
+  const { t, locale, dir } = useI18n();
 
   const [isCeo, setIsCeo] = useState(false);
   const [nationalId, setNationalId] = useState("");
@@ -215,8 +216,9 @@ function RegisterForm() {
   };
 
   return (
-    <main className="flex min-h-screen w-full items-center justify-center p-4 bg-[var(--background)] relative">
+    <main className="flex min-h-screen w-full items-center justify-center p-4 bg-[var(--background)] relative" dir={dir}>
       <div className="absolute top-6 start-6 flex items-center gap-2">
+        <LanguageToggle />
         <ThemeToggle />
       </div>
 
@@ -242,10 +244,10 @@ function RegisterForm() {
             />
           </div>
           <h1 className="text-[20px] font-bold text-[var(--text-primary)]">
-            ایجاد حساب کاربری
+            {t.auth.registerTitle}
           </h1>
           <p className="mt-1 text-[13px] text-[var(--text-muted)]">
-            پلتفرم یکپارچه مدیریت مهندسی و پروژه
+            {t.auth.registerSubtitle}
           </p>
         </div>
 
