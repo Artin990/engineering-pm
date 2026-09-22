@@ -16,7 +16,6 @@ const STORAGE_KEY = "flowdeck_locale";
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>("fa");
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     // 1. Check localStorage
@@ -31,7 +30,6 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     } catch {
       updateDocument("fa");
     }
-    setMounted(true);
   }, []);
 
   const updateDocument = (loc: Locale) => {

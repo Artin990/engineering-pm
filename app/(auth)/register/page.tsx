@@ -17,6 +17,8 @@ import {
   Building2,
 } from "lucide-react";
 import { GithubIcon } from "@/components/ui/github-icon";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageToggle } from "@/components/language-toggle";
 import { createClient } from "@/lib/supabase/client";
@@ -30,7 +32,7 @@ function RegisterForm() {
   const searchParams = useSearchParams();
   const supabase = createClient();
   const { setUserSession } = useUserRole();
-  const { t, locale, dir } = useI18n();
+  const { t, dir } = useI18n();
 
   const [isCeo, setIsCeo] = useState(false);
   const [nationalId, setNationalId] = useState("");
