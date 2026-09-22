@@ -229,7 +229,7 @@ function RegisterForm() {
               alt="FlowDeck"
               fill
               sizes="200px"
-              className="object-contain dark:hidden"
+              className="object-contain logo-light dark:hidden"
               priority
             />
             <Image
@@ -237,7 +237,7 @@ function RegisterForm() {
               alt="FlowDeck"
               fill
               sizes="200px"
-              className="object-contain hidden dark:block"
+              className="object-contain logo-dark hidden dark:block"
               priority
             />
           </div>

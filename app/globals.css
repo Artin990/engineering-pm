@@ -1,5 +1,31 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ======================================================
+   Theme-aware Logo Rules (Explicit fallback for all browsers)
+   ====================================================== */
+html.dark .logo-light,
+.dark .logo-light {
+  display: none !important;
+}
+
+html.dark .logo-dark,
+.dark .logo-dark {
+  display: block !important;
+}
+
+html:not(.dark) .logo-dark,
+:not(.dark) .logo-dark {
+  display: none !important;
+}
+
+html:not(.dark) .logo-light,
+:not(.dark) .logo-light {
+  display: block !important;
+}
+
+
 /* ======================================================
    Peyda Web Font Declarations (woff2, woff, ttf)
    ====================================================== */

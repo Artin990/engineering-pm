@@ -152,14 +152,14 @@ export function Sidebar() {
                 alt="FlowDeck"
                 fill
                 sizes="36px"
-                className="object-contain object-left dark:hidden"
+                className="object-contain object-left logo-light dark:hidden"
               />
               <Image
                 src="/Flow-Deck-Logo-for-dark-mode.png"
                 alt="FlowDeck"
                 fill
                 sizes="36px"
-                className="object-contain object-left hidden dark:block"
+                className="object-contain object-left logo-dark hidden dark:block"
               />
             </div>
           ) : (
@@ -170,7 +170,7 @@ export function Sidebar() {
                   alt="FlowDeck Logo"
                   fill
                   sizes="130px"
-                  className="object-contain object-right dark:hidden"
+                  className="object-contain object-right logo-light dark:hidden"
                   priority
                 />
                 <Image
@@ -178,7 +178,7 @@ export function Sidebar() {
                   alt="FlowDeck Logo"
                   fill
                   sizes="130px"
-                  className="object-contain object-right hidden dark:block"
+                  className="object-contain object-right logo-dark hidden dark:block"
                   priority
                 />
               </div>
@@ -459,14 +459,14 @@ export function Sidebar() {
                 alt="FlowDeck"
                 fill
                 sizes="100px"
-                className="object-contain object-right dark:hidden"
+                className="object-contain object-right logo-light dark:hidden"
               />
               <Image
                 src="/Flow-Deck-Logo-for-dark-mode.png"
                 alt="FlowDeck"
                 fill
                 sizes="100px"
-                className="object-contain object-right hidden dark:block"
+                className="object-contain object-right logo-dark hidden dark:block"
               />
             </div>
           </Link>
