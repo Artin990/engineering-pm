@@ -7,8 +7,8 @@ import "./globals.css";
 import { RoleProvider } from "@/lib/role-context";
 
 export const metadata: Metadata = {
-  title: "RadarCheck — سامانه مدیریت مهندسی و هوش پروژه",
-  description: "سامانه یکپارچه مدیریت پروژه، مدیریت مهندسی و هوش گیت‌هاب RadarCheck",
+  title: "FlowDeck — سامانه مدیریت مهندسی و هوش پروژه",
+  description: "سامانه یکپارچه مدیریت پروژه، مدیریت مهندسی و هوش گیت‌هاب FlowDeck",
   icons: {
     icon: "/Flow-Deck-Logo.png",
     shortcut: "/Flow-Deck-Logo.png",

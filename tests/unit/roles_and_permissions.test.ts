@@ -145,7 +145,7 @@ describe("۴. سیستم دعوت اعضا و ادعای خودکار (Invitatio
   }
 
   it("ایجاد دعوت‌نامه با ایمیل و نقش معتبر", () => {
-    const rawEmail = " New.Developer@RadarCheck.dev ";
+    const rawEmail = " New.Developer@FlowDeck.dev ";
     const normalizedEmail = rawEmail.trim().toLowerCase();
 
     const inv: ProjectInvitation = {
@@ -157,20 +157,20 @@ describe("۴. سیستم دعوت اعضا و ادعای خودکار (Invitatio
       acceptedAt: null,
     };
 
-    expect(inv.email).toBe("new.developer@radarcheck.dev");
+    expect(inv.email).toBe("new.developer@flowdeck.dev");
     expect(inv.status).toBe("pending");
   });
 
   it("ادعای خودکار (Auto-Claim) دعوت‌نامه‌ها پس از ثبت‌نام کاربر", () => {
     const pendingInvitations: ProjectInvitation[] = [
-      { id: "inv-1", projectId: "proj-alpha", email: "user@radarcheck.dev", role: "contributor", status: "pending" },
-      { id: "inv-2", projectId: "proj-beta", email: "user@radarcheck.dev", role: "viewer", status: "pending" },
-      { id: "inv-3", projectId: "proj-gamma", email: "other@radarcheck.dev", role: "contributor", status: "pending" },
+      { id: "inv-1", projectId: "proj-alpha", email: "user@flowdeck.dev", role: "contributor", status: "pending" },
+      { id: "inv-2", projectId: "proj-beta", email: "user@flowdeck.dev", role: "viewer", status: "pending" },
+      { id: "inv-3", projectId: "proj-gamma", email: "other@flowdeck.dev", role: "contributor", status: "pending" },
     ];
 
     const registeringUser = {
       id: "u-999",
-      email: "USER@radarcheck.dev",
+      email: "USER@flowdeck.dev",
     };
 
     const claimedMembers: Array<{ projectId: string; userId: string; role: string }> = [];

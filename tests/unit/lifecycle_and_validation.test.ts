@@ -43,7 +43,7 @@ describe("US1 - Iranian National ID Validator", () => {
 describe("Swagger / OpenAPI 3.0 Documentation", () => {
   it("should have valid OpenAPI 3.0 spec headers", () => {
     expect(openApiSpec.openapi).toBe("3.0.3");
-    expect(openApiSpec.info.title).toContain("RadarCheck");
+    expect(openApiSpec.info.title).toContain("FlowDeck");
   });
 
   it("should contain all required Spec-Kit endpoints", () => {

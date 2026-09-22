@@ -115,7 +115,7 @@ export default function UserSettingsPage() {
           : name.charAt(0) || "ک");
 
       const res = await updateProfile({
-        name: name.trim() || "کاربر RadarCheck",
+        name: name.trim() || "کاربر FlowDeck",
         roleTitle:
           roleTitle.trim() ||
           (isAdmin ? "مدیرعامل و ادمین ارشد" : "توسعه‌دهنده / کاربر عادی"),
@@ -328,7 +328,7 @@ export default function UserSettingsPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="font-semibold text-sm text-[var(--text-primary)] truncate">
-                  {name || "کاربر RadarCheck"}
+                  {name || "کاربر FlowDeck"}
                 </h3>
                 <p className="text-xs text-[var(--text-muted)] font-mono truncate">
                   {profile.email}
@@ -523,7 +523,7 @@ export default function UserSettingsPage() {
                 <div className="space-y-1">
                   <div className="text-xs text-[var(--text-muted)]">مجموعه فعال شما:</div>
                   <div className="text-base font-bold text-[var(--text-primary)]">
-                    {orgInfo?.workspaceName || "سازمان مهندسی RadarCheck"}
+                    {orgInfo?.workspaceName || "سازمان مهندسی FlowDeck"}
                   </div>
                   <div className="text-xs text-[var(--text-secondary)]">
                     مدیرعامل / رهبر سازمان:{" "}

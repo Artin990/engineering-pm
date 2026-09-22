@@ -74,7 +74,7 @@ export function IssueDetailPanel({
       return;
     }
     try {
-      const stored = localStorage.getItem(`radarcheck_comments_${issue.id}`);
+      const stored = localStorage.getItem(`flowdeck_comments_${issue.id}`);
       if (stored) {
         setComments(JSON.parse(stored));
       } else {
@@ -129,7 +129,7 @@ export function IssueDetailPanel({
 
     setComments(updated);
     try {
-      localStorage.setItem(`radarcheck_comments_${issue.id}`, JSON.stringify(updated));
+      localStorage.setItem(`flowdeck_comments_${issue.id}`, JSON.stringify(updated));
     } catch (err) {
       console.warn("Could not save comment to localStorage:", err);
     }
@@ -141,7 +141,7 @@ export function IssueDetailPanel({
     const updated = comments.filter((c) => c.id !== commentId);
     setComments(updated);
     try {
-      localStorage.setItem(`radarcheck_comments_${issue.id}`, JSON.stringify(updated));
+      localStorage.setItem(`flowdeck_comments_${issue.id}`, JSON.stringify(updated));
     } catch (err) {
       console.warn("Could not delete comment from localStorage:", err);
     }

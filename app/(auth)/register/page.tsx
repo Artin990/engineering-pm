@@ -226,7 +226,7 @@ function RegisterForm() {
           <div className="relative h-12 w-48 mb-2">
             <Image
               src="/Flow-Deck-Logo.png"
-              alt="RadarCheck"
+              alt="FlowDeck"
               fill
               sizes="200px"
               className="object-contain dark:hidden"
@@ -234,7 +234,7 @@ function RegisterForm() {
             />
             <Image
               src="/Flow-Deck-Logo-for-dark-mode.png"
-              alt="RadarCheck"
+              alt="FlowDeck"
               fill
               sizes="200px"
               className="object-contain hidden dark:block"

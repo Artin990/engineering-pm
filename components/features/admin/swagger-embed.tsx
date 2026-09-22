@@ -196,13 +196,13 @@ export function SwaggerEmbed({ masterKey }: { masterKey?: string }) {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-white">RadarCheck Interactive Swagger Console</h2>
+              <h2 className="text-base font-bold text-white">FlowDeck Interactive Swagger Console</h2>
               <span className="px-2 py-0.5 text-[11px] font-semibold rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 OpenAPI 3.0
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              Interactive testing of all RadarCheck REST endpoints directly inside Super Admin Tower
+              Interactive testing of all FlowDeck REST endpoints directly inside Super Admin Tower
             </p>
           </div>
         </div>

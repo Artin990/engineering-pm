@@ -71,7 +71,7 @@ export async function GET(
           .insert(projects)
           .values({
             key: normKey,
-            name: normKey === "PM" ? "مدیریت پروژه RadarCheck" : `پروژه ${normKey}`,
+            name: normKey === "PM" ? "مدیریت پروژه FlowDeck" : `پروژه ${normKey}`,
             workspaceId: firstWs.id,
             ownerId: firstWs.ownerId,
           })
@@ -264,7 +264,7 @@ export async function POST(
           .insert(projects)
           .values({
             key: normKey,
-            name: normKey === "PM" ? "مدیریت پروژه RadarCheck" : `پروژه ${normKey}`,
+            name: normKey === "PM" ? "مدیریت پروژه FlowDeck" : `پروژه ${normKey}`,
             workspaceId: firstWs.id,
             ownerId: firstWs.ownerId,
           })
@@ -476,17 +476,17 @@ export async function POST(
     invalidateProjectSyncCache(normKey);
     try {
       const supabase = createClient();
-      supabase.channel("radarcheck_projects_global").send({
+      supabase.channel("flowdeck_projects_global").send({
         type: "broadcast",
         event: "projects_list_changed",
         payload: { projectKey: normKey, action: "members_updated" },
       });
-      supabase.channel(`radarcheck_project_${normKey}`).send({
+      supabase.channel(`flowdeck_project_${normKey}`).send({
         type: "broadcast",
         event: "project_updated",
         payload: { key: normKey, timestamp: Date.now() },
       });
-      supabase.channel(`radarcheck_project_${normKey}_members_ui`).send({
+      supabase.channel(`flowdeck_project_${normKey}_members_ui`).send({
         type: "broadcast",
         event: "project_updated",
         payload: { key: normKey, timestamp: Date.now() },
@@ -593,17 +593,17 @@ export async function DELETE(
 
     try {
       const supabase = createClient();
-      supabase.channel("radarcheck_projects_global").send({
+      supabase.channel("flowdeck_projects_global").send({
         type: "broadcast",
         event: "projects_list_changed",
         payload: { projectKey: normKey, action: "member_removed", userId: rawUserId },
       });
-      supabase.channel(`radarcheck_project_${normKey}`).send({
+      supabase.channel(`flowdeck_project_${normKey}`).send({
         type: "broadcast",
         event: "project_updated",
         payload: { key: normKey, timestamp: Date.now() },
       });
-      supabase.channel(`radarcheck_project_${normKey}_members_ui`).send({
+      supabase.channel(`flowdeck_project_${normKey}_members_ui`).send({
         type: "broadcast",
         event: "project_updated",
         payload: { key: normKey, timestamp: Date.now() },
@@ -705,7 +705,7 @@ export async function PATCH(
 
     try {
       const supabase = createClient();
-      supabase.channel(`radarcheck_project_${normKey}`).send({
+      supabase.channel(`flowdeck_project_${normKey}`).send({
         type: "broadcast",
         event: "project_updated",
         payload: { key: normKey, timestamp: Date.now() },

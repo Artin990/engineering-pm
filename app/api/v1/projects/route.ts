@@ -215,8 +215,8 @@ export async function POST(request: NextRequest) {
             const [newWs] = await db
               .insert(workspaces)
               .values({
-                name: "سازمان مهندسی RadarCheck",
-                slug: `radarcheck-ws-${Date.now()}`,
+                name: "سازمان مهندسی FlowDeck",
+                slug: `flowdeck-ws-${Date.now()}`,
                 ownerId: session.profileId,
               })
               .returning();

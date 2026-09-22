@@ -16,7 +16,7 @@ export default function NotFound() {
           <div className="relative w-12 h-12 rounded-2xl overflow-hidden border border-border shadow-md bg-card/60 backdrop-blur-md flex items-center justify-center">
             <Image
               src="/Flow-Deck-Logo.png"
-              alt="RadarCheck Logo"
+              alt="FlowDeck Logo"
               width={48}
               height={48}
               className="object-contain dark:hidden"
@@ -24,7 +24,7 @@ export default function NotFound() {
             />
             <Image
               src="/Flow-Deck-Logo-for-dark-mode.png"
-              alt="RadarCheck Logo"
+              alt="FlowDeck Logo"
               width={48}
               height={48}
               className="object-contain hidden dark:block"
@@ -32,7 +32,7 @@ export default function NotFound() {
             />
           </div>
           <span className="text-xl font-bold tracking-tight text-foreground">
-            RadarCheck
+            FlowDeck
           </span>
         </div>
 

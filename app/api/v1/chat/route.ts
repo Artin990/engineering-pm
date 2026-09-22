@@ -37,7 +37,7 @@ let memoryMessages: ChatMessageItem[] = [
     senderName: "آرتین امیری",
     senderEmail: "amiriartin185@gmil.com",
     senderRole: "admin",
-    message: "سلام همکاران گرامی. به اتاق گفتگوی مهندسی RadarCheck خوش آمدید. پیام‌ها به‌صورت زنده و دائمی میان تمامی اعضا و کارفرما ذخیره و رد و بدل می‌شود.",
+    message: "سلام همکاران گرامی. به اتاق گفتگوی مهندسی FlowDeck خوش آمدید. پیام‌ها به‌صورت زنده و دائمی میان تمامی اعضا و کارفرما ذخیره و رد و بدل می‌شود.",
     createdAt: new Date().toISOString(),
     reactions: { "👋": ["آرتین امیری"] },
   },

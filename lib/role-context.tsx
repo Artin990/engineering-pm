@@ -21,7 +21,7 @@ export { ADMIN_EMAILS, isUserAdminEmail };
 export const DEFAULT_MEMBER_PROFILE: UserProfile = {
   id: "00000000-0000-0000-0000-000000000002",
   name: "کاربر جدید",
-  email: "user@radarcheck.dev",
+  email: "user@flowdeck.dev",
   role: "member",
   roleTitle: "توسعه‌دهنده / کاربر عادی",
   avatar: "ک",
@@ -68,7 +68,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         if (session?.user && mounted) {
           const userMeta = session.user.user_metadata || {};
           const userEmail = session.user.email || "";
-          const userName = userMeta.name || userMeta.full_name || userMeta.user_name || userEmail.split("@")[0] || "کاربر RadarCheck";
+          const userName = userMeta.name || userMeta.full_name || userMeta.user_name || userEmail.split("@")[0] || "کاربر FlowDeck";
           
           // فقط ایمیل‌های مجاز دسترسی ادمین دارند و سایر کاربران جدید عادی خواهند بود
           const isAdminUser = isUserAdminEmail(userEmail);
@@ -89,22 +89,22 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
           setProfile(userProf);
           setRoleState(userRole);
 
-          setCookie("radarcheck_active_role", userRole);
-          setCookie("radarcheck_user_email", userEmail);
-          setCookie("radarcheck_user_id", session.user.id);
-          setCookie("radarcheck_user_name", userName);
-          localStorage.setItem("radarcheck_user_session", JSON.stringify(userProf));
-          localStorage.setItem("radarcheck_active_role", userRole);
+          setCookie("flowdeck_active_role", userRole);
+          setCookie("flowdeck_user_email", userEmail);
+          setCookie("flowdeck_user_id", session.user.id);
+          setCookie("flowdeck_user_name", userName);
+          localStorage.setItem("flowdeck_user_session", JSON.stringify(userProf));
+          localStorage.setItem("flowdeck_active_role", userRole);
           setIsLoading(false);
           return;
         } else if (mounted) {
           // در صورتی که نشستی در سوپابیس وجود ندارد، سشن لوکال را پاک کن
-          localStorage.removeItem("radarcheck_user_session");
-          localStorage.removeItem("radarcheck_active_role");
-          deleteCookie("radarcheck_active_role");
-          deleteCookie("radarcheck_user_email");
-          deleteCookie("radarcheck_user_id");
-          deleteCookie("radarcheck_user_name");
+          localStorage.removeItem("flowdeck_user_session");
+          localStorage.removeItem("flowdeck_active_role");
+          deleteCookie("flowdeck_active_role");
+          deleteCookie("flowdeck_user_email");
+          deleteCookie("flowdeck_user_id");
+          deleteCookie("flowdeck_user_name");
           setProfile(DEFAULT_MEMBER_PROFILE);
           setRoleState("member");
         }
@@ -124,7 +124,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         const userMeta = session.user.user_metadata || {};
         const userEmail = session.user.email || "";
-        const userName = userMeta.name || userMeta.full_name || userMeta.user_name || userEmail.split("@")[0] || "کاربر RadarCheck";
+        const userName = userMeta.name || userMeta.full_name || userMeta.user_name || userEmail.split("@")[0] || "کاربر FlowDeck";
         
         const isAdminUser = isUserAdminEmail(userEmail);
         const userRole: UserRole = isAdminUser ? "admin" : "member";
@@ -143,12 +143,12 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
 
         setProfile(userProf);
         setRoleState(userRole);
-        localStorage.setItem("radarcheck_user_session", JSON.stringify(userProf));
-        localStorage.setItem("radarcheck_active_role", userRole);
-        setCookie("radarcheck_active_role", userRole);
-        setCookie("radarcheck_user_email", userEmail);
-        setCookie("radarcheck_user_id", session.user.id);
-        setCookie("radarcheck_user_name", userName);
+        localStorage.setItem("flowdeck_user_session", JSON.stringify(userProf));
+        localStorage.setItem("flowdeck_active_role", userRole);
+        setCookie("flowdeck_active_role", userRole);
+        setCookie("flowdeck_user_email", userEmail);
+        setCookie("flowdeck_user_id", session.user.id);
+        setCookie("flowdeck_user_name", userName);
       }
     });
 
@@ -163,8 +163,8 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     if (!isUserAdminEmail(profile.email)) return; // کاربران عادی اجازه تغییر نقش به ادمین را ندارند
 
     setRoleState(newRole);
-    localStorage.setItem("radarcheck_active_role", newRole);
-    setCookie("radarcheck_active_role", newRole);
+    localStorage.setItem("flowdeck_active_role", newRole);
+    setCookie("flowdeck_active_role", newRole);
 
     setProfile((prev) => {
       const updated: UserProfile = {
@@ -172,7 +172,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         role: newRole,
         roleTitle: newRole === "admin" || newRole === "owner" ? "مدیرعامل و ادمین ارشد" : "توسعه‌دهنده / کاربر عادی",
       };
-      localStorage.setItem("radarcheck_user_session", JSON.stringify(updated));
+      localStorage.setItem("flowdeck_user_session", JSON.stringify(updated));
       return updated;
     });
   }, [profile.email]);
@@ -184,8 +184,8 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
 
     const newProfile: UserProfile = {
       id: user.id || DEFAULT_MEMBER_PROFILE.id,
-      name: user.name || "کاربر RadarCheck",
-      email: user.email || "user@radarcheck.dev",
+      name: user.name || "کاربر FlowDeck",
+      email: user.email || "user@flowdeck.dev",
       role: activeRole,
       roleTitle: roleTitle,
       avatar: user.avatar || user.name?.charAt(0) || "ک",
@@ -195,13 +195,13 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     setRoleState(activeRole);
     setProfile(newProfile);
 
-    localStorage.setItem("radarcheck_active_role", activeRole);
-    localStorage.setItem("radarcheck_user_session", JSON.stringify(newProfile));
+    localStorage.setItem("flowdeck_active_role", activeRole);
+    localStorage.setItem("flowdeck_user_session", JSON.stringify(newProfile));
 
-    setCookie("radarcheck_active_role", activeRole);
-    setCookie("radarcheck_user_email", newProfile.email);
-    setCookie("radarcheck_user_id", newProfile.id);
-    setCookie("radarcheck_user_name", newProfile.name);
+    setCookie("flowdeck_active_role", activeRole);
+    setCookie("flowdeck_user_email", newProfile.email);
+    setCookie("flowdeck_user_id", newProfile.id);
+    setCookie("flowdeck_user_name", newProfile.name);
   }, []);
 
   const updateProfile = useCallback(async (updates: Partial<UserProfile>): Promise<{ ok: boolean; error?: string }> => {
@@ -211,8 +211,8 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
         ...updates,
       };
       setProfile(updatedProfile);
-      localStorage.setItem("radarcheck_user_session", JSON.stringify(updatedProfile));
-      if (updates.name) setCookie("radarcheck_user_name", updates.name);
+      localStorage.setItem("flowdeck_user_session", JSON.stringify(updatedProfile));
+      if (updates.name) setCookie("flowdeck_user_name", updates.name);
 
       const metaUpdates: Record<string, string | null> = {};
       if (updates.name !== undefined) {
@@ -261,12 +261,12 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ادامه پاک‌سازی حتی در خطای شبکه
     }
-    localStorage.removeItem("radarcheck_active_role");
-    localStorage.removeItem("radarcheck_user_session");
-    deleteCookie("radarcheck_active_role");
-    deleteCookie("radarcheck_user_email");
-    deleteCookie("radarcheck_user_id");
-    deleteCookie("radarcheck_user_name");
+    localStorage.removeItem("flowdeck_active_role");
+    localStorage.removeItem("flowdeck_user_session");
+    deleteCookie("flowdeck_active_role");
+    deleteCookie("flowdeck_user_email");
+    deleteCookie("flowdeck_user_id");
+    deleteCookie("flowdeck_user_name");
     setProfile(DEFAULT_MEMBER_PROFILE);
     setRoleState("member");
   }, [supabase]);

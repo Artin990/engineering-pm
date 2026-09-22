@@ -5,18 +5,18 @@ const BASE_URL = "http://localhost:3000";
 
 // کوکی‌های شبیه‌سازی مدیرعامل
 const CEO_COOKIES = [
-  "radarcheck_user_email=amiriartin185%40gmail.com",
-  "radarcheck_active_role=admin",
-  "radarcheck_user_id=11111111-1111-1111-1111-111111111111",
-  "radarcheck_user_name=%D8%A2%D8%B1%D8%AA%DB%8C%D9%86%20%D8%A7%D9%85%DB%8C%D8%B1%DB%8C",
+  "flowdeck_user_email=amiriartin185%40gmail.com",
+  "flowdeck_active_role=admin",
+  "flowdeck_user_id=11111111-1111-1111-1111-111111111111",
+  "flowdeck_user_name=%D8%A2%D8%B1%D8%AA%DB%8C%D9%86%20%D8%A7%D9%85%DB%8C%D8%B1%DB%8C",
 ].join("; ");
 
 // کوکی‌های شبیه‌سازی کارمند عادی زیرمجموعه
 const STAFF_COOKIES = [
-  "radarcheck_user_email=staff.developer%40radarcheck.dev",
-  "radarcheck_active_role=member",
-  "radarcheck_user_id=22222222-2222-2222-2222-222222222222",
-  "radarcheck_user_name=%DA%A9%D8%A7%D8%B1%D9%85%D9%86%D8%AF%20%D8%AA%D9%88%D8%B3%D8%B9%D9%87%E2%80%8C%D8%AF%D9%87%D9%86%D8%AF%D9%87",
+  "flowdeck_user_email=staff.developer%40flowdeck.dev",
+  "flowdeck_active_role=member",
+  "flowdeck_user_id=22222222-2222-2222-2222-222222222222",
+  "flowdeck_user_name=%DA%A9%D8%A7%D8%B1%D9%85%D9%86%D8%AF%20%D8%AA%D9%88%D8%B3%D8%B9%D9%87%E2%80%8C%D8%AF%D9%87%D9%86%D8%AF%D9%87",
 ].join("; ");
 
 async function req(path, options = {}) {
@@ -123,7 +123,7 @@ async function runDualRoleAudit() {
     method: "POST",
     headers: { Cookie: CEO_COOKIES, "Content-Type": "application/json" },
     body: JSON.stringify({
-      email: "test.invitee@radarcheck.dev",
+      email: "test.invitee@flowdeck.dev",
       displayName: "عضو تستی دعوت‌شده",
       role: "member",
     }),
@@ -135,7 +135,7 @@ async function runDualRoleAudit() {
   );
 
   // ۱.۱۰ حذف عضو توسط مدیرعامل
-  const ceoRemoveMemberRes = await req("/api/v1/projects/PM/members?userId=test.invitee@radarcheck.dev", {
+  const ceoRemoveMemberRes = await req("/api/v1/projects/PM/members?userId=test.invitee@flowdeck.dev", {
     method: "DELETE",
     headers: { Cookie: CEO_COOKIES },
   });
@@ -204,7 +204,7 @@ async function runDualRoleAudit() {
     method: "POST",
     headers: { Cookie: STAFF_COOKIES, "Content-Type": "application/json" },
     body: JSON.stringify({
-      email: "unauthorized.user@radarcheck.dev",
+      email: "unauthorized.user@flowdeck.dev",
       displayName: "عضو غیرمجاز",
       role: "admin",
     }),
@@ -216,7 +216,7 @@ async function runDualRoleAudit() {
   );
 
   // ۲.۹ ممانعت از حذف عضو از پروژه توسط کارمند عادی
-  const staffRemoveMemberRes = await req("/api/v1/projects/PM/members?userId=test.user@radarcheck.dev", {
+  const staffRemoveMemberRes = await req("/api/v1/projects/PM/members?userId=test.user@flowdeck.dev", {
     method: "DELETE",
     headers: { Cookie: STAFF_COOKIES },
   });
@@ -230,7 +230,7 @@ async function runDualRoleAudit() {
   const staffOrgMemberAdd = await req("/api/v1/members", {
     method: "POST",
     headers: { Cookie: STAFF_COOKIES, "Content-Type": "application/json" },
-    body: JSON.stringify({ displayName: "کاربر جدید", email: "new@radarcheck.dev" }),
+    body: JSON.stringify({ displayName: "کاربر جدید", email: "new@flowdeck.dev" }),
   });
   assert(
     "کارمند: ممانعت از ثبت عضو در کل سازمان (انتظار 403 Forbidden)",

@@ -87,7 +87,7 @@ export default function OrganizationMembersPage() {
   // Load from API & localStorage
   const fetchMembers = async () => {
     try {
-      const saved = localStorage.getItem("radarcheck_org_members");
+      const saved = localStorage.getItem("flowdeck_org_members");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
@@ -167,7 +167,7 @@ export default function OrganizationMembersPage() {
 
         setMembers(apiMembers);
         try {
-          localStorage.setItem("radarcheck_org_members", JSON.stringify(apiMembers));
+          localStorage.setItem("flowdeck_org_members", JSON.stringify(apiMembers));
         } catch {
           // ignore
         }
@@ -215,7 +215,7 @@ export default function OrganizationMembersPage() {
   const saveMembers = (updated: Member[]) => {
     setMembers(updated);
     try {
-      localStorage.setItem("radarcheck_org_members", JSON.stringify(updated));
+      localStorage.setItem("flowdeck_org_members", JSON.stringify(updated));
     } catch {
       // ignore
     }

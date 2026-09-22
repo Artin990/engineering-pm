@@ -35,8 +35,8 @@ async function isAuthorizedAdmin(request: NextRequest): Promise<boolean> {
     // Session check error
   }
 
-  const roleCookie = request.cookies.get("radarcheck_active_role")?.value;
-  const emailCookie = request.cookies.get("radarcheck_user_email")?.value;
+  const roleCookie = request.cookies.get("flowdeck_active_role")?.value;
+  const emailCookie = request.cookies.get("flowdeck_user_email")?.value;
   if (emailCookie && isUserAdminEmail(decodeURIComponent(emailCookie))) {
     return true;
   }
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     const authorized = await isAuthorizedAdmin(request);
     if (!authorized) {
       return NextResponse.json(
-        { error: "دسترسی غیرمجاز به پنل سوپرادمین RadarCheck." },
+        { error: "دسترسی غیرمجاز به پنل سوپرادمین FlowDeck." },
         { status: 403 }
       );
     }

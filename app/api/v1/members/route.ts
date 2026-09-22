@@ -24,7 +24,7 @@ export async function GET() {
         .where(
           or(
             userId ? eq(workspaces.ownerId, userId) : sql`false`,
-            ilike(workspaces.name, "%RadarCheck%")
+            ilike(workspaces.name, "%FlowDeck%")
           )
         )
         .limit(1);
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
       .where(
         or(
           userId ? eq(workspaces.ownerId, userId) : sql`false`,
-          ilike(workspaces.name, "%RadarCheck%")
+          ilike(workspaces.name, "%FlowDeck%")
         )
       )
       .limit(1);

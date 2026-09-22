@@ -1412,7 +1412,7 @@ export default function AnalyticsPage({
                   RC
                 </div>
                 <div>
-                  <h2 className="text-xl font-black text-gray-900">سامانه مدیریت مهندسی RadarCheck</h2>
+                  <h2 className="text-xl font-black text-gray-900">سامانه مدیریت مهندسی FlowDeck</h2>
                   <p className="text-xs text-gray-500">گزارش جامع ارزیابی عملکرد، کیفیت کد و بهره‌وری پرسنل</p>
                 </div>
               </div>

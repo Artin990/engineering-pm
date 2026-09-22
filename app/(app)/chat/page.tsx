@@ -49,7 +49,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     if (typeof window !== "undefined") {
       try {
-        const saved = localStorage.getItem("radarcheck_cached_chat_messages");
+        const saved = localStorage.getItem("flowdeck_cached_chat_messages");
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -87,10 +87,10 @@ export default function ChatPage() {
         if (Array.isArray(json.messages)) {
           setMessages(json.messages);
           try {
-            localStorage.setItem("radarcheck_cached_chat_messages", JSON.stringify(json.messages));
-            localStorage.setItem("radarcheck_chat_last_read_count", String(json.messages.length));
-            localStorage.setItem("radarcheck_chat_last_read_timestamp", String(Date.now()));
-            window.dispatchEvent(new Event("radarcheck_chat_read"));
+            localStorage.setItem("flowdeck_cached_chat_messages", JSON.stringify(json.messages));
+            localStorage.setItem("flowdeck_chat_last_read_count", String(json.messages.length));
+            localStorage.setItem("flowdeck_chat_last_read_timestamp", String(Date.now()));
+            window.dispatchEvent(new Event("flowdeck_chat_read"));
           } catch {
             // ignore
           }
@@ -112,7 +112,7 @@ export default function ChatPage() {
     try {
       const supabase = createClient();
       channel = supabase
-        .channel("radarcheck_live_chat")
+        .channel("flowdeck_live_chat")
         .on("broadcast", { event: "new_chat_message" }, () => {
           fetchChat();
         })
@@ -197,7 +197,7 @@ export default function ChatPage() {
 
         try {
           const supabase = createClient();
-          supabase.channel("radarcheck_live_chat").send({
+          supabase.channel("flowdeck_live_chat").send({
             type: "broadcast",
             event: "new_chat_message",
             payload: { msg: json.data },
@@ -240,7 +240,7 @@ export default function ChatPage() {
 
         try {
           const supabase = createClient();
-          supabase.channel("radarcheck_live_chat").send({
+          supabase.channel("flowdeck_live_chat").send({
             type: "broadcast",
             event: "new_chat_message",
             payload: { edited: true },
@@ -297,7 +297,7 @@ export default function ChatPage() {
         }
         try {
           const supabase = createClient();
-          supabase.channel("radarcheck_live_chat").send({
+          supabase.channel("flowdeck_live_chat").send({
             type: "broadcast",
             event: "new_chat_message",
             payload: { reaction: true },
@@ -336,7 +336,7 @@ export default function ChatPage() {
         }
         try {
           const supabase = createClient();
-          supabase.channel("radarcheck_live_chat").send({
+          supabase.channel("flowdeck_live_chat").send({
             type: "broadcast",
             event: "new_chat_message",
             payload: { deleted: true },
@@ -362,7 +362,7 @@ export default function ChatPage() {
         }
         try {
           const supabase = createClient();
-          supabase.channel("radarcheck_live_chat").send({
+          supabase.channel("flowdeck_live_chat").send({
             type: "broadcast",
             event: "new_chat_message",
             payload: { cleared: true },

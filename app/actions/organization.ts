@@ -49,7 +49,7 @@ export async function getOrganizationInfo(): Promise<OrgInfoResult> {
         .where(
           or(
             eq(workspaces.ownerId, userId),
-            ilike(workspaces.name, "%RadarCheck%")
+            ilike(workspaces.name, "%FlowDeck%")
           )
         )
         .limit(1);
@@ -59,8 +59,8 @@ export async function getOrganizationInfo(): Promise<OrgInfoResult> {
         const [createdWs] = await db
           .insert(workspaces)
           .values({
-            name: "سازمان مهندسی RadarCheck",
-            slug: `radarcheck-org-${userId.slice(0, 6)}`,
+            name: "سازمان مهندسی FlowDeck",
+            slug: `flowdeck-org-${userId.slice(0, 6)}`,
             ownerId: userId,
             inviteCode: newCode,
           })
@@ -208,7 +208,7 @@ export async function generateNewInviteCodeAction(): Promise<{
       .where(
         or(
           eq(workspaces.ownerId, userId),
-          ilike(workspaces.name, "%RadarCheck%")
+          ilike(workspaces.name, "%FlowDeck%")
         )
       )
       .limit(1);
@@ -223,8 +223,8 @@ export async function generateNewInviteCodeAction(): Promise<{
         .where(eq(workspaces.id, adminWs.id));
     } else {
       await db.insert(workspaces).values({
-        name: "سازمان مهندسی RadarCheck",
-        slug: `radarcheck-org-${userId.slice(0, 6)}`,
+        name: "سازمان مهندسی FlowDeck",
+        slug: `flowdeck-org-${userId.slice(0, 6)}`,
         ownerId: userId,
         inviteCode: freshCode,
       });
@@ -435,7 +435,7 @@ export async function getOrganizationMembersAction() {
         .where(
           or(
             eq(workspaces.ownerId, userId),
-            ilike(workspaces.name, "%RadarCheck%")
+            ilike(workspaces.name, "%FlowDeck%")
           )
         )
         .limit(1);

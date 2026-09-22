@@ -30,7 +30,7 @@ import { useUserRole } from "@/lib/role-context";
 import { getProjectByKey } from "@/components/features/__fixtures__/mock-data";
 
 /**
- * Sidebar اصلی اپلیکیشن RadarCheck — RTL (سمت راست) با ریسپانسیو کامل و همبرگر منو در موبایل.
+ * Sidebar اصلی اپلیکیشن FlowDeck — RTL (سمت راست) با ریسپانسیو کامل و همبرگر منو در موبایل.
  */
 export function Sidebar() {
   const pathname = usePathname();
@@ -56,9 +56,9 @@ export function Sidebar() {
 
           if (pathname === "/chat") {
             setChatUnreadCount(0);
-            localStorage.setItem("radarcheck_chat_last_read_count", String(total));
+            localStorage.setItem("flowdeck_chat_last_read_count", String(total));
           } else {
-            const lastRead = Number(localStorage.getItem("radarcheck_chat_last_read_count") || "0");
+            const lastRead = Number(localStorage.getItem("flowdeck_chat_last_read_count") || "0");
             const unread = Math.max(0, total - lastRead);
             setChatUnreadCount(unread);
           }
@@ -74,11 +74,11 @@ export function Sidebar() {
     const onChatRead = () => {
       setChatUnreadCount(0);
     };
-    window.addEventListener("radarcheck_chat_read", onChatRead);
+    window.addEventListener("flowdeck_chat_read", onChatRead);
 
     return () => {
       clearInterval(interval);
-      window.removeEventListener("radarcheck_chat_read", onChatRead);
+      window.removeEventListener("flowdeck_chat_read", onChatRead);
     };
   }, [pathname]);
 
@@ -142,21 +142,21 @@ export function Sidebar() {
         <Link
           href="/projects"
           className="flex items-center gap-[10px] text-[15px] font-bold text-[var(--text-primary)] transition-opacity hover:opacity-85"
-          title="RadarCheck — سامانه مدیریت مهندسی"
+          title="FlowDeck — سامانه مدیریت مهندسی"
           onClick={() => isMobile && setMobileOpen(false)}
         >
           {!isMobile && collapsed ? (
             <div className="relative size-9 shrink-0 overflow-hidden rounded-[8px] bg-transparent p-1 shadow-xs border border-[var(--border)]">
               <Image
                 src="/Flow-Deck-Logo.png"
-                alt="RadarCheck"
+                alt="FlowDeck"
                 fill
                 sizes="36px"
                 className="object-contain object-left dark:hidden"
               />
               <Image
                 src="/Flow-Deck-Logo-for-dark-mode.png"
-                alt="RadarCheck"
+                alt="FlowDeck"
                 fill
                 sizes="36px"
                 className="object-contain object-left hidden dark:block"
@@ -167,7 +167,7 @@ export function Sidebar() {
               <div className="relative h-8 w-32 shrink-0">
                 <Image
                   src="/Flow-Deck-Logo.png"
-                  alt="RadarCheck Logo"
+                  alt="FlowDeck Logo"
                   fill
                   sizes="130px"
                   className="object-contain object-right dark:hidden"
@@ -175,7 +175,7 @@ export function Sidebar() {
                 />
                 <Image
                   src="/Flow-Deck-Logo-for-dark-mode.png"
-                  alt="RadarCheck Logo"
+                  alt="FlowDeck Logo"
                   fill
                   sizes="130px"
                   className="object-contain object-right hidden dark:block"
@@ -428,7 +428,7 @@ export function Sidebar() {
         )}
         {(isMobile || !collapsed) && (
           <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] px-[4px]">
-            <span>RadarCheck v1.0</span>
+            <span>FlowDeck v1.0</span>
             <span className="inline-flex items-center gap-1">
               <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
               متصل به سوپابیس
@@ -456,14 +456,14 @@ export function Sidebar() {
             <div className="relative h-6 w-24">
               <Image
                 src="/Flow-Deck-Logo.png"
-                alt="RadarCheck"
+                alt="FlowDeck"
                 fill
                 sizes="100px"
                 className="object-contain object-right dark:hidden"
               />
               <Image
                 src="/Flow-Deck-Logo-for-dark-mode.png"
-                alt="RadarCheck"
+                alt="FlowDeck"
                 fill
                 sizes="100px"
                 className="object-contain object-right hidden dark:block"

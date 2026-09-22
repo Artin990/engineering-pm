@@ -95,7 +95,7 @@ export async function POST(
 
     try {
       const supabase = createClient();
-      supabase.channel("radarcheck_projects_global").send({
+      supabase.channel("flowdeck_projects_global").send({
         type: "broadcast",
         event: "projects_list_changed",
         payload: {
@@ -104,7 +104,7 @@ export async function POST(
           status: updated.status,
         },
       });
-      supabase.channel(`radarcheck_project_${projectKey}`).send({
+      supabase.channel(`flowdeck_project_${projectKey}`).send({
         type: "broadcast",
         event: "project_updated",
         payload: { key: projectKey, timestamp: Date.now() },
@@ -176,7 +176,7 @@ export async function DELETE(
 
     try {
       const supabase = createClient();
-      supabase.channel("radarcheck_projects_global").send({
+      supabase.channel("flowdeck_projects_global").send({
         type: "broadcast",
         event: "projects_list_changed",
         payload: { projectKey, action: "project_restored" },

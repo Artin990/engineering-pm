@@ -164,7 +164,7 @@ export default function ProjectsPage() {
   const fetchProjects = async (isBackground = false) => {
     // Only show skeleton on initial load if no projects are cached yet
     if (!isBackground && projectsList.length === 0) {
-      const saved = typeof window !== "undefined" ? localStorage.getItem("radarcheck_projects_list") : null;
+      const saved = typeof window !== "undefined" ? localStorage.getItem("flowdeck_projects_list") : null;
       if (!saved) {
         setLoading(true);
       }
@@ -172,7 +172,7 @@ export default function ProjectsPage() {
 
     // 1. First load from localStorage for instant offline/persisted data
     try {
-      const saved = localStorage.getItem("radarcheck_projects_list");
+      const saved = localStorage.getItem("flowdeck_projects_list");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0 && projectsList.length === 0) {
@@ -224,7 +224,7 @@ export default function ProjectsPage() {
               return prev;
             }
             try {
-              localStorage.setItem("radarcheck_projects_list", JSON.stringify(finalProjects));
+              localStorage.setItem("flowdeck_projects_list", JSON.stringify(finalProjects));
             } catch {
               // ignore
             }
@@ -252,7 +252,7 @@ export default function ProjectsPage() {
     try {
       const supabase = createClient();
       channel = supabase
-        .channel("radarcheck_projects_global")
+        .channel("flowdeck_projects_global")
         .on("broadcast", { event: "projects_list_changed" }, () => {
           fetchProjects(true);
         })
@@ -343,14 +343,14 @@ export default function ProjectsPage() {
     const updatedList = [newProject, ...projectsList];
     setProjectsList(updatedList);
     try {
-      localStorage.setItem("radarcheck_projects_list", JSON.stringify(updatedList));
+      localStorage.setItem("flowdeck_projects_list", JSON.stringify(updatedList));
       if (cleanRepo) {
-        localStorage.setItem(`radarcheck_repo_${cleanKey}`, cleanRepo);
+        localStorage.setItem(`flowdeck_repo_${cleanKey}`, cleanRepo);
       }
-      const orgMembersSaved = localStorage.getItem("radarcheck_org_members");
+      const orgMembersSaved = localStorage.getItem("flowdeck_org_members");
       const defaultProjectMembers = orgMembersSaved ? JSON.parse(orgMembersSaved) : [];
       localStorage.setItem(
-        `radarcheck_project_store_${cleanKey}`,
+        `flowdeck_project_store_${cleanKey}`,
         JSON.stringify({
           project: newProject,
           issues: [],
@@ -385,11 +385,11 @@ export default function ProjectsPage() {
             prev.map((p) => (p.key === cleanKey ? persistedProject : p))
           );
           try {
-            const listSaved = localStorage.getItem("radarcheck_projects_list");
+            const listSaved = localStorage.getItem("flowdeck_projects_list");
             if (listSaved) {
               const list: Project[] = JSON.parse(listSaved);
               const updated = list.map((p) => (p.key === cleanKey ? persistedProject : p));
-              localStorage.setItem("radarcheck_projects_list", JSON.stringify(updated));
+              localStorage.setItem("flowdeck_projects_list", JSON.stringify(updated));
             }
           } catch {
             // ignore
@@ -402,7 +402,7 @@ export default function ProjectsPage() {
 
     try {
       const supabase = createClient();
-      supabase.channel("radarcheck_projects_global").send({
+      supabase.channel("flowdeck_projects_global").send({
         type: "broadcast",
         event: "projects_list_changed",
         payload: { newProject },

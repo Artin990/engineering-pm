@@ -96,7 +96,7 @@ export default function RcAdminPage() {
 
   const ceoRegisterUrl = typeof window !== "undefined"
     ? `${window.location.origin}/register?role=ceo`
-    : "https://radarcheck.vercel.app/register?role=ceo";
+    : "https://flowdeck.vercel.app/register?role=ceo";
 
   const loadAdminData = useCallback(async (customKey?: string) => {
     setLoading(true);
@@ -245,7 +245,7 @@ export default function RcAdminPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-                RadarCheck Control Tower
+                FlowDeck Control Tower
               </h1>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                 Super Admin
@@ -308,7 +308,7 @@ export default function RcAdminPage() {
               <Lock className="size-7" />
             </div>
             <div className="space-y-1.5">
-              <h2 className="text-xl font-black text-white">ورود به پنل سوپر ادمین RadarCheck</h2>
+              <h2 className="text-xl font-black text-white">ورود به پنل سوپر ادمین FlowDeck</h2>
               <p className="text-xs text-slate-400 leading-relaxed">
                 لطفاً کلید ارشد (Master Key) پلتفرم را وارد کنید تا به کنسول حاکمیتی و مستندات تعاملی Swagger دسترسی پیدا کنید.
               </p>

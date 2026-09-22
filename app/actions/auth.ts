@@ -32,7 +32,7 @@ function generateRandomInviteCode(): string {
  */
 export async function syncUserProfile(input: SyncUserProfileInput) {
   try {
-    const displayName = input.name?.trim() || input.email.split("@")[0] || "کاربر RadarCheck";
+    const displayName = input.name?.trim() || input.email.split("@")[0] || "کاربر FlowDeck";
     const isAdmin = isUserAdminEmail(input.email);
     const verificationStatus = isAdmin ? "verified" : (input.isCeo ? "pending" : "verified");
 
@@ -69,7 +69,7 @@ export async function syncUserProfile(input: SyncUserProfileInput) {
         .where(
           or(
             eq(workspaces.ownerId, input.id),
-            ilike(workspaces.name, "%RadarCheck%")
+            ilike(workspaces.name, "%FlowDeck%")
           )
         )
         .limit(1);
@@ -79,8 +79,8 @@ export async function syncUserProfile(input: SyncUserProfileInput) {
         const [created] = await db
           .insert(workspaces)
           .values({
-            name: "سازمان مهندسی RadarCheck",
-            slug: `radarcheck-org-${input.id.slice(0, 6)}`,
+            name: "سازمان مهندسی FlowDeck",
+            slug: `flowdeck-org-${input.id.slice(0, 6)}`,
             ownerId: input.id,
             inviteCode: freshCode,
           })
@@ -281,7 +281,7 @@ export async function getCurrentUser() {
           user.user_metadata?.name ||
           user.user_metadata?.full_name ||
           user.email?.split("@")[0] ||
-          "کاربر RadarCheck",
+          "کاربر FlowDeck",
         email: user.email || "",
         avatarUrl: user.user_metadata?.avatar_url || null,
         githubLogin: user.user_metadata?.user_name || null,

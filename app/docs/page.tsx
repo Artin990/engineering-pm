@@ -68,7 +68,7 @@ export default function SwaggerDocsPage() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold">RadarCheck API Docs</h1>
+              <h1 className="text-lg font-bold">FlowDeck API Docs</h1>
               <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                 v1.0.1 (OpenAPI 3.0)
               </span>

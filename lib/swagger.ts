@@ -1,10 +1,10 @@
 export const openApiSpec = {
   openapi: "3.0.3",
   info: {
-    title: "RadarCheck Engineering PM - REST API",
+    title: "FlowDeck Engineering PM - REST API",
     version: "1.0.1",
     description:
-      "سامانه جامع مدیریت پروژه مهندسی و نظارت تیمی RadarCheck. شامل مستندات اندپوینت‌های احراز هویت، سازمان، پروژه‌ها، تسک‌ها، اعضا و بایگانی بر مبنای متدولوژی Spec-Kit.",
+      "سامانه جامع مدیریت پروژه مهندسی و نظارت تیمی FlowDeck. شامل مستندات اندپوینت‌های احراز هویت، سازمان، پروژه‌ها، تسک‌ها، اعضا و بایگانی بر مبنای متدولوژی Spec-Kit.",
     contact: {
       name: "Engineering Team",
       email: "amiriartin185@gmail.com",

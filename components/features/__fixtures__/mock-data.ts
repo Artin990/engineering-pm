@@ -1,5 +1,5 @@
 /**
- * Dynamic data fixtures for RadarCheck.
+ * Dynamic data fixtures for FlowDeck.
  * All arrays default to empty arrays so only real database / user-created data is shown.
  */
 
@@ -48,7 +48,7 @@ export function getProjectByKey(key: string): Project | undefined {
   if (typeof window !== "undefined") {
     try {
       // 1. Check individual project store
-      const savedStore = localStorage.getItem(`radarcheck_project_store_${cleanKey}`);
+      const savedStore = localStorage.getItem(`flowdeck_project_store_${cleanKey}`);
       if (savedStore) {
         const parsed = JSON.parse(savedStore);
         if (parsed?.project?.name) {
@@ -56,7 +56,7 @@ export function getProjectByKey(key: string): Project | undefined {
         }
       }
       // 2. Check general projects list
-      const savedList = localStorage.getItem("radarcheck_projects_list");
+      const savedList = localStorage.getItem("flowdeck_projects_list");
       if (savedList) {
         const parsedList: Project[] = JSON.parse(savedList);
         const match = parsedList.find((p) => p.key.toUpperCase() === cleanKey);
@@ -71,7 +71,7 @@ export function getProjectByKey(key: string): Project | undefined {
     id: `p-${cleanKey.toLowerCase()}`,
     key: cleanKey,
     name: `پروژه ${cleanKey}`,
-    description: "پروژه فعال در RadarCheck",
+    description: "پروژه فعال در FlowDeck",
     status: "active",
     progress: 0,
     health: "on_track",

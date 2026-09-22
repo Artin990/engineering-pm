@@ -1,5 +1,5 @@
 -- ============================================================
--- RadarCheck Complete Database Setup (All-in-One SQL)
+-- FlowDeck Complete Database Setup (All-in-One SQL)
 -- اجرای این فایل در SQL Editor سوپابیس تمام جداول، ایندکس‌ها، RLS و پالیسی‌ها را می‌سازد.
 -- ============================================================
 
